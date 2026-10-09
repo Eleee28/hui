@@ -18,6 +18,16 @@ export function launchConfig(packageRoot = root) {
   return { root: packageRoot, node: process.execPath, searchPath: process.env.PATH || '' };
 }
 
+/** The native app shares the web app's icon: the built favicon in an installed package, its source in a checkout. */
+export async function webAppIconPng(packageRoot = root) {
+  const candidates = [join(packageRoot, 'dist/pi-logo-3d.png'), join(packageRoot, 'public/pi-logo-3d.png')];
+  for (const path of candidates) {
+    const png = await readFile(path).catch((error) => { if (error.code !== 'ENOENT') throw error; });
+    if (png) return png;
+  }
+  throw new Error(`Web app icon not found: expected ${candidates.join(' or ')}.`);
+}
+
 export function shouldInstallAutomatically(platform = process.platform, env = process.env) {
   return platform === 'darwin' && env.npm_config_global === 'true' && env.HUI_SKIP_APP_INSTALL !== '1';
 }
@@ -43,7 +53,8 @@ export function updatePlist(plist, version) {
 }
 
 /** Staging and ownership checks are testable without touching real applications. */
-export async function installMacApp({ applications = join(homedir(), 'Applications'), electronApp, config = launchConfig(), version = '0.0.0', finalize = () => {} }) {
+export async function installMacApp({ applications = join(homedir(), 'Applications'), electronApp, config = launchConfig(), version = '0.0.0', finalize = () => {}, icon }) {
+  const { icns } = appIcon(icon ?? (await webAppIconPng()));
   await mkdir(applications, { recursive: true });
   const destination = join(applications, 'HUI.app');
   const previous = await lstat(destination).catch((error) => { if (error.code !== 'ENOENT') throw error; });
@@ -61,7 +72,7 @@ export async function installMacApp({ applications = join(homedir(), 'Applicatio
     await rm(join(resources, 'default_app.asar'), { force: true });
     await mkdir(join(resources, 'app'), { recursive: true });
     await writeFile(join(resources, 'hui-owner'), marker);
-    await writeFile(join(resources, 'hui.icns'), appIcon().icns);
+    await writeFile(join(resources, 'hui.icns'), icns);
     await writeFile(join(resources, 'app/package.json'), JSON.stringify({ name: 'hui', productName: 'HUI', version, main: 'main.cjs' }));
     await writeFile(join(resources, 'app/launch.json'), JSON.stringify(config));
     // Keep the signed window shell inside the bundle; only the managed CLI

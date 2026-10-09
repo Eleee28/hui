@@ -1,46 +1,23 @@
-/** Draws HUI's application icon in code, as a PNG and its macOS .icns wrapper, so the desktop app needs neither
- * image assets nor an image library. */
-import { deflateSync } from 'node:zlib';
+/** Ships the web app's own icon (public/pi-logo-3d.png, served as the favicon) as the desktop app's icon: it wraps
+ * that existing PNG in a minimal macOS .icns container, so native and web share one image without an image library. */
 
-function crc32(bytes) {
-  let crc = 0xffffffff;
-  for (const byte of bytes) {
-    crc ^= byte;
-    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+/** PNG-compressed .icns entry types by square edge length. */
+const entryTypes = new Map([[16, 'icp4'], [32, 'icp5'], [128, 'ic07'], [256, 'ic08'], [512, 'ic09'], [1024, 'ic10']]);
+
+export function appIcon(png) {
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  if (png.length < 24 || !png.subarray(0, 8).equals(signature)) throw new Error('Web app icon is not a PNG.');
+  const width = png.readUInt32BE(16);
+  const height = png.readUInt32BE(20);
+  const type = entryTypes.get(width);
+  if (!type || width !== height) {
+    const sizes = [...entryTypes.keys()].join('/');
+    throw new Error(`Web app icon must be square at ${sizes} pixels, not ${width}×${height}.`);
   }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-function chunk(type, data) {
-  const body = Buffer.concat([Buffer.from(type), data]);
-  const length = Buffer.alloc(4);
-  const crc = Buffer.alloc(4);
-  length.writeUInt32BE(data.length);
-  crc.writeUInt32BE(crc32(body));
-  return Buffer.concat([length, body, crc]);
-}
-
-/** Dependency-free application artwork: HUI monogram, not a borrowed logo. */
-export function appIcon() {
-  const size = 256;
-  const rows = Buffer.alloc(size * (size * 4 + 1));
-  const letters = ['10101010111', '10101010010', '11101010010', '10101010010', '10101110111'];
-  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const dx = Math.max(24 - x, x - 231, 0);
-    const dy = Math.max(24 - y, y - 231, 0);
-    const visible = dx * dx + dy * dy < 24 * 24;
-    const col = Math.floor((x - 40) / 16);
-    const row = Math.floor((y - 88) / 16);
-    const ink = row >= 0 && row < 5 && col >= 0 && col < 11 && letters[row][col] === '1';
-    const offset = y * (size * 4 + 1) + 1 + x * 4;
-    rows.set(ink ? [250, 250, 255, 255] : [45, 39, 91, visible ? 255 : 0], offset);
-  }
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(size, 0); header.writeUInt32BE(size, 4);
-  header[8] = 8; header[9] = 6;
-  const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', header), chunk('IDAT', deflateSync(rows)), chunk('IEND', Buffer.alloc(0))]);
-  const icnsHeader = Buffer.alloc(16);
-  icnsHeader.write('icns'); icnsHeader.writeUInt32BE(png.length + 16, 4);
-  icnsHeader.write('ic08', 8); icnsHeader.writeUInt32BE(png.length + 8, 12);
-  return { png, icns: Buffer.concat([icnsHeader, png]) };
+  const header = Buffer.alloc(16);
+  header.write('icns');
+  header.writeUInt32BE(png.length + 16, 4);
+  header.write(type, 8);
+  header.writeUInt32BE(png.length + 8, 12);
+  return { png, icns: Buffer.concat([header, png]) };
 }

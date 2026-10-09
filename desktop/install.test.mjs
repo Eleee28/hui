@@ -22,6 +22,11 @@ async function fixture(t) {
 test('macOS install creates a discoverable bundle and updates only owned apps', async (t) => {
   const options = await fixture(t);
   const installed = await installMacApp(options);
+  const webIcon = await readFile(new URL('../public/pi-logo-3d.png', import.meta.url));
+  const icns = await readFile(join(installed, 'Contents/Resources/hui.icns'));
+  assert.equal(icns.subarray(0, 4).toString(), 'icns');
+  assert.equal(icns.subarray(8, 12).toString(), 'ic09');
+  assert.ok(icns.subarray(16).equals(webIcon), 'the bundle embeds the web app icon byte for byte');
   const plist = await readFile(join(installed, 'Contents/Info.plist'), 'utf8');
   assert.match(plist, /<key>CFBundleName<\/key><string>HUI<\/string>/);
   assert.match(plist, /<key>CFBundleIdentifier<\/key><string>org.harnessui.desktop<\/string>/);
@@ -55,14 +60,19 @@ test('foreign apps and symlinks are not replaced', async (t) => {
   await assert.rejects(installMacApp(other), /Refusing to replace/);
 });
 
-test('launch metadata excludes credentials and plist edits are idempotent', () => {
+test('launch metadata excludes credentials and plist edits are idempotent', async () => {
   assert.deepEqual(Object.keys(launchConfig()).sort(), ['node', 'root', 'searchPath']);
   const plist = '<plist><dict></dict></plist>';
   assert.equal(updatePlist(updatePlist(plist, '1.0.0'), '1.0.0'), updatePlist(plist, '1.0.0'));
-  const { png, icns } = appIcon();
+  const { png, icns } = appIcon(await readFile(new URL('../public/pi-logo-3d.png', import.meta.url)));
   assert.equal(png.subarray(1, 4).toString(), 'PNG');
   assert.equal(icns.subarray(0, 4).toString(), 'icns');
   assert.equal(icns.readUInt32BE(4), icns.length);
+  assert.ok(icns.subarray(16).equals(png));
+  assert.throws(() => appIcon(Buffer.alloc(24)), /not a PNG/);
+  const resized = Buffer.from(png.subarray(0, 24));
+  resized.writeUInt32BE(300, 16);
+  assert.throws(() => appIcon(Buffer.concat([resized, png.subarray(24)])), /square/);
 });
 
 test('desktop navigation remains local and external launching rejects executable protocols', () => {
