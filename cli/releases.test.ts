@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { checkNightly, checkRelease, downloadRelease, githubReadWith, newerVersion, nightlyRelease, parseNightly, parseRelease, type GithubRead } from "./releases.ts";
+import { checkNightly, checkRelease, downloadRelease, githubReadWith, githubToken, newerVersion, nightlyRelease, parseNightly, parseRelease, type GithubRead } from "./releases.ts";
 
 const bytes = Buffer.from("synthetic archive");
 const checksum = Buffer.from(`${createHash("sha256").update(bytes).digest("hex")}  hui-0.2.0.tgz\n`);
@@ -89,8 +89,51 @@ test("public release reads need no gh login and enforce response bounds", async 
   assert.equal(calls[0]?.url, "https://api.github.com/repos/DaniFdz/hui/releases/latest");
   assert.equal(new Headers(calls[0]?.init?.headers).get("user-agent"), "HUI updater");
   await assert.rejects(read(new Response("missing", { status: 404 })), /No stable HUI release is published/u);
-  await assert.rejects(read(new Response("limited", { status: 403, headers: { "x-ratelimit-remaining": "0" } })), /rate limit/u);
+  await assert.rejects(read(new Response("limited", { status: 403, headers: { "x-ratelimit-remaining": "0" } })), /anonymous API rate limit.*GITHUB_TOKEN.*gh auth login/u);
+  await assert.rejects(read(new Response("limited", { status: 403 })), /anonymous API rate limit/u);
+  await assert.rejects(read(new Response("limited", { status: 429 })), /anonymous API rate limit/u);
   await assert.rejects(read(new Response("x".repeat(33))), /allowed size/u);
+  assert(calls.every(({ init }) => !new Headers(init?.headers).has("authorization")));
+});
+
+test("a token authenticates API reads but never follows a download redirect off api.github.com", async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  const read = (responses: Response[], binary = false) => githubReadWith(async (input, init) => {
+    calls.push({ url: String(input), init });
+    return responses.shift()!;
+  }, "repos/DaniFdz/hui/releases/assets/1", 32, binary, "secret-token");
+  assert.deepEqual(await read([new Response("release")]), Buffer.from("release"));
+  assert.equal(new Headers(calls[0]?.init?.headers).get("authorization"), "Bearer secret-token");
+  assert.equal(calls[0]?.init?.redirect, "manual");
+
+  calls.length = 0;
+  const storage = "https://release-assets.githubusercontent.com/archive?sig=1";
+  assert.deepEqual(await read([new Response(null, { status: 302, headers: { location: storage } }), new Response("archive")], true), Buffer.from("archive"));
+  assert.deepEqual(calls.map(({ url }) => url), ["https://api.github.com/repos/DaniFdz/hui/releases/assets/1", storage]);
+  assert.equal(new Headers(calls[1]?.init?.headers).get("authorization"), null);
+  assert.equal(new Headers(calls[1]?.init?.headers).get("accept"), "application/octet-stream");
+  await assert.rejects(read([new Response(null, { status: 302, headers: { location: "http://example.test/archive" } })], true), /HTTP 302/u);
+  await assert.rejects(read([new Response(null, { status: 302 })], true), /HTTP 302/u);
+
+  // An authenticated 403 is a token problem unless GitHub says the quota is spent.
+  await assert.rejects(read([new Response("forbidden", { status: 403 })]), /failed with HTTP 403/u);
+  await assert.rejects(read([new Response("limited", { status: 403, headers: { "x-ratelimit-remaining": "0" } })]), /rate limit for your GitHub account/u);
+});
+
+test("the release token comes from GITHUB_TOKEN, GH_TOKEN, then the gh login, else stays anonymous", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "hui-release-token-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const gh = join(root, "gh");
+  await writeFile(gh, "#!/bin/sh\n[ \"$*\" = 'auth token --hostname github.com' ] && [ \"$GH_PROMPT_DISABLED\" = 1 ] && echo ' gh-token ' && exit 0\nexit 1\n");
+  await chmod(gh, 0o755);
+  const failing = join(root, "gh-signed-out");
+  await writeFile(failing, "#!/bin/sh\necho 'not logged in' >&2\nexit 4\n");
+  await chmod(failing, 0o755);
+  assert.equal(await githubToken({ GITHUB_TOKEN: " env-token ", GH_TOKEN: "other" }, gh), "env-token");
+  assert.equal(await githubToken({ GITHUB_TOKEN: " ", GH_TOKEN: "gh-env-token" }, gh), "gh-env-token");
+  assert.equal(await githubToken({}, gh), "gh-token");
+  assert.equal(await githubToken({}, failing), "");
+  assert.equal(await githubToken({}, join(root, "missing-gh")), "");
 });
 
 test("download verifies asset identity, exact length and digest before writing an archive", async () => {
