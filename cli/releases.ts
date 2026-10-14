@@ -1,6 +1,8 @@
 /** Published HUI releases on GitHub: the latest stable release and the rolling nightly, update checks against the
- * running build, and downloads verified by size and checksum. It reads the public API through paths built here and
- * never installs anything; staging and activation belong to update.ts. */
+ * running build, and downloads verified by size and checksum. It reads the public API through paths built here,
+ * authenticated with the operator's GitHub token when one is available, and never installs anything; staging and
+ * activation belong to update.ts. */
+import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -43,30 +45,58 @@ async function boundedBody(response: Response, maxBytes: number): Promise<Buffer
   return Buffer.concat(chunks, total);
 }
 
-/** Public GitHub releases need no local gh login. Paths and asset IDs are
- * generated here, never followed from release-provided URLs. */
-export async function githubReadWith(fetchImpl: typeof fetch, path: string, maxBytes: number, binary = false): Promise<Buffer> {
+/** The operator's GitHub token, first non-empty of GITHUB_TOKEN, GH_TOKEN and
+ * `gh auth token`; "" when none is available, so reads stay anonymous. The
+ * releases are public: a token only lifts the anonymous 60-an-hour limit,
+ * which a shared or VPN network exhausts easily. */
+export function githubToken(env: NodeJS.ProcessEnv = process.env, command = "gh"): Promise<string> {
+  for (const name of ["GITHUB_TOKEN", "GH_TOKEN"]) {
+    const token = env[name]?.trim();
+    if (token) return Promise.resolve(token);
+  }
+  return new Promise((resolve) => {
+    execFile(command, ["auth", "token", "--hostname", "github.com"], {
+      env: { ...env, GH_PROMPT_DISABLED: "1", GH_NO_UPDATE_NOTIFIER: "1" }, timeout: 5_000, maxBuffer: 64 * 1024, encoding: "utf8",
+    }, (error, stdout) => resolve(error ? "" : stdout.trim()));
+  });
+}
+
+/** Paths and asset IDs are generated here, never followed from release-provided
+ * URLs. A token goes to api.github.com only: an authenticated asset download's
+ * redirect to GitHub's storage host is followed by hand, without it. */
+export async function githubReadWith(fetchImpl: typeof fetch, path: string, maxBytes: number, binary = false, token = ""): Promise<Buffer> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), binary ? 120_000 : 20_000);
   try {
-    const response = await fetchImpl(`https://api.github.com/${path}`, {
-      headers: {
-        Accept: binary ? "application/octet-stream" : "application/vnd.github+json",
-        "User-Agent": "HUI updater",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-      redirect: "follow",
+    const headers: Record<string, string> = {
+      Accept: binary ? "application/octet-stream" : "application/vnd.github+json",
+      "User-Agent": "HUI updater",
+      "X-GitHub-Api-Version": "2022-11-28",
+    };
+    const url = `https://api.github.com/${path}`;
+    let response = await fetchImpl(url, {
+      headers: token ? { ...headers, Authorization: `Bearer ${token}` } : headers,
+      redirect: token ? "manual" : "follow",
       signal: controller.signal,
     });
+    if (token && response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      const next = location ? new URL(location, url) : undefined;
+      if (next?.protocol !== "https:") throw new Error(`GitHub release access failed with HTTP ${response.status}.`);
+      response = await fetchImpl(next, { headers, redirect: "follow", signal: controller.signal });
+    }
     if (response.status === 404) throw new Error("No stable HUI release is published yet.");
-    if (response.status === 403 && response.headers.get("x-ratelimit-remaining") === "0") {
-      throw new Error("GitHub's public API rate limit is exhausted. Retry after the rate-limit reset.");
+    // Anonymous reads of a public repository are only refused for the rate limit.
+    if (response.status === 429 || response.status === 403 && (!token || response.headers.get("x-ratelimit-remaining") === "0")) {
+      throw new Error(token
+        ? "GitHub's API rate limit for your GitHub account is exhausted. Retry after the rate-limit reset."
+        : "GitHub's anonymous API rate limit (60 requests an hour per network) is exhausted. Set GITHUB_TOKEN or sign in with the GitHub CLI (gh auth login) to authenticate, or retry after the rate-limit reset.");
     }
     if (!response.ok) throw new Error(`GitHub release access failed with HTTP ${response.status}.`);
     return await boundedBody(response, maxBytes);
   } catch (error) {
     if (error instanceof Error && (error.message.startsWith("No stable HUI release")
-      || error.message.startsWith("GitHub release") || error.message.startsWith("GitHub's public API"))) throw error;
+      || error.message.startsWith("GitHub release") || error.message.startsWith("GitHub's "))) throw error;
     if (error instanceof DOMException && error.name === "AbortError") throw new Error("GitHub release access timed out.");
     throw new Error("GitHub release access failed. Check the gateway host's internet connection and retry.");
   } finally {
@@ -74,7 +104,7 @@ export async function githubReadWith(fetchImpl: typeof fetch, path: string, maxB
   }
 }
 
-export const githubRead: GithubRead = (path, maxBytes, binary = false) => githubReadWith(fetch, path, maxBytes, binary);
+export const githubRead: GithubRead = async (path, maxBytes, binary = false) => githubReadWith(fetch, path, maxBytes, binary, await githubToken());
 
 type RawRelease = { tag_name?: unknown; draft?: unknown; prerelease?: unknown; assets?: unknown } | null;
 

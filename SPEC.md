@@ -531,7 +531,11 @@ do not change the HUI registry or PI transcript/config formats. Source-linked,
 Nix-store and Homebrew installations must use their owning update workflow.
 `hui update` resolves the latest stable release in the public GitHub repository
 using GitHub's public API, downloads its bounded archive and SHA-256
-sidecar, and reuses that transaction. `--check` is read-only. Releases must have a
+sidecar, and reuses that transaction. API reads carry the operator's token when
+one is available (`GITHUB_TOKEN`, then `GH_TOKEN`, then `gh auth token`), so a
+shared network's anonymous 60-an-hour limit does not block updates; the token is
+sent only to `api.github.com`, never along a download's storage redirect, and
+without one the reads stay anonymous. `--check` is read-only. Releases must have a
 matching stable tag, package version and checksum; no automatic downgrade occurs.
 Tag-triggered CI validates and publishes the archive and checksum. A missing or
 inaccessible release is reported explicitly, never treated as up-to-date.
