@@ -3,6 +3,7 @@
  * alone never authorizes a signal, and the gateway itself rechecks which active work a stop would interrupt. */
 import { spawn } from "node:child_process";
 import { open } from "node:fs/promises";
+import { uptime } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import type { GatewayOptions } from "../server/gateway.ts";
@@ -33,6 +34,12 @@ export async function controlRequest(state: GatewayState, path: string, method =
   return body;
 }
 
+/** A gateway recorded before the last boot cannot be alive; its PID now belongs
+ * to another process. The margin keeps clock adjustments after boot on the safe side. */
+export function startedBeforeBoot(startedAt: string, now = Date.now(), uptimeSeconds = uptime()): boolean {
+  return Date.parse(startedAt) < now - uptimeSeconds * 1000 - 60_000;
+}
+
 export async function gatewayStatus(): Promise<GatewayStatus> {
   const state = await readState();
   if (!state) return { status: "stopped" };
@@ -40,7 +47,8 @@ export async function gatewayStatus(): Promise<GatewayStatus> {
     const reply = await controlRequest(state, "status");
     return { status: "running", pid: state.pid, version: reply.version, url: reply.url, activeSessions: reply.activeSessions, resumableSessions: reply.resumableSessions ?? 0, activeTerminals: reply.activeTerminals ?? 0, startedAt: state.startedAt };
   } catch {
-    return { status: processAlive(state.pid) ? "unresponsive" : "stopped", pid: state.pid, version: state.version, url: state.url };
+    const alive = processAlive(state.pid) && !startedBeforeBoot(state.startedAt);
+    return { status: alive ? "unresponsive" : "stopped", pid: state.pid, version: state.version, url: state.url };
   }
 }
 
