@@ -8,32 +8,34 @@
  * events through it.
  */
 import { createHash } from "node:crypto";
-import { clampThinkingLevel, type ImageContent, type Message, type ModelThinkingLevel, type TextContent } from "@earendil-works/pi-ai";
+import type { ImageContent, Message, ModelThinkingLevel, TextContent } from "@earendil-works/pi-ai";
 import {
-  CompactionEntry, InboxDoc, ResetEntry, SystemEntry, UserEntry, watchEvents,
+  CompactionEntry, InboxDoc, LiveDoc, ResetEntry, SystemEntry, UserEntry, watchEvents,
   type AgentEvent, type AgentState, type CompactionResult, type Conversation, type ConversationId, type Cursor,
-  type EntryId, type EntryRecord, type Harness, type TaskId, type ToolRegistration,
+  type EntryId, type EntryRecord, type Harness, type SubmissionRecord, type TaskId, type ToolRegistration,
 } from "@earendil-works/pi-durable";
 import { CODEMODE_TOOL_NAME, type CodemodeNestedCall } from "@earendil-works/pi-durable/codemode";
 // The estimators Durable's own compaction uses, so the meter matches its thresholds.
 import { calculateContextTokens, estimateMessageTokens } from "@earendil-works/pi-ai/utils/estimate";
 import { SettingsManager, type Skill } from "@earendil-works/pi-coding-agent";
-import { botTurnOrigin, type BotTurnOrigin } from "../../shared/bots.ts";
-import { resolveCommandReference } from "../../src/lib/command-references.ts";
-import type { RuntimeInspection } from "../../src/lib/tools-types.ts";
+import { botTurnOrigin, type BotTurnOrigin } from "./turn-origins.ts";
+import { resolveCommandReference } from "./command-references.ts";
+import type { RuntimeInspection } from "./types.ts";
 import { durableContext as context, durableHost, modelCallable, type DurableHost } from "./durable-host.ts";
-import { CallEntry } from "./durable-bots.ts";
-import { botSkills, describeTool, planBotTools, skillBlock, type BotChat, type OfferedTool, type ToolOrigin } from "./durable-bot-access.ts";
+import { CallEntry } from "./turn-origins.ts";
+import { skillBlock, type BotChat, type OfferedTool, type ToolOrigin } from "./durable-offer.ts";
 import { QuestionBox, type QuestionDraft } from "./question-box.ts";
 import { DurableExtensions, ExtensionMessageEntry, isCustomInput, type CustomMessage, type ExtensionSession } from "./durable-extensions.ts";
 import { filterConfiguredModels } from "./pi-models.ts";
+import { fitThinking, modelControls, piThinking } from "./model-controls.ts";
 import {
   fileFromMessages, imageFromMessages, latestRunUsage, promptPayload, restoreAttachmentNames, toolOutput, transcriptFrom,
 } from "./pi.ts";
 import { RuntimeTimings } from "./transcript-metrics.ts";
+import { disabledSkillNotice } from "./skill-policy-extension.mjs";
 import type {
   AgentRuntime, CompactionReason, PromptAttachment, RuntimeCommand, RuntimeEvent, RuntimeModel, RuntimeQuestion,
-  RuntimeQuestionResponse, RuntimeQueue, RuntimeRewindOptions, RuntimeRewindTarget, RuntimeSession, RuntimeUsage, StartOptions,
+  RuntimePromptOptions, RuntimePromptResult, RuntimeQuestionResponse, RuntimeQueue, RuntimeRewindOptions, RuntimeRewindTarget, RuntimeSession, RuntimeUsage, StartOptions,
   TranscriptEntry,
 } from "./types.ts";
 import { RuntimeUnreachableError } from "./types.ts";
@@ -59,7 +61,7 @@ type CompactionStart = Extract<RuntimeEvent, { type: "compaction_start" }>;
 type Compaction = { readonly reason: CompactionReason; readonly blocking: boolean; readonly background: boolean };
 /** How input reaches the conversation: `reject` starts a run, the others queue into one. */
 type Delivery = "reject" | "steer" | "followUp";
-type Sending = { readonly attachments?: readonly PromptAttachment[]; readonly images?: readonly ImageContent[]; readonly source: "rpc" | "extension"; readonly expand: boolean };
+type Sending = { readonly attachments?: readonly PromptAttachment[]; readonly images?: readonly ImageContent[]; readonly source: "rpc" | "extension"; readonly expand: boolean; readonly requestId?: string };
 /** One call of a running codemode script, as `@earendil-works/pi-durable/codemode` lists it in its result's
  * `details.calls` once the script ends: `models.*` calls by that name, arguments and errors cut for display. */
 type CodemodeCall = Omit<CodemodeNestedCall, "id">;
@@ -109,16 +111,19 @@ const internal = async <T>(path: string): Promise<T> =>
   await import(new URL(path, import.meta.resolve("@earendil-works/pi-coding-agent")).href) as T;
 const { expandPromptTemplate } = await internal<{ expandPromptTemplate(text: string, templates: unknown[]): string }>("./core/prompt-templates.js");
 
-/** PI's `/skill:name args` expansion, verbatim, for the skills this conversation may use. */
-function expandSkill(text: string, skills: readonly { name: string; filePath: string; baseDir: string }[]): string {
-  if (!text.startsWith("/skill:")) return text;
-  const space = text.indexOf(" ");
-  const name = space === -1 ? text.slice(7) : text.slice(7, space);
-  const args = space === -1 ? "" : text.slice(space + 1).trim();
-  const skill = skills.find((candidate) => candidate.name === name);
-  if (!skill) return text;
-  const block = skillBlock(skill);
-  return args ? `${block}\n\n${args}` : block;
+/** PI's `/skill:name args` expansion for the skills this conversation may use, plus a block for each later `$name`
+ * word that names one of them. Text that does not start with a skill goes through `expandTemplate`. */
+export function expandSkill(text: string, skills: readonly { name: string; filePath: string; baseDir: string }[], expandTemplate = (body: string) => body): string {
+  const named = new Set<(typeof skills)[number]>();
+  const add = (name: string) => {
+    const skill = skills.find((candidate) => candidate.name === name);
+    if (skill) named.add(skill);
+    return skill;
+  };
+  const leading = /^\/skill:(\S+)\s*/u.exec(text);
+  const body = leading && add(leading[1]!) ? text.slice(leading[0].length) : expandTemplate(text);
+  for (const [, name] of text.matchAll(/(?<!\S)\$(?:skill:)?([\w-]+)/gu)) add(name!);
+  return named.size ? [...[...named].map(skillBlock), body.trim()].filter(Boolean).join("\n\n") : body;
 }
 
 export function modelRef(value: string | undefined): { provider: string; modelId: string } | undefined {
@@ -262,22 +267,31 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
   #extensions: DurableExtensions | undefined;
   #extensionFailure: string | undefined;
   #huiSessionId: string | undefined;
+  /** The level last chosen: a switch to a model without it lowers it for that model only. */
+  #chosenThinking: string | undefined;
   /** What the session asks the operator itself: a bot's access requests. */
   #questions = new QuestionBox((question) => this.#emit({ type: "question", question }));
   /** The tools the operator can turn off in a bot's chat, as the latest `applyTools` found them; empty for every other
    * conversation. */
   #botOffer: readonly OfferedTool[] = [];
+  /** A bot's chat keeps its bot's PI levels: no Ultra (`applyTools` learns it). */
+  #botChat = false;
   /** The message that started the latest run this view started; who started the turn (`runInput`). */
   #runInput: string | undefined;
+  /** Concurrent retries of one tracked input share its extension handlers as well as its admission. */
+  #trackedStarts = new Map<string, Promise<void>>();
+  #trackedStarting = new Set<string>();
+  #cancelledTracked = new Set<string>();
   /** Every input of the run going now (`runOrigins`); unset until this view follows the conversation. */
   #run: RunFollow | undefined;
   readonly resumesInterruptedRuns = true;
 
-  constructor(host: DurableHost, harness: Harness, conversation: Conversation, cwd: string) {
+  constructor(host: DurableHost, harness: Harness, conversation: Conversation, cwd: string, chosenThinking?: string) {
     this.#host = host;
     this.#harness = harness;
     this.#conversation = conversation;
     this.#cwd = cwd;
+    this.#chosenThinking = chosenThinking;
   }
 
   get sessionId(): string { return String(this.#conversation.id); }
@@ -316,16 +330,20 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
   }
 
   /** Offers the conversation its extensions and the tools they keep active, OptChat's zoom and date when the
-   * conversation has OptChat, `message_bot` and a bot's own tools when it is a bot's chat, and drops the browser when
-   * Settings turns it off. A bot's chat goes without the tools the operator turned off, without its own tools while
-   * it has no use for them (`durable-bot-access.ts`), and without the HUI tools that act on another machine than this
+   * conversation has OptChat, `message_bot` and a bot's own tools when it is a bot's chat (`message_bot` alone for any
+   * other conversation), and drops the browser when Settings turns it off. A bot's chat goes without the tools the operator turned off, without its own tools while
+   * it has no use for them (`bots/durable-access.ts`), and without the HUI tools that act on another machine than this
    * host's (`gatewayOnlyTools`, on a worker), which it is never offered. Codemode, in the default selection, goes with
    * Settings → Tools → Codemode off, or a bot's chat that has it turned off. Applies per conversation, at start and on
    * every change. */
   async applyTools(): Promise<void> {
     const { browser, codemode } = await this.#host.settings();
     const browserEnabled = browser.enabled !== false;
+    const bots = this.#host.bots;
     const bot = await this.#host.botStateFor(this.#conversation.id);
+    // A session tags bots; a bot's chat has message_bot among its own tools.
+    const tag = bot ? undefined : this.#host.botTag;
+    this.#botChat = bot !== undefined;
     const inactive = new Map([
       ...(browserEnabled ? [] : this.#host.toolsNamed(["browser"])),
       ...(bot ? this.#host.toolsNamed(this.#host.gatewayOnlyTools) : []),
@@ -335,11 +353,11 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
     // on, and only there. Each is selected per conversation; every other conversation's selection stays as it was.
     const optchat = await this.#host.optchat.toolsFor(this.#conversation.id);
     const botTools = bot ? await this.#host.botToolsFor(this.#conversation.id) : undefined;
-    const added = [...(this.#extensions ? [this.#extensions.extension] : []), ...(optchat ? [optchat] : []), ...(botTools ? [botTools] : [])];
+    const added = [...(this.#extensions ? [this.#extensions.extension] : []), ...(optchat ? [optchat] : []), ...(botTools ? [botTools] : []), ...(tag ? [tag] : [])];
     let withCodemode = codemode.enabled;
     const remove = [...inactive.values()];
     this.#botOffer = [];
-    if (bot) {
+    if (bot && bots) {
       // What a session here is offered, in Durable's order: the coding tools, HUI's, the extensions' and the added ones.
       const offered = this.#composed([
         [this.#host.codingTools, () => ({ kind: "coding" })],
@@ -349,10 +367,8 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
         [optchat?.tools ?? [], () => ({ kind: "hui" })],
         [botTools?.tools ?? [], () => ({ kind: "bot" })],
       ]).filter(({ name }) => !inactive.has(name));
-      const skills = await this.availableSkills();
-      const on = botSkills(skills, bot.disabledSkills).length;
-      const plan = planBotTools(offered, bot, { memory: (optchat?.tools ?? []).map((tool) => tool.name), skillsOn: on, skillsOff: skills.length - on });
-      this.#botOffer = plan.listable.map(({ tool, origin }) => describeTool(tool, origin));
+      const plan = bots.planOffer(offered, bot, { memory: (optchat?.tools ?? []).map((tool) => tool.name), skills: await this.availableSkills() });
+      this.#botOffer = plan.offer;
       // Removed by name, so a tool that appears later is on until the operator turns it off.
       remove.push(...plan.removed.map(({ tool }) => tool));
       // Without its tool, the chat goes without codemode's prompt section too.
@@ -477,8 +493,9 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
    * chat. */
   async #skills(loader: { getSkills(): { skills: Skill[] } }): Promise<readonly Skill[]> {
     const all = loader.getSkills().skills;
+    const bots = this.#host.bots;
     const bot = await this.#host.botStateFor(this.#conversation.id);
-    return bot ? botSkills(all, bot.disabledSkills) : all;
+    return bot && bots ? bots.skills(all, bot) : all;
   }
 
   /** Entries since the latest reset, oldest first: what the extensions' PI session view holds. */
@@ -758,7 +775,7 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
         this.#agent = event.agent;
         return;
       case "auto_retry_start":
-        this.#emit({ type: "notice", level: "warning", message: `Retrying after a provider error (attempt ${event.attempt}): ${event.errorMessage}` });
+        this.#emit({ type: "notice", level: "warning", message: `Retrying after a provider error (attempt ${event.attempt}): ${event.errorMessage}`, recovery: true });
         return;
       case "task_failed":
         // A failed compaction's divider shows its reason instead.
@@ -815,6 +832,7 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
     void Promise.race([ended, late]).then((outcome) => {
       clearTimeout(timer);
       this.#settling -= 1;
+      this.#notifyQuiet();
       if (this.#disposed) return;
       if (outcome === "late") this.#emit({ type: "notice", level: "warning", message: "An extension is still handling the end of the run." });
       this.#emit({ type: "settled", historyRefreshed });
@@ -941,9 +959,18 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
     return /^\$[^\s]+(?:\s|$)/u.test(text) ? resolveCommandReference(text, await this.listCommands()) : text;
   }
 
+  async #refusedSkill(text: string): Promise<string | undefined> {
+    if (!/^(?:\/skill:|\$)\S/u.test(text)) return undefined;
+    const disabled = (await this.#host.settings()).disabledSkills;
+    const disabledPaths = new Set(disabled.map((entry) => entry.path));
+    const usable = new Set((await this.#skills(await this.#loader())).filter((skill) => !disabledPaths.has(skill.filePath)).map((skill) => skill.name));
+    return disabledSkillNotice(text, disabled.filter((entry) => !usable.has(entry.name)));
+  }
+
   async #expand(text: string): Promise<string> {
     const loader = await this.#loader();
-    return expandPromptTemplate(expandSkill(text, text.startsWith("/skill:") ? await this.#skills(loader) : []), loader.getPrompts().prompts);
+    const skills = /^\/skill:|(?<!\S)\$/u.test(text) ? await this.#skills(loader) : [];
+    return expandSkill(text, skills, (body) => expandPromptTemplate(body, loader.getPrompts().prompts));
   }
 
   /**
@@ -958,6 +985,11 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
       ...(sending.images ?? []),
       ...attachments.flatMap((item) => item.kind === "image" ? [{ type: "image" as const, data: item.dataBase64, mimeType: item.mimeType }] : []),
     ];
+    const refused = sending.expand ? await this.#refusedSkill(text) : undefined;
+    if (refused) {
+      this.#emit({ type: "notice", level: "warning", message: refused });
+      return false;
+    }
     if (extensions) {
       const input = await extensions.input(text, images, sending.source, whenBusy === "reject" ? undefined : whenBusy);
       if (!input) return false;
@@ -975,17 +1007,18 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
     if (extensions?.startAborted) return false;
     // The message names every attachment; the images themselves are the ones the handlers left.
     const payload = promptPayload(text, attachments);
-    await this.#submit([{ type: "text", text: payload.message }, ...images], whenBusy);
+    await this.#submit([{ type: "text", text: payload.message }, ...images], whenBusy, sending.requestId);
     return true;
   }
 
   /** A run is going from the moment its input is submitted. */
-  async #submit(content: readonly (TextContent | ImageContent)[], whenBusy: Delivery): Promise<void> {
+  async #submit(content: readonly (TextContent | ImageContent)[], whenBusy: Delivery, requestId?: string): Promise<void> {
     // Durable submission resumes the whole store, not just this conversation.
     await this.#host.resumed;
+    if (requestId && this.#cancelledTracked.has(requestId)) throw new DOMException("The tracked input was cancelled before admission.", "AbortError");
     if (whenBusy === "reject") this.#streaming = true;
     try {
-      await this.#conversation.submit({ type: "input", whenBusy, content: [...content] }, context);
+      await this.#conversation.submit({ type: "input", whenBusy, content: [...content], ...(requestId === undefined ? {} : { requestId }) }, context);
     } catch (error) {
       if (whenBusy === "reject") this.#streaming = false;
       throw error;
@@ -999,16 +1032,24 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
    */
   async #start(text: string, sending: Sending): Promise<void> {
     this.#starting += 1;
+    if (sending.requestId) this.#trackedStarting.add(sending.requestId);
     // As HUI records a run's prompt: a routine's or another bot's marker leads it.
     this.#runInput = text;
     const start = () => this.#send(text, "reject", sending).then((sent) => {
       if (!sent && !this.#streaming && this.#starting === 1) this.#emit({ type: "settled" });
     }).finally(() => {
       this.#starting -= 1;
+      if (sending.requestId) this.#trackedStarting.delete(sending.requestId);
       this.#notifyQuiet();
     });
     if (!this.#extensions) return start();
     const { done, released } = this.#extensions.whileAsking(start);
+    // Tracked callers wait for a durable admission, not merely for a question that released the ordinary composer.
+    // BotService observes cancellation before dispatch, so a question cannot prevent cancelling this start.
+    if (sending.requestId) {
+      void released.catch(() => {});
+      return done;
+    }
     await released;
     // Before release a failure rejects the prompt; after a question releases it, report the failure as an event.
     void done.catch((error: unknown) => {
@@ -1017,13 +1058,80 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
     });
   }
 
-  async prompt(text: string, attachments: readonly PromptAttachment[] = []): Promise<void> {
-    text = await this.#alias(text);
-    if (this.#extensions?.isCommand(text)) {
-      await this.#command(text);
+  async prompt(text: string, attachments: readonly PromptAttachment[] = [], options?: RuntimePromptOptions): Promise<void> {
+    await this.#trackedStart(options, async () => {
+      text = await this.#alias(text);
+      if (this.#extensions?.isCommand(text)) {
+        await this.#command(text);
+        return;
+      }
+      await this.#start(text, { attachments, source: "rpc", expand: true, ...options });
+    });
+  }
+
+  /** Look up the caller's exact admission, including after the host and this view were reopened. */
+  #trackedSubmission(requestId: string): Promise<SubmissionRecord | undefined> {
+    return this.#harness.commit((tx) => tx.submissionByRequest(this.#conversation.id, requestId), context);
+  }
+
+  async #trackedStart(options: RuntimePromptOptions | undefined, send: () => Promise<void>): Promise<void> {
+    if (!options) return send();
+    const pending = this.#trackedStarts.get(options.requestId);
+    if (pending) return pending;
+    const started = (async () => {
+      // Checking before aliases and extension handlers prevents a duplicate request from replaying their side effects.
+      if (await this.#trackedSubmission(options.requestId)) return;
+      if (this.#cancelledTracked.has(options.requestId)) throw new DOMException("The tracked input was cancelled before admission.", "AbortError");
+      await send();
+    })();
+    this.#trackedStarts.set(options.requestId, started);
+    try { await started; }
+    finally { if (this.#trackedStarts.get(options.requestId) === started) this.#trackedStarts.delete(options.requestId); }
+  }
+
+  async waitForTrackedPrompt(requestId: string): Promise<RuntimePromptResult> {
+    const record = await this.#trackedSubmission(requestId);
+    if (!record || record.type !== "input") throw new Error("The routine's accepted input could not be found. Check its chat before running it again.");
+    const submission = await this.#harness.submission(record.id, context);
+    if (!submission) throw new Error("The routine's input receipt is unavailable. Check its chat before running it again.");
+    const settled = await submission.wait(context);
+    if (settled.status !== "done" || settled.type !== "input") {
+      const detail = settled.status === "unanswered" ? [settled.reason, typeof settled.detail === "string" ? settled.detail : undefined].filter(Boolean).join(": ") : "no answer was recorded";
+      throw new Error(`The routine's input was not answered: ${detail}. Check its chat before running it again.`);
+    }
+    const answer = await this.#harness.commit((tx) => tx.entry(settled.answer), context);
+    const summary = answer?.model?.filter((message) => message.role === "assistant").map(textOf).join("\n").trim();
+    return summary ? { summary } : {};
+  }
+
+  async cancelTrackedPrompt(requestId: string): Promise<void> {
+    const record = await this.#trackedSubmission(requestId);
+    if (!record) {
+      this.#cancelledTracked.add(requestId);
+      if (this.#trackedStarting.has(requestId)) {
+        this.#extensions?.abortStart();
+        this.#extensions?.aborted();
+      }
       return;
     }
-    await this.#start(text, { attachments, source: "rpc", expand: true });
+    if (record.type !== "input") return;
+    for (;;) {
+      const withdrawn = await this.#harness.abortSubmission(record.id, context, this.#conversation.id);
+      if (withdrawn !== "already_placed") return;
+      // Capture only the task owning this exact input. If it settles before abortTask, aborting that terminal task is
+      // a no-op; Conversation.abort could instead stop an unrelated turn that started in the meantime.
+      const task = await this.#harness.commit(async (tx) => {
+        const live = await tx.doc(LiveDoc, this.#conversation.id);
+        return live.run?.inputs.includes(record.id) ? live.run.taskId : undefined;
+      }, context);
+      if (task === undefined) return;
+      await this.#harness.abortTask(task, context);
+      await this.#harness.waitForTask(task, context);
+      // A tool round may have transferred this input to its next generation before the abort was admitted. Recheck
+      // the same receipt and target that task, not whichever unrelated run the conversation may now be answering.
+      const current = await this.#trackedSubmission(requestId);
+      if (current?.status !== "placed") return;
+    }
   }
 
   /** An extension command runs in the gateway; one that starts no run settles once it ends. A prompt it sent settles
@@ -1033,20 +1141,20 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
     void finished.then(() => { if (!this.#streaming && this.#starting === 0 && !this.#disposed) this.#emit({ type: "settled" }); });
   }
 
-  async #queueInput(text: string, attachments: readonly PromptAttachment[], whenBusy: "steer" | "followUp"): Promise<void> {
+  async #queueInput(text: string, attachments: readonly PromptAttachment[], whenBusy: "steer" | "followUp", options?: RuntimePromptOptions): Promise<void> {
     text = await this.#alias(text);
     if (this.#extensions?.isCommand(text)) throw new Error(`Extension command "${text.split(/\s/u)[0]}" cannot be queued. Send it when the session is idle.`);
     // Steering a run that is still starting (an extension's custom message) waits until there is a run to steer.
     while (this.starting) await this.whenStarted();
-    await this.#send(text, whenBusy, { attachments, source: "rpc", expand: true });
+    await this.#send(text, whenBusy, { attachments, source: "rpc", expand: true, ...options });
   }
 
   async steer(text: string, attachments: readonly PromptAttachment[] = []): Promise<void> {
     await this.#queueInput(text, attachments, "steer");
   }
 
-  async followUp(text: string, attachments: readonly PromptAttachment[] = []): Promise<void> {
-    await this.#queueInput(text, attachments, "followUp");
+  async followUp(text: string, attachments: readonly PromptAttachment[] = [], options?: RuntimePromptOptions): Promise<void> {
+    await this.#trackedStart(options, () => this.#queueInput(text, attachments, "followUp", options));
   }
 
   /** `pi.sendUserMessage`: input from an extension, with no command or template expansion, as in PI. */
@@ -1153,6 +1261,7 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
       provider: ref.provider, id: ref.modelId, name: model?.name ?? ref.modelId,
       ...(model?.contextWindow ? { contextWindow: model.contextWindow } : {}),
       ...(model?.maxTokens ? { maxTokens: model.maxTokens } : {}),
+      ...(model ? this.#controls(model) : {}),
     };
   }
 
@@ -1174,6 +1283,7 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
       provider: model.provider, id: model.id, name: model.name,
       ...(model.contextWindow ? { contextWindow: model.contextWindow } : {}),
       ...(model.maxTokens ? { maxTokens: model.maxTokens } : {}),
+      ...this.#controls(model),
     }));
     return filterConfiguredModels(catalog, this.#host.agentDir);
   }
@@ -1190,22 +1300,50 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
   async setModel(provider: string, id: string): Promise<void> {
     const model = this.#host.models.getModel(provider, id);
     if (!model) throw new Error(`Unknown model: ${provider}/${id}`);
-    const thinking = clampThinkingLevel(model, (this.#agent.thinkingLevel ?? "off") as ModelThinkingLevel);
+    const thinking = fitThinking(model, this.#chosenThinking ?? this.#agent.thinkingLevel ?? "off");
     const previous = this.currentModel();
     await this.#conversation.configure({ model: { provider, modelId: id }, thinkingLevel: thinking }, context);
     this.#agent = { ...this.#agent, model: { provider, modelId: id }, thinkingLevel: thinking };
     this.#extensions?.modelSelected(previous);
   }
 
+  /** HUI's level: `ultra` while it is chosen, otherwise the one the model is sent. */
   currentThinking(): string | undefined {
+    return this.#chosenThinking === "ultra" ? "ultra" : this.#agent.thinkingLevel;
+  }
+
+  /** The level the model is sent, which PI extensions see. */
+  modelThinking(): string | undefined {
     return this.#agent.thinkingLevel;
   }
 
   async setThinking(level: string): Promise<void> {
+    if (level === "ultra" && this.#botChat) throw new Error("A bot's chat has no Ultra; choose Maximum.");
     const previous = this.#agent.thinkingLevel;
-    await this.#conversation.configure({ thinkingLevel: level as ModelThinkingLevel }, context);
-    this.#agent = { ...this.#agent, thinkingLevel: level as ModelThinkingLevel };
-    this.#extensions?.thinkingSelected(previous, level);
+    const ref = this.#agent.model;
+    const model = ref ? this.#host.models.getModel(ref.provider, ref.modelId) : undefined;
+    const sent = model ? fitThinking(model, level) : piThinking(level) as ModelThinkingLevel;
+    await this.#conversation.configure({ thinkingLevel: sent }, context);
+    this.#agent = { ...this.#agent, thinkingLevel: sent };
+    this.#chosenThinking = level;
+    if (this.#huiSessionId) this.#host.setUltra(this.#huiSessionId, level === "ultra");
+    this.#extensions?.thinkingSelected(previous, sent);
+  }
+
+  /** A model's controls here: PI's levels, then HUI's `ultra`, which only Durable's prompt carries (not a bot's chat). */
+  #controls(model: Parameters<typeof modelControls>[0]): ReturnType<typeof modelControls> {
+    const controls = modelControls(model);
+    return this.#botChat ? controls : { ...controls, thinkingLevels: [...controls.thinkingLevels, "ultra"] };
+  }
+
+  currentFast(): boolean {
+    return this.#huiSessionId !== undefined && this.#host.isFast(this.#huiSessionId);
+  }
+
+  /** Kept per HUI session by the host, which adds it to that session's requests. */
+  async setFast(on: boolean): Promise<void> {
+    if (this.#huiSessionId === undefined) throw new Error("Fast mode needs a HUI session.");
+    this.#host.setFast(this.#huiSessionId, on);
   }
 
   pendingQueue(): RuntimeQueue {
@@ -1231,13 +1369,14 @@ export class DurableSession implements RuntimeSession, ExtensionSession, BotChat
 
   /** Durable's Stop (`Conversation.abort`): withdraws queued input and cancels the run and every compaction of its
    * ordinary scope, blocking and manual ones; background compactions keep running. Resolves once this view has seen
-   * that work end: HUI treats a resolved Stop as idle. */
+   * that work end and the run's end-of-run handlers finish, as PI's Stop does: HUI treats a resolved Stop as idle. */
   async abort(): Promise<void> {
     this.#extensions?.aborted();
     if (this.#starting > 0) this.#extensions?.abortStart();
     await this.#host.resumed;
     await this.#conversation.abort(context);
     await this.#until(() => !this.#busy());
+    await this.#until(() => this.#settling === 0);
   }
 
   /** Cancels the manual compactions running beside the conversation, and only them (Durable's `abortTask`), and
@@ -1408,7 +1547,7 @@ export async function startDurable(options: StartOptions, host: DurableHost = du
     const model = await initialModel(host, options.cwd, options.model);
     const known = model ? host.models.getModel(model.provider, model.modelId) : undefined;
     const requestedThinking = options.thinking ?? defaultThinking(host, options.cwd);
-    const thinking = requestedThinking && known ? clampThinkingLevel(known, requestedThinking as ModelThinkingLevel) : undefined;
+    const thinking = requestedThinking && known ? fitThinking(known, requestedThinking) : undefined;
     conversation = await harness.createConversation({ ownership: { kind: "ownerless" }, agent: {
       cwd: options.cwd,
       ...(model ? { model } : {}),
@@ -1416,8 +1555,10 @@ export async function startDurable(options: StartOptions, host: DurableHost = du
     } }, context);
   }
   host.bindCaller(conversation.id, options.huiSessionId);
+  if (options.huiSessionId) host.setUltra(options.huiSessionId, options.thinking === "ultra");
   await host.prompt.loader(options.cwd);
-  const session = new DurableSession(host, harness, conversation, options.cwd);
+  // The session's chosen level (its record's), which the model may have lowered.
+  const session = new DurableSession(host, harness, conversation, options.cwd, options.thinking);
   try {
     // PI extensions are a HUI session's own; without one (a probe), only the conversation's tools apply.
     if (options.huiSessionId) await session.loadExtensions(options.huiSessionId);

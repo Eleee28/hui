@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { resolvePiAgentDir } from "../pi-paths.ts";
+import { resolvePiAgentDir } from "../pi/paths.ts";
 
 export type WorkerPaths = {
   home: string;

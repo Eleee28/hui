@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test } from "vitest";
 
 test("a secret request is only answered over the connection of the machine its session runs on", async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "hui-secret-tool-"));
@@ -13,9 +13,9 @@ test("a secret request is only answered over the connection of the machine its s
     { id: "local", title: "Local", tool: "durable", cwd: dir, createdAt: now, updatedAt: now },
     { id: "remote", title: "Remote", tool: "durable", cwd: "/home/remote", worker: "w1", createdAt: now, updatedAt: now },
   ], groups: [] }));
-  const { stopBackend } = await import("./hui.ts");
-  const { invokeAgentTool } = await import("./agent-tools-bridge.ts");
-  t.after(async () => { await stopBackend(); await rm(dir, { recursive: true, force: true }); });
+  const { stopBackend } = await import("./backend.ts");
+  const { invokeAgentTool } = await import("./agent-tools/bridge.ts");
+  t.onTestFinished(async () => { await stopBackend(); await rm(dir, { recursive: true, force: true }); });
   // Already stopped, so an accepted request ends at once, cancelled.
   const ask = (callerSessionId: string, fromWorker?: string) => invokeAgentTool({
     callerSessionId, action: "secret_request", params: { label: "Token", reason: "Log in" }, signal: AbortSignal.abort(), ...(fromWorker ? { fromWorker } : {}),

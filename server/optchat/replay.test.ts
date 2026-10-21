@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test } from "vitest";
 import { blockCuts, blockMarks, markCache, markedPrefix } from "./cache.ts";
 import type { Summarize } from "./compactor.ts";
 import { OptChatMemory } from "./memory.ts";
@@ -87,8 +87,8 @@ test("over a long chat each turn's view starts with the last one's, and the cach
     return `summary ${createHash("sha256").update(step!).digest("hex")} `.repeat(8).slice(0, 512);
   };
   const memory = await OptChatMemory.open(dir, { name: "Grok", summarize });
-  // After hooks run in registration order: close the memory before its directory goes, or a final save fails the rm.
-  t.after(async () => { await memory.close(); await rm(dir, { recursive: true, force: true }); });
+  // Close the memory before its directory goes, or a final save fails the rm.
+  t.onTestFinished(async () => { await memory.close(); await rm(dir, { recursive: true, force: true }); });
   const built = () => new Promise<void>((resolve) => {
     if (memory.status().pending === 0) { resolve(); return; }
     const off = memory.onChange(() => { if (memory.status().pending === 0) { off(); resolve(); } });
@@ -136,7 +136,7 @@ test("over a long chat each turn's view starts with the last one's, and the cach
   assert(average(unchanged) > 0.9, `${average(unchanged)} of each view is the last one's`);
   const read = average(turns.map((turn) => turn.read));
   assert(read > 0.9, `${read} of each view read from the cache`);
-  t.diagnostic(`${turns.length} turns from message ${full}: views of ${Math.round(average(sizes))} bytes on average, ${(100 * average(unchanged)).toFixed(1)}% unchanged from the last turn, ${(100 * read).toFixed(1)}% read from the cache`);
+  console.log(`${turns.length} turns from message ${full}: views of ${Math.round(average(sizes))} bytes on average, ${(100 * average(unchanged)).toFixed(1)}% unchanged from the last turn, ${(100 * read).toFixed(1)}% read from the cache`);
 
   // Compactions read the compaction view, 16 to 32 KB, and one another's prefix of it.
   const contextCache = anthropicCache();
@@ -159,5 +159,5 @@ test("over a long chat each turn's view starts with the last one's, and the cach
   assert(contextBytes > 16_000 && contextBytes < 32_000, `${contextBytes} bytes of context on average`);
   const contextRead = average(contexts.map(({ read: share }) => share));
   assert(contextRead > 0.9, `${contextRead} of each context read from the cache`);
-  t.diagnostic(`${contexts.length} compactions: contexts of ${Math.round(contextBytes)} bytes on average, ${(100 * contextRead).toFixed(1)}% read from the cache`);
+  console.log(`${contexts.length} compactions: contexts of ${Math.round(contextBytes)} bytes on average, ${(100 * contextRead).toFixed(1)}% read from the cache`);
 });

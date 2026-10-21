@@ -7,7 +7,7 @@
  */
 import { spawn } from "node:child_process";
 import { releaseBundle, type WorkerRelease } from "./release.ts";
-import { shellQuote } from "../../shared/workers.ts";
+import { shellQuote } from "./workers.ts";
 
 export type ConnectCommand = readonly string[];
 
@@ -23,7 +23,7 @@ export class BootstrapError extends Error {
 const PRELUDE = `D="\${XDG_DATA_HOME:-$HOME/.local/share}/hui-worker"
 hui_node() {
   for n in "$D/node/bin/node" "$(command -v node 2>/dev/null)" "$HOME/.local/bin/node" /usr/local/bin/node /usr/bin/node /opt/homebrew/bin/node $(ls -d "$HOME"/.nvm/versions/node/*/bin/node "$HOME"/.volta/bin/node 2>/dev/null | sort -r); do
-    if [ -n "$n" ] && [ -x "$n" ] && [ -x "$(dirname "$n")/npm" ] && "$n" -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||a===22&&b>=19?0:1)' >/dev/null 2>&1; then
+    if [ -n "$n" ] && [ -x "$n" ] && [ -x "$(dirname "$n")/npm" ] && "$n" -e 'process.exit(parseInt(process.versions.node)>=24?0:1)' >/dev/null 2>&1; then
       echo "$n"; return 0
     fi
   done
@@ -48,7 +48,7 @@ ${PRELUDE}
 case "$(uname -s)" in Linux) os=linux ;; Darwin) os=darwin ;; *) echo "HUI_ERROR=Unsupported operating system $(uname -s)"; exit 1 ;; esac
 # nodejs.org builds need glibc; Alpine and other musl systems bring their own.
 if [ "$os" = linux ] && { ls /lib/ld-musl-* >/dev/null 2>&1 || ldd --version 2>&1 | grep -qi musl; }; then
-  echo "HUI_ERROR=This remote uses musl (Alpine Linux), where HUI cannot install Node.js. Install Node.js 22.19 or newer and npm there (for example apk add nodejs npm) and connect again"; exit 1
+  echo "HUI_ERROR=This remote uses musl (Alpine Linux), where HUI cannot install Node.js. Install Node.js 24 or newer and npm there (for example apk add nodejs npm) and connect again"; exit 1
 fi
 case "$(uname -m)" in x86_64|amd64) arch=x64 ;; aarch64|arm64) arch=arm64 ;; *) echo "HUI_ERROR=Unsupported CPU $(uname -m)"; exit 1 ;; esac
 url="https://nodejs.org/dist/${version}/node-${version}-$os-$arch.tar.gz"
@@ -57,7 +57,7 @@ tmp="$D/.node.$$"
 rm -rf "$tmp"; mkdir -p "$tmp"
 if command -v curl >/dev/null 2>&1; then curl -fsSL "$url" -o "$tmp/node.tgz"
 elif command -v wget >/dev/null 2>&1; then wget -q "$url" -O "$tmp/node.tgz"
-else echo "HUI_ERROR=Install Node.js 22.19 or newer, or curl or wget so HUI can install it"; exit 1; fi
+else echo "HUI_ERROR=Install Node.js 24 or newer, or curl or wget so HUI can install it"; exit 1; fi
 tar -xzf "$tmp/node.tgz" -C "$tmp" --strip-components=1
 rm -f "$tmp/node.tgz"
 rm -rf "$D/node"; mv "$tmp" "$D/node"

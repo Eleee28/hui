@@ -5,8 +5,9 @@
  */
 import { html, nothing, type TemplateResult } from "lit";
 import { icons } from "../lib/icons.ts";
-import type { SessionPane } from "../lib/session-multiplexer.ts";
-import { renderPicker, type PickerOption } from "./settings-picker.ts";
+import type { SessionPane } from "../lib/session/multiplexer.ts";
+import { renderPicker } from "./settings-picker.ts";
+import type { PickerOption } from "../lib/picker-options.ts";
 
 type PanelOption = PickerOption & { icon: TemplateResult };
 

@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import type { BacklogItem } from "./api/backlog.ts";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test, type TestContext } from "vitest";
 
 import {
   ASSIGNED_TODO_JQL,
@@ -15,12 +17,12 @@ import {
   mergeBacklog,
   splitItemId,
 } from "./backlog.ts";
-import { JiraClient, type JiraFetch } from "./jira.ts";
-import { backlogItemPrompt } from "../shared/backlog.ts";
+import { JiraClient, type JiraFetch } from "./integrations/jira.ts";
+import { backlogItemPrompt } from "./backlog.ts";
 
-async function tempStore(t: { after: (fn: () => Promise<void>) => void }) {
+async function tempStore(t: TestContext) {
   const dir = await mkdtemp(join(tmpdir(), "hui-backlog-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }));
   let n = 0;
   await mkdir(join(dir, "hui"));
   const path = join(dir, "hui", "backlog.json");
@@ -160,4 +162,10 @@ test("item ids split into kind and key; prompts carry Jira or problem/fix text",
   const local = backlogItemPrompt({ kind: "local", title: "Picker", problem: "It differs.", fix: "" });
   assert.match(local, /## Problem\n\nIt differs\./);
   assert.match(local, /Investigate and confirm the root cause/);
+});
+
+const fixture: { input: Pick<BacklogItem, "kind" | "title" | "problem" | "fix" | "jira">; expected: string }[] = JSON.parse(readFileSync(new URL("./backlog.fixture.json", import.meta.url), "utf8"));
+
+test("backlog preserves the shared runtime fixtures", () => {
+  for (const { input, expected } of fixture) assert.equal(backlogItemPrompt(input), expected);
 });

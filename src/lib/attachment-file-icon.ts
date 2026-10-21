@@ -1,7 +1,7 @@
 // OpenClaw v2026.9.5, ec9c1a13; MIT License. Asset URLs use HUI's public root.
 import { html } from "lit";
 import { styleMap } from "lit/directives/style-map.js";
-import { getMediaFileExtension } from "./media-file-extension.ts";
+import { getMediaFileExtension } from "./files/media-file-extension.ts";
 // HUI imports the original attachment CSS with its chat stylesheet.
 
 type AttachmentFileIconFamily =

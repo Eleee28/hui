@@ -5,11 +5,11 @@ import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
-import type { BrowserSettings } from "../../src/lib/settings.ts";
+import { test } from "vitest";
+import type { BrowserSettings } from "../hui-settings.ts";
 import { resolveBrowserExecutable } from "./executable.ts";
 import { browserLaunchArguments, BrowserToolError, ManagedBrowser, normalizeBrowserUrl, type BrowserViewFrame } from "./manager.ts";
-import type { BrowserViewAction, BrowserViewState } from "../../shared/browser.ts";
+import type { BrowserViewAction, BrowserViewState } from "../api/browser.ts";
 
 const noBrowser = { platform: "linux" as const, env: { PATH: "/nowhere" }, home: "/home/nobody", isExecutable: async () => false };
 
@@ -107,7 +107,7 @@ async function eventually<T>(read: () => Promise<T>, accept: (value: T) => boole
 const detected = await resolveBrowserExecutable("");
 
 test("a real headless browser serves agent tabs end to end", {
-  skip: detected.executable ? false : "no Chromium-family browser is installed",
+  skip: !detected.executable,
   timeout: 90_000,
 }, async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "hui-browser-test-"));
@@ -122,7 +122,7 @@ test("a real headless browser serves agent tabs end to end", {
   const origin = `http://127.0.0.1:${address.port}`;
   let settings: BrowserSettings = { enabled: true, headless: true, executablePath: "" };
   const browser = new ManagedBrowser({ profileDir: join(dir, "profile"), readSettings: async () => settings });
-  t.after(async () => {
+  t.onTestFinished(async () => {
     await browser.stop();
     server.close();
     await rm(dir, { recursive: true, force: true });
@@ -215,7 +215,7 @@ test("a real headless browser serves agent tabs end to end", {
 });
 
 test("a click passes through a transparent pseudo overlay but not an opaque one", {
-  skip: detected.executable ? false : "no Chromium-family browser is installed",
+  skip: !detected.executable,
   timeout: 60_000,
 }, async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "hui-browser-overlay-"));
@@ -230,7 +230,7 @@ test("a click passes through a transparent pseudo overlay but not an opaque one"
   const origin = `http://127.0.0.1:${address.port}`;
   const settings: BrowserSettings = { enabled: true, headless: true, executablePath: "" };
   const browser = new ManagedBrowser({ profileDir: join(dir, "profile"), readSettings: async () => settings });
-  t.after(async () => {
+  t.onTestFinished(async () => {
     await browser.stop();
     server.close();
     await rm(dir, { recursive: true, force: true });
@@ -258,13 +258,13 @@ test("a click passes through a transparent pseudo overlay but not an opaque one"
 });
 
 test("stopped or idle conversations never leave a headless browser running", {
-  skip: detected.executable ? false : "no Chromium-family browser is installed",
+  skip: !detected.executable,
   timeout: 60_000,
 }, async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "hui-browser-lifetime-"));
   const settings: BrowserSettings = { enabled: true, headless: true, executablePath: "" };
   const browsers: ManagedBrowser[] = [];
-  t.after(async () => {
+  t.onTestFinished(async () => {
     for (const browser of browsers) await browser.stop();
     await rm(dir, { recursive: true, force: true });
   });
@@ -303,14 +303,14 @@ test("stopped or idle conversations never leave a headless browser running", {
 });
 
 test("a browser killed behind the gateway's back is relaunched on the next open", {
-  skip: detected.executable && process.platform !== "win32" ? false : "no Chromium-family browser or pkill is available",
+  skip: !detected.executable || process.platform === "win32",
   timeout: 60_000,
 }, async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "hui-browser-kill-"));
   const profileDir = join(dir, "profile");
   const settings: BrowserSettings = { enabled: true, headless: true, executablePath: "" };
   const browser = new ManagedBrowser({ profileDir, readSettings: async () => settings });
-  t.after(async () => {
+  t.onTestFinished(async () => {
     await browser.stop();
     await rm(dir, { recursive: true, force: true });
   });
@@ -329,14 +329,14 @@ test("a browser killed behind the gateway's back is relaunched on the next open"
 });
 
 test("an action racing an external kill names the exit instead of a protocol error", {
-  skip: detected.executable && process.platform !== "win32" ? false : "no Chromium-family browser or pkill is available",
+  skip: !detected.executable || process.platform === "win32",
   timeout: 60_000,
 }, async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "hui-browser-kill-action-"));
   const profileDir = join(dir, "profile");
   const settings: BrowserSettings = { enabled: true, headless: true, executablePath: "" };
   const browser = new ManagedBrowser({ profileDir, readSettings: async () => settings });
-  t.after(async () => {
+  t.onTestFinished(async () => {
     await browser.stop();
     await rm(dir, { recursive: true, force: true });
   });
@@ -355,7 +355,7 @@ test("an action racing an external kill names the exit instead of a protocol err
 });
 
 test("another Chromium process owning the profile is reported instead of a connection error", {
-  skip: detected.executable && process.platform !== "win32" ? false : "no Chromium-family browser is available",
+  skip: !detected.executable || process.platform === "win32",
   timeout: 60_000,
 }, async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "hui-browser-profile-in-use-"));
@@ -364,12 +364,14 @@ test("another Chromium process owning the profile is reported instead of a conne
   assert.ok(executable);
   // An operator tool (Google re-login) takes the shared profile exclusively.
   const squatter = spawn(executable.path, browserLaunchArguments({ profileDir, headless: true, width: 1280, height: 800 }), { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"] });
-  t.after(() => { if (squatter.exitCode === null && squatter.signalCode === null) squatter.kill("SIGKILL"); });
+  t.onTestFinished(() => { if (squatter.exitCode === null && squatter.signalCode === null) squatter.kill("SIGKILL"); });
   assert.equal(await eventually(async () => (await readdir(profileDir).catch((): string[] => [])).includes("SingletonLock"), Boolean), true, "the squatter holds the profile");
 
   const settings: BrowserSettings = { enabled: true, headless: true, executablePath: "" };
   const browser = new ManagedBrowser({ profileDir, readSettings: async () => settings });
-  t.after(async () => {
+  t.onTestFinished(async () => {
+    // Cleanups run last-registered first, so stop the squatter here too: it writes its profile until it exits.
+    if (squatter.exitCode === null && squatter.signalCode === null) { squatter.kill("SIGKILL"); await once(squatter, "exit"); }
     await browser.stop();
     await rm(dir, { recursive: true, force: true });
   });
@@ -387,7 +389,7 @@ test("another Chromium process owning the profile is reported instead of a conne
 });
 
 test("the live view follows the agent's tab, streams frames only while watched and marks clicks", {
-  skip: detected.executable ? false : "no Chromium-family browser is installed",
+  skip: !detected.executable,
   timeout: 90_000,
 }, async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "hui-browser-view-"));
@@ -402,7 +404,7 @@ test("the live view follows the agent's tab, streams frames only while watched a
   const origin = `http://127.0.0.1:${address.port}`;
   const settings: BrowserSettings = { enabled: true, headless: true, executablePath: "" };
   const browser = new ManagedBrowser({ profileDir: join(dir, "profile"), readSettings: async () => settings });
-  t.after(async () => {
+  t.onTestFinished(async () => {
     await browser.stop();
     server.close();
     await rm(dir, { recursive: true, force: true });

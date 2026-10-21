@@ -1,0 +1,89 @@
+{
+  "limits": {
+    "name": 60,
+    "prompt": 4000,
+    "perHour": 12,
+    "cooldownDefault": 300
+  },
+  "cooldowns": [
+    {
+      "input": 0,
+      "expected": "none"
+    },
+    {
+      "input": -5,
+      "expected": "none"
+    },
+    {
+      "input": 1,
+      "expected": "1 s"
+    },
+    {
+      "input": 45,
+      "expected": "45 s"
+    },
+    {
+      "input": 60,
+      "expected": "1 min"
+    },
+    {
+      "input": 90,
+      "expected": "1 min 30 s"
+    },
+    {
+      "input": 300,
+      "expected": "5 min"
+    },
+    {
+      "input": 3600,
+      "expected": "1 h"
+    },
+    {
+      "input": 3605,
+      "expected": "1 h"
+    },
+    {
+      "input": 5400,
+      "expected": "1 h 30 min"
+    },
+    {
+      "input": 86400,
+      "expected": "24 h"
+    }
+  ],
+  "filters": [
+    {
+      "input": {},
+      "expected": "Any event"
+    },
+    {
+      "input": {
+        "match": {
+          "field": "",
+          "op": "equals",
+          "value": "x"
+        }
+      },
+      "expected": "event equals \"x\""
+    },
+    {
+      "input": {
+        "match": {
+          "field": "fields.channel",
+          "op": "contains",
+          "value": "C0123"
+        },
+        "prLinks": true
+      },
+      "expected": "fields.channel contains \"C0123\" · PR links only"
+    },
+    {
+      "input": {
+        "prLinks": true,
+        "external": true,
+        "bots": true
+      },
+      "expected": "Any event · PR links only · outsiders too · bots too"
+    }
+  ]
+}

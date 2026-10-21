@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 
 const root = new URL("./", import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL("manifest.json", root), "utf8")) as {

@@ -12,11 +12,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
-      # npm 10 (bundled with Node 22) misreads the lockfile's nested
-      # electron/@types/node entry that npm 11 writes; use the same npm as
-      # development so `npm ci` checks the lockfile we actually commit.
+      # Match the npm major used to generate the committed lockfile.
       - run: npm install -g npm@11
       # Fails when package.json and package-lock.json are out of sync.
       - run: npm ci --ignore-scripts

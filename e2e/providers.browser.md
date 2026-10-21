@@ -7,11 +7,11 @@ real PI SDK and the deterministic `hui-e2e` custom provider. Do not enter an
 operator credential or make a model call to an external provider. Built-in
 connection setup uses the synthetic key `hui-fixture-not-a-real-key`.
 
-This journey complements `server/providers.test.ts` (API-key and synthetic OAuth
+This journey complements `server/pi/providers.test.ts` (API-key and synthetic OAuth
 interactions, cancellation, storage permissions, concurrent saves, redaction and
-PI/HUI endpoint/auth precedence), `server/provider-quota.test.ts` (quota windows,
+PI/HUI endpoint/auth precedence), `server/pi/provider-quota.test.ts` (quota windows,
 fixed endpoints, response bounds and failure redaction), and
-`server/pi-config.test.ts` (catalog invalidation during an in-flight probe).
+`server/pi/config.test.ts` (catalog invalidation during an in-flight probe).
 
 ## Browser journey
 

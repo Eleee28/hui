@@ -3,7 +3,7 @@
  * Slack link cards and X posts. Markdown only emits the tags; importing this module registers them. Heavy renderers
  * load on first use, follow the current theme, and a failed render shows its error in place of the block.
  */
-import { parseSafeChartSpec } from "../lib/chart-spec.ts";
+import { parseSafeChartSpec } from "../lib/markdown/chart-spec.ts";
 import { openMediaViewer } from "./media-viewer.ts";
 
 type TwitterWidgets = {

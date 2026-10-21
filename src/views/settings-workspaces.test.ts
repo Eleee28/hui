@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 
 const settingsSource = readFileSync(new URL("./settings.ts", import.meta.url), "utf8");
 const homeSource = readFileSync(new URL("./home.ts", import.meta.url), "utf8");
-const appSource = readFileSync(new URL("../hui-app.ts", import.meta.url), "utf8");
 const workspaceCss = readFileSync(
   new URL("../styles/openclaw-workspaces.css", import.meta.url),
   "utf8",
@@ -95,14 +94,6 @@ test("New Session exposes explicit worktree creation and Settings owns its branc
   assert.match(homeSource, /workspaceBranchSuggestionsOpen/);
   assert.match(homeSource, /aria-expanded=\$\{String\(props\.workspaceBranchSuggestionsOpen\)\}/);
   assert.match(homeSource, /props\.onWorkspaceBranchSuggestionsOpen\(false\)/);
-  assert.match(appSource, /workspaceBranchSuggestionsOpen = false/);
-  assert.match(appSource, /groupCheckoutDefaults\(directory, checkout, this\.launchDefaults\)/);
-  assert.match(appSource, /this\.workspaceBaseRef = defaults\.baseRef/);
-  assert.match(appSource, /this\.workspaceWorktree = defaults\.worktree/);
-  const modeHandler = appSource.match(/onWorkspaceMode: \(worktree\) => \{([^}]+)\}/)?.[1];
-  assert.ok(modeHandler);
-  assert.match(modeHandler, /this\.workspaceWorktree = worktree/);
-  assert.doesNotMatch(modeHandler, /workspaceBaseRef\s*=/);
   assert.doesNotMatch(homeSource, /new-session-branches/);
   assert.match(homeSource, /Generated from the prompt/);
   assert.match(homeSource, /Configure default prefix/);
@@ -111,7 +102,6 @@ test("New Session exposes explicit worktree creation and Settings owns its branc
   assert.doesNotMatch(homeSource, /new-session-page__menu-link/);
   assert.doesNotMatch(homeSource, /new-session-page__branch-prefix/);
   assert.match(homeSource, /onOpenBranchPrefixSettings/);
-  assert.match(appSource, /this\.openSurfaceSettings\("sessions"\)/);
   assert.match(homeSource, /class="new-session-page__group-picker"/);
   assert.doesNotMatch(homeSource, /list="launch-groups"/);
   assert.match(homeSource, /class="new-session-page__select new-session-page__checkout-popover/);
@@ -120,7 +110,7 @@ test("New Session exposes explicit worktree creation and Settings owns its branc
   assert.match(homeSource, /branchName: props\.workspaceBranch/);
   assert.match(homeSource, /baseRef: props\.workspaceBaseRef/);
   assert.match(homeSource, /worktree: true/);
-  assert.match(settingsSource, /Git worktrees/);
+  assert.match(settingsSource, /renderSection\("Git worktrees",[\s\S]*?name="branchPrefix"[\s\S]*?`, "branch-prefix"\)/);
   assert.match(settingsSource, /name="branchPrefix"/);
   assert.match(settingsSource, /class="settings-input settings-input--prefix"/);
   assert.match(settingsControlsCss, /\.settings-input:focus-visible/);
@@ -158,4 +148,10 @@ test("Appearance selects interface and chat prose fonts independently", () => {
   assert.match(settingsSource, /class="settings-typography-preview"/);
   assert.match(settingsCss, /\.settings-typography-preview__caption[\s\S]*var\(--font-body\)/);
   assert.match(settingsCss, /\.settings-typography-preview__prose[\s\S]*var\(--font-chat\)/);
+});
+
+test("the terminal font uses the themed settings picker instead of a native datalist", () => {
+  assert.match(settingsSource, /id: "settings-font-terminal"/);
+  assert.match(settingsSource, /customOption: \(query\) => normalizeTerminalFont\(query\) === query/);
+  assert.doesNotMatch(settingsSource, /<datalist id="terminal-fonts"/);
 });

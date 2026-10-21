@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
-import test from "node:test";
+import { existsSync } from "node:fs";
+import { test } from "vitest";
 import { resolveAttachmentFileIcon } from "./attachment-file-icon.ts";
 
 test("file icons retain upstream type, accent and fallback resolution", () => {
@@ -14,10 +14,4 @@ test("file icons retain upstream type, accent and fallback resolution", () => {
     for (const mode of ["light", "dark"]) assert.ok(existsSync(new URL(`../../public/file-icons/compact/${mode}/${icon.compact}.svg`, import.meta.url)), filename);
     assert.ok(existsSync(new URL(`../../public/file-icons/overlays/${icon.family}.svg`, import.meta.url)), filename);
   }
-});
-
-test("transcript attachments use the original sized file-icon component", () => {
-  const source = readFileSync(new URL("../views/home.ts", import.meta.url), "utf8");
-  assert.match(source, /renderAttachmentFileIcon\(\{ filename: attachmentName\(attachment\), mode: "large-placeholder" \}\)/);
-  assert.doesNotMatch(source, /chat-assistant-attachment-card__identity">\$\{icons\.fileText\}/);
 });

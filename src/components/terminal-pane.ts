@@ -6,7 +6,7 @@
  * resizes the PTY only once a measurable size has settled. It also owns the terminal's HUI theme colors (recolored
  * live), its fonts in the worker, link clicks, clipboard shortcuts, touch scrolling, the narrow/touch key bar and the
  * jump-to-bottom affordance. Hiding the tab or the pane leaves the terminal running; only "End terminal" stops it.
- * Tabs, closing and launching belong to the Work pane (`components/work-pane.ts`, `lib/work-views/terminal.ts`).
+ * Tabs, closing and launching belong to the Work pane (`components/work-pane.ts`, `views/work/terminal.ts`).
  */
 import { html, nothing, type PropertyValues } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
@@ -14,18 +14,18 @@ import type { GespenstTerminal, TerminalBufferRow } from "@gespenst/core";
 import "@gespenst/core/style.css";
 import ghosttyWasm from "@gespenst/core/ghostty-vt.wasm?url";
 import callbacksWasm from "@gespenst/core/ghostty-callbacks.wasm?url";
-import { DEFAULT_TERMINAL_FONT, loadTerminalFont, terminalFontFaces, terminalFontStack, type FontSheet } from "../lib/terminal-font.ts";
+import { DEFAULT_TERMINAL_FONT, loadTerminalFont, terminalFontFaces, terminalFontStack, type FontSheet } from "../lib/terminal/font.ts";
 import { HuiElement } from "../lit/hui-element.ts";
 import { icons } from "../lib/icons.ts";
-import { connectTerminal, endTerminal } from "../lib/terminals-store.ts";
-import type { TerminalView } from "../lib/terminal-types.ts";
-import type { TerminalInput } from "../../shared/terminal-stream.ts";
-import { createTerminalStreamReader } from "../lib/terminal-stream.ts";
-import { prepareReflow, ptyResize, skipHiddenFits, wrappedRowsAbove } from "../lib/terminal-fit.ts";
-import { parseRgb, terminalTheme, type Rgb } from "../lib/terminal-theme.ts";
-import { terminalLinkAt } from "../lib/terminal-links.ts";
-import { clipboardKey, ControlLatch, controlModifiedText, TERMINAL_BAR_KEYS, type ControlState, type TerminalBarKey } from "../lib/terminal-keys.ts";
-import { TerminalTouchGesture } from "../lib/terminal-touch.ts";
+import { connectTerminal, endTerminal } from "../api/terminals.ts";
+import type { TerminalView } from "../api/schema/terminals.ts";
+import type { TerminalInput } from "../api/terminals.ts";
+import { createTerminalStreamReader } from "../api/terminals.ts";
+import { prepareReflow, ptyResize, skipHiddenFits, wrappedRowsAbove } from "../lib/terminal/fit.ts";
+import { parseRgb, terminalTheme, type Rgb } from "../lib/terminal/theme.ts";
+import { terminalLinkAt } from "../lib/terminal/links.ts";
+import { clipboardKey, ControlLatch, controlModifiedText, TERMINAL_BAR_KEYS, type ControlState, type TerminalBarKey } from "../lib/terminal/keys.ts";
+import { TerminalTouchGesture } from "../lib/terminal/touch.ts";
 import { writeClipboardText } from "../lib/clipboard.ts";
 import { APPLE_PLATFORM } from "../lib/shortcut-binding.ts";
 

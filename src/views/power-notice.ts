@@ -3,7 +3,7 @@
  * reports the power state, and turning it off goes back through the app.
  */
 import { html, nothing } from "lit";
-import type { PowerStatus } from "../../shared/power.ts";
+import type { PowerStatus } from "../api/schema/power.ts";
 import { icons } from "../lib/icons.ts";
 
 /** Shown whenever the lid switch is on and the Mac is actually held awake. */

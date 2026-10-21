@@ -10,7 +10,7 @@ pulses; reduced-motion renders a static H. Context labels remain unchanged.
 - Open localhost:43139 with the Browser tool. Select the disposable workspace
   printed by the fixture and submit `E2E_REPLAY` through Start session.
 - While the provider barrier holds, inspect the live indicator at 1440×900
-  and 390×844. Capture the observed page with `e2e/capture-rendered.mjs`.
+  and 390×844. Capture the observed page with `e2e/probes/capture-rendered.mjs`.
 - Release the fixture provider's `/control/release-replay` barrier and inspect
   the settled response.
 

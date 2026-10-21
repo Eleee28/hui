@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { WIDGET_CODE_MAX_BYTES, WIDGET_SANDBOX_METHOD_PREFIX } from "../../shared/widgets.ts";
+import { test } from "vitest";
+import vm from "node:vm";
+import fixture from "./widgets.fixture.json";
+import { buildWidgetDocument, isCompleteHtmlDocument, WIDGET_CODE_MAX_BYTES, WIDGET_TITLE_MAX_LENGTH, WIDGET_SANDBOX_PATH, WIDGET_SANDBOX_METHOD_PREFIX, widgetContentSecurityPolicy, widgetMode, widgetTokenValue } from "./widgets.ts";
 import { clampWidgetHeight, openableWidgetUrl, parseWidgetFrameMessage, widgetErrorText, widgetHostContext, widgetView } from "./widgets.ts";
 
 const call = (patch: Record<string, unknown>) => ({ name: "show_widget", args: { title: "Bot face", widget_code: "<p>hi</p>" }, ...patch });
@@ -71,4 +73,52 @@ test("the host context carries the theme as widget variables", () => {
     method: "ui/notifications/host-context-changed",
     params: { theme: "light", displayMode: "fullscreen", styles: { variables: { "--surface": "#fff", "--font-mono": "monospace" } } },
   });
+});
+
+test("the browser widget policy and sandbox messages match the portable fixtures", () => {
+  assert.equal(WIDGET_SANDBOX_PATH, fixture.path);
+  assert.equal(WIDGET_SANDBOX_METHOD_PREFIX, fixture.methodPrefix);
+  assert.equal(WIDGET_CODE_MAX_BYTES, fixture.codeMaxBytes);
+  assert.equal(WIDGET_TITLE_MAX_LENGTH, fixture.titleMaxLength);
+  for (const { options, expected } of fixture.policies) assert.equal(widgetContentSecurityPolicy(options), expected);
+});
+
+const between = (text: string, open: string, close: string) => {
+  const start = text.indexOf(open) + open.length;
+  return start < open.length ? "" : text.slice(start, text.indexOf(close, start));
+};
+
+const theme = { mode: "dark" as const, tokens: { surface: "#101010", text: "rgb(200 200 200)", "font-body": "\"Geist\", system-ui, sans-serif" } };
+
+test("the canonical document wraps a fragment once, under the same policy and HUI's current theme", () => {
+  const code = "<p id=x>hi</p>\n<script>document.getElementById('x').textContent = 'ok'</script>";
+  const built = buildWidgetDocument({ title: "Ticks & <tocks>", code, theme });
+  assert.ok(built.html.startsWith("<!doctype html>\n<html lang=\"en\" data-display-mode=\"inline\">"));
+  assert.match(built.html, /<title>Ticks &#38; &#60;tocks&#62;<\/title>/u);
+  const meta = /<meta http-equiv="Content-Security-Policy" content="([^"]+)">/u.exec(built.html)?.[1];
+  assert.equal(meta?.replaceAll("&#39;", "'"), widgetContentSecurityPolicy());
+  assert.match(built.html, /<meta name="referrer" content="no-referrer">/u);
+  const variables = /<style>:root\{color-scheme:dark;([^\n]*)\n/u.exec(built.html)?.[1] ?? "";
+  for (const declaration of ["--surface:#101010;", "--text:rgb(200 200 200);", "--font-body:\"Geist\", system-ui, sans-serif;", "--muted:#8b8b94;"]) assert(variables.includes(declaration), declaration);
+  assert.equal(built.html.split("\n")[built.fragmentLine - 1], "<p id=x>hi</p>");
+  assert.equal(built.html.indexOf(code), built.html.lastIndexOf(code));
+  assert.ok(built.html.endsWith(`${code}\n</body></html>`));
+  const bridge = between(built.html, "<body><script>", "</script>");
+  new vm.Script(bridge);
+  for (const method of ["ui/notifications/size-changed", "ui/notifications/host-context-changed", "notifications/message", "ui/open-link", "ui/request-display-mode"]) assert(bridge.includes(method), method);
+});
+
+test("token values cannot leave their declaration", () => {
+  for (const value of ["red;}", "</style><script>", "url(x) \\61", "x".repeat(257), ""]) assert.equal(widgetTokenValue(value), undefined, value);
+  const built = buildWidgetDocument({ title: "T", code: "<p>x</p>", theme: { mode: "light", tokens: { surface: "red;} body{display:none" } } });
+  assert.match(built.html, /--surface:#faf9f7;/u);
+  assert.doesNotMatch(built.html, /body\{display:none/u);
+});
+
+test("an SVG fragment is centred as a drawing", () => {
+  assert.equal(widgetMode("  <svg viewBox='0 0 1 1'/>"), "svg");
+  assert.equal(widgetMode("<div><svg/></div>"), "html");
+  assert.match(buildWidgetDocument({ title: "T", code: "<svg/>", theme }).html, /<div class="svg-widget"><svg\/><\/div>\n<\/body>/u);
+  assert.equal(isCompleteHtmlDocument("\n<!doctype html><p>"), true);
+  assert.equal(isCompleteHtmlDocument("<p>html</p>"), false);
 });

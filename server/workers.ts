@@ -19,25 +19,26 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { CONFIG_DIR } from "./paths.ts";
-import { resolvePiAgentDir } from "./pi-paths.ts";
-import { credentialStore, ProviderAccounts, type CredentialStore } from "./provider-accounts.ts";
+import { resolvePiAgentDir } from "./pi/paths.ts";
+import { credentialStore, ProviderAccounts, type CredentialStore } from "./pi/provider-accounts.ts";
 import { PROVIDERS_DIR, readProviderSelections } from "./runtimes/hui-models.ts";
 import { attachPeer, isRecord, PROTOCOL_VERSION, type Frame, type Peer } from "./worker/protocol.ts";
 import { BROKERED_PROVIDER_FILE } from "./worker/credentials.ts";
 import { writeAtomic, type SyncResult } from "./worker/sync-apply.ts";
-import { bundledSkills, enabledBundledSkillPaths, isBundledSkillPreference } from "./bundled-skills.ts";
+import { bundledSkills, enabledBundledSkillPaths, isBundledSkillPreference } from "./pi/bundled-skills.ts";
 import { readHuiSettings } from "./hui-settings.ts";
 import { BootstrapError, connectScript, markers, nodeInstallScript, probeScript, releaseInstallScript, runScript } from "./worker/bootstrap.ts";
 import { remoteReleasePath, workerRelease, type WorkerRelease } from "./worker/release.ts";
 import { brokeredModels, buildSyncPlan, contentFile, mirrorPath } from "./worker/sync.ts";
-import type { Settings } from "../src/lib/settings.ts";
-import type { HostInfo, RemoteLaunch, RemoteState } from "./worker/host.ts";
+import type { Settings } from "./hui-settings.ts";
+import type { HostInfo, RemoteLaunch, RemoteState } from "./worker/protocol.ts";
 import { RuntimeUnreachableError, type RuntimeEvent, type TranscriptEntry } from "./runtimes/types.ts";
-import { formatCommand, parseCommand, type WorkerInput, type WorkerView } from "../shared/workers.ts";
-import { parseRunOrigins } from "../shared/bots.ts";
-import { invokeAgentTool } from "./agent-tools-bridge.ts";
+import { formatCommand, parseCommand, type WorkerInput, type WorkerView } from "./worker/workers.ts";
+import { parseRunOrigins } from "./runtimes/turn-origins.ts";
+import { invokeAgentTool } from "./agent-tools/bridge.ts";
 import { GATEWAY_ONLY_TOOLS } from "./worker/gateway-tools.ts";
-import { readRegistry } from "./sessions.ts";
+import { readRegistry } from "./sessions/sessions.ts";
+import type { TranscriptHit } from "./runtimes/transcript-search.ts";
 
 export const WORKERS_FILE = join(CONFIG_DIR, "workers.json");
 const MAX_WORKERS = 32;
@@ -308,8 +309,8 @@ class WorkerConnection {
     this.#transport?.kill();
   }
 
-  request<T>(op: string, params: Record<string, unknown> = {}, timeoutMs?: number): Promise<T> {
-    return this.#peer.request<T>(op, params, timeoutMs);
+  request<T>(op: string, params: Record<string, unknown> = {}, timeoutMs?: number, signal?: AbortSignal): Promise<T> {
+    return this.#peer.request<T>(op, params, timeoutMs, signal);
   }
 
   /** Answers `op` from the host with `handler`, as this worker. */
@@ -424,7 +425,9 @@ class WorkerConnection {
       const started = await this.#peer.request<RemoteSessionLink["started"]>("session.start", { key, tool, launch }, 300_000);
       return {
         started,
-        call: (method, args) => this.#peer.request("session.call", { key, method, args }, CALL_TIMEOUT_MS),
+        // A tracked receipt waits for the original routine, whose configured timeout can be a full day. It is not an
+        // acceptance RPC: the normal ten-minute transport deadline must not mark healthy long work as failed.
+        call: (method, args) => this.#peer.request("session.call", { key, method, args }, method === "waitForTrackedPrompt" ? 25 * 60 * 60_000 : CALL_TIMEOUT_MS),
         transcript: async (seq) => {
           const transcript: TranscriptEntry[] = [];
           for (;;) {
@@ -825,6 +828,13 @@ export class WorkerService {
     if (this.#disconnectedByUser.has(id)) return [];
     const connection = await this.connect(id);
     return (await connection.request<{ directories: string[] }>("directories", { q: query })).directories;
+  }
+
+  /** Never connects: a worker without a live connection fails at once. */
+  async searchTranscripts(id: string, sessionFiles: readonly string[], query: string, signal?: AbortSignal): Promise<TranscriptHit[]> {
+    const connection = this.#connections.get(id);
+    if (!connection || connection.closed) throw new WorkerOfflineError("HUI is not connected to it.");
+    return (await connection.request<{ hits: TranscriptHit[] }>("sessions.search", { sessionFiles: [...sessionFiles], q: query }, 60_000, signal)).hits;
   }
 
   async putFile(id: string, name: string, data: Buffer): Promise<string> {

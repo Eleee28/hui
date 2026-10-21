@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm, writeFile, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
+import { test } from "vitest";
 import { installMacApp, launchConfig, macSigningCommands, shouldInstallAutomatically, updatePlist } from './install.mjs';
 import { appIcon } from './icon.mjs';
 import policy from './policy.cjs';
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'hui-app-test-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(root, { recursive: true, force: true }));
   const electronApp = join(root, 'Electron.app');
   await mkdir(join(electronApp, 'Contents/Resources'), { recursive: true });
   await mkdir(join(electronApp, 'Contents/MacOS'), { recursive: true });

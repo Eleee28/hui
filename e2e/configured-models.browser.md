@@ -84,7 +84,7 @@ of provider credentials and retaining only normal PATH/HOME/USER/LANG/TMPDIR:
 HUI_E2E_PROVIDER_PORT=43147 \
 HUI_E2E_WORKSPACE="$HUI_MODELS_RUN/workspace" \
 HUI_E2E_PROVIDER_LOG="$HUI_MODELS_RUN/provider.jsonl" \
-node e2e/pi-provider-fixture.mjs
+node e2e/fixtures/pi-provider-fixture.mjs
 
 XDG_CONFIG_HOME="$HUI_MODELS_RUN/xdg" \
 PI_CODING_AGENT_DIR="$HUI_MODELS_RUN/pi-agent" \
@@ -107,7 +107,7 @@ are involved. The actual provider's credentials/access were not tested.
 
 ## Checks
 
-- `npm test -- server/runtimes/pi-models.test.ts server/runtimes/pi.test.ts server/pi-config.test.ts src/lib/model-selection.test.ts`: 34 passed.
+- `npm test -- server/runtimes/pi-models.test.ts server/runtimes/pi.test.ts server/pi/config.test.ts src/lib/model-selection.test.ts`: 34 passed.
 - `npm test`: 360 passed, no skips.
 - `npm run typecheck`: passed.
 - `npm run build`: passed.

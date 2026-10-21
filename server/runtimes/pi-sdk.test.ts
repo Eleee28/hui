@@ -6,14 +6,14 @@ import { copyFile, mkdtemp, mkdir, readFile, writeFile, readdir, rm } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { after, test, type TestContext } from "node:test";
+import { afterAll, test, type TestContext } from "vitest";
 import type { PiSession } from "./pi.ts";
 import type { RuntimeEvent } from "./types.ts";
 import { shippedTools } from "./tool-catalog.ts";
 import { configuredResourceId } from "./resource-policy.ts";
-import { bundledSkills } from "../bundled-skills.ts";
-import { registerAgentToolHandler } from "../agent-tools-bridge.ts";
-import { SecretFiles, SecretRequests } from "../secret-requests.ts";
+import { bundledSkills } from "../pi/bundled-skills.ts";
+import { registerAgentToolHandler } from "../agent-tools/bridge.ts";
+import { SecretFiles, SecretRequests } from "../agent-tools/secret-requests.ts";
 import { completeLines } from "../test-support/json-lines.ts";
 import { waitFor } from "../test-support/wait-for.ts";
 
@@ -22,7 +22,7 @@ const root = await mkdtemp(join(tmpdir(), "hui-sdk-home-"));
 const configDir = join(root, "config");
 process.env["HOME"] = root;
 process.env["XDG_CONFIG_HOME"] = configDir;
-after(() => rm(root, { recursive: true, force: true }));
+afterAll(() => rm(root, { recursive: true, force: true }));
 const { piRuntime } = await import("./pi.ts");
 
 function nextEvent(session: PiSession, predicate: (event: RuntimeEvent) => boolean): Promise<RuntimeEvent> {
@@ -42,11 +42,11 @@ async function fixture(t: TestContext) {
   await writeFile(join(cwd, "fixture.txt"), "SDK fixture content\n");
   const log = join(dir, "requests.jsonl");
   const sessions: PiSession[] = [];
-  const provider = spawn(process.execPath, [fileURLToPath(new URL("../../e2e/pi-provider-fixture.mjs", import.meta.url))], {
+  const provider = spawn(process.execPath, [fileURLToPath(new URL("../../e2e/fixtures/pi-provider-fixture.mjs", import.meta.url))], {
     stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, HUI_E2E_PROVIDER_PORT: "0", HUI_E2E_WORKSPACE: cwd, HUI_E2E_PROVIDER_LOG: log },
   });
-  t.after(async () => {
+  t.onTestFinished(async () => {
     for (const session of sessions) session.dispose();
     // dispose() only signals PI, which still writes under agent/ (auth.json, models-store.json) as it shuts down.
     const alive = (pid: number | undefined) => { try { return pid !== undefined && process.kill(pid, 0); } catch { return false; } };
@@ -87,7 +87,7 @@ test("SDK owns schemas and prompt, executes tools, preserves history, models, th
   const session = await f.start();
   const initial = await session.inspect!();
   assert.deepEqual(initial.tools.map((tool) => tool.name).sort(), shippedTools().map((tool) => tool.name).sort());
-  assert.equal(initial.tools.filter((tool) => tool.active).length, 20);
+  assert.equal(initial.tools.filter((tool) => tool.active).length, 21);
   assert.equal(initial.tools.find((tool) => tool.name === "terminal")?.source, "HUI");
   assert.equal(initial.tools.find((tool) => tool.name === "browser")?.source, "HUI");
   assert.equal(initial.tools.find((tool) => tool.name === "progress_card")?.source, "HUI");
@@ -282,7 +282,7 @@ for (const backend of ["sdk", "cli"] as const) {
     const settingsPath = join(configDir, "hui", "settings.json");
     await mkdir(join(configDir, "hui"), { recursive: true });
     await writeFile(settingsPath, "{}");
-    t.after(() => writeFile(settingsPath, "{}"));
+    t.onTestFinished(() => writeFile(settingsPath, "{}"));
     // PI's CLI deliberately excludes untrusted project resources. Establish
     // trust only inside this throwaway fixture, not by changing HUI policy.
     const piSettingsPath = join(f.agentDir, "settings.json");
@@ -332,7 +332,7 @@ test("SDK registers the browser tool only while Settings leave it on", { timeout
   const f = await fixture(t);
   const settingsPath = join(configDir, "hui", "settings.json");
   await mkdir(join(configDir, "hui"), { recursive: true });
-  t.after(() => writeFile(settingsPath, "{}"));
+  t.onTestFinished(() => writeFile(settingsPath, "{}"));
   const lastRequest = async () => JSON.parse(completeLines(await readFile(f.log, "utf8")).at(-1)!) as { system: unknown; tools?: Array<{ name: string }> };
   const turn = async (session: PiSession) => {
     const settled = nextEvent(session, (event) => event.type === "settled");
@@ -368,7 +368,7 @@ test("SDK honors HUI skill disable controls without changing PI files", { timeou
   const settingsPath = join(configDir, "hui", "settings.json");
   await mkdir(join(configDir, "hui"), { recursive: true });
   await writeFile(settingsPath, JSON.stringify({ disabledSkills: [skills[1]] }));
-  t.after(() => writeFile(settingsPath, "{}"));
+  t.onTestFinished(() => writeFile(settingsPath, "{}"));
   const session = await f.start({ noSession: true });
   const initial = await session.inspect!();
   assert.match(initial.prompt, /enabled-fixture/u);
@@ -379,6 +379,12 @@ test("SDK honors HUI skill disable controls without changing PI files", { timeou
   const notice = nextEvent(session, (event) => event.type === "notice");
   await session.prompt("/skill:disabled-fixture");
   assert.deepEqual(await notice, { type: "notice", message: "Skill “disabled-fixture” is disabled for HUI sessions.", level: "warning" });
+  const aliased = nextEvent(session, (event) => event.type === "notice");
+  const aliasSettled = nextEvent(session, (event) => event.type === "settled");
+  await session.prompt("$disabled-fixture now");
+  assert.deepEqual(await aliased, { type: "notice", message: "Skill “disabled-fixture” is disabled for HUI sessions.", level: "warning" });
+  await aliasSettled;
+  assert.equal(session.isStreaming, false, "the composer's $name form settles like the /skill command");
   await assert.rejects(readFile(f.log, "utf8"), { code: "ENOENT" });
   const settled = nextEvent(session, (event) => event.type === "settled");
   await session.prompt("Skill filtering fixture"); await settled;
@@ -436,7 +442,7 @@ test("SDK excludes disabled packages and direct extensions before their code loa
     { id: configuredResourceId("package", "./fixture-plugin"), name: "fixture-plugin", kind: "package" },
     { id: configuredResourceId("extension", "./direct-extension.mjs"), name: "direct-extension.mjs", kind: "extension" },
   ] }));
-  t.after(() => writeFile(settingsPath, "{}"));
+  t.onTestFinished(() => writeFile(settingsPath, "{}"));
 
   const session = await f.start({ noSession: true });
   const toolNames = (await session.inspect!()).tools.map((tool) => tool.name);
@@ -453,7 +459,7 @@ test("SDK secret_request gives the agent a file the operator filled, never the v
   const changed: Array<() => void> = [];
   const requests = new SecretRequests({ onChange: () => { for (const wake of changed.splice(0)) wake(); } });
   const files = new SecretFiles(f.dir);
-  t.after(() => { requests.dispose(); files.dispose(); });
+  t.onTestFinished(() => { requests.dispose(); files.dispose(); });
   const pending = async (count: number) => {
     while (requests.questions("secret-sdk").length !== count) await new Promise<void>((wake) => changed.push(wake));
     return requests.questions("secret-sdk");
@@ -586,7 +592,7 @@ async function requestWith(log: string, marker: string): Promise<string> {
 test("SDK keeps the whole branch visible across compaction and rewinds to any message by entry id", { timeout: 45_000 }, async (t) => {
   const f = await fixture(t);
   await mkdir(join(f.agentDir, "extensions"));
-  await copyFile(new URL("../../e2e/compaction-extension.ts", import.meta.url), join(f.agentDir, "extensions", "compaction.ts"));
+  await copyFile(new URL("../../e2e/fixtures/compaction-extension.ts", import.meta.url), join(f.agentDir, "extensions", "compaction.ts"));
   // The long third turn alone exceeds keepRecentTokens: PI keeps it verbatim and summarizes the first two.
   await writeFile(join(f.agentDir, "settings.json"), JSON.stringify({ defaultProvider: "hui-e2e", defaultModel: "fixture", compaction: { enabled: true, keepRecentTokens: 400, reserveTokens: 1024 } }));
   const session = await f.start();

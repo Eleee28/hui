@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { closeDropdownOnEscape, hasOpenWebAwesomePopup } from "./web-awesome.ts";
 
 test("an open shadow popup owns dismissal before the enclosing view", () => {

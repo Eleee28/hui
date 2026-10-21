@@ -8,12 +8,12 @@ changed.
 
 ## Fixture
 
-`e2e/pi-provider-fixture.mjs` calls the real `show_widget` tool:
+`e2e/fixtures/pi-provider-fixture.mjs` calls the real `show_widget` tool:
 
 - `E2E_SHOW_WIDGET`: the workspace's `widget.html`, titled by `widget-title.txt`,
   or a built-in counter. Copy any fragment there after launch, for example the
   bot-face prototype from OpenClaw's chat.
-- `E2E_WIDGET_PROBE`: `e2e/widget-probe.html`, which tries to leave the sandbox
+- `E2E_WIDGET_PROBE`: `e2e/fixtures/widget-probe.html`, which tries to leave the sandbox
   and lists each attempt as Blocked or ALLOWED.
 - `E2E_WIDGET_SYNTAX`: a counter whose script has a syntax error, then the
   fixed counter once HUI rejects the first call.
@@ -70,7 +70,7 @@ changed.
 
 - Validation, positions and the tool result: `server/runtimes/widget-code.test.ts`.
 - The sandbox page, its headers and route, the policy and the canonical
-  document: `server/widget-sandbox.test.ts`.
+  document: `server/agent-tools/widget-sandbox.test.ts`.
 - Client projection, frame messages, link and height rules:
   `src/lib/widgets.test.ts`; sandbox attributes: `src/components/widget-card.test.ts`.
 - Transcript row: `src/views/chat/projection.test.ts`. Prompt and registration:

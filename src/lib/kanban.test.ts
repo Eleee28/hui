@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { readFileSync } from "node:fs";
+import { test } from "vitest";
 import {
   adjacentStage,
   backlogDrop,
   backlogLaneAccepts,
   DEFAULT_KANBAN_OPTIONS,
+  DEFAULT_SESSION_STAGE,
+  isSessionStage,
+  SESSION_STAGE_LABELS,
+  SESSION_STAGES,
+  stageRank,
   pullRequestSummary,
   sessionStage,
   kanbanDropMove,
@@ -14,8 +20,26 @@ import {
   normalizeKanbanOptions,
   toggleKanbanColumn,
 } from "./kanban.ts";
-import type { SessionGroup, SessionView } from "./sessions-store.ts";
-import type { BacklogItem } from "../../shared/backlog.ts";
+import type { SessionGroup, SessionView } from "../api/sessions.ts";
+import type { BacklogItem } from "../api/schema/backlog.ts";
+import type { SessionStage } from "../api/schema/sessions.ts";
+
+const stageFixture: {
+  stages: string[];
+  defaultStage: string;
+  labels: Record<string, string>;
+  isSessionStage: { input: unknown; expected: boolean }[];
+  stageRank: { input: SessionStage; expected: number }[];
+} = JSON.parse(readFileSync(new URL("./session-stages.fixture.json", import.meta.url), "utf8"));
+
+test("session stages preserve the shared runtime fixtures", () => {
+  assert.deepEqual(SESSION_STAGES, stageFixture.stages);
+  assert.equal(DEFAULT_SESSION_STAGE, stageFixture.defaultStage);
+  const { backlog: _backlog, ...stageLabels } = SESSION_STAGE_LABELS;
+  assert.deepEqual(stageLabels, stageFixture.labels);
+  for (const { input, expected } of stageFixture.isSessionStage) assert.equal(isSessionStage(input), expected, String(input));
+  for (const { input, expected } of stageFixture.stageRank) assert.equal(stageRank(input), expected, input);
+});
 
 function item(id: string, patch: Partial<BacklogItem> = {}): BacklogItem {
   return { id: `local:${id}`, kind: "local", title: id, group: "", ...patch };
@@ -24,7 +48,7 @@ function item(id: string, patch: Partial<BacklogItem> = {}): BacklogItem {
 function session(id: string, patch: Partial<SessionView> = {}): SessionView {
   return {
     id, title: id, group: "", cwd: "/repo/web", tool: "pi", status: "idle",
-    createdAt: "2026-09-20T00:00:00.000Z", updatedAt: "2026-09-20T00:00:00.000Z", ...patch,
+    displayCwd: "", stage: "investigation", stageOrigin: "default", createdAt: "2026-09-20T00:00:00.000Z", updatedAt: "2026-09-20T00:00:00.000Z", ...patch,
   };
 }
 

@@ -45,6 +45,13 @@
 .bot-import__field { display: grid; gap: 6px; min-width: 0; }
 .bot-import__field--inline { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; }
 .bot-import__label { color: var(--text-strong); font-size: var(--control-ui-text-sm); font-weight: 600; }
+/* A settings input is sized for a Settings row (16px): in these dialogs it reads at their text's size, on touch screens
+   too. base.css floors text controls at 16px there so iOS doesn't zoom into a focused one, but the viewport's
+   maximum-scale=1 already prevents that zoom (as for a bot's Settings fields, bots.css). */
+.bot-import-dialog .settings-input { font-size: var(--control-ui-text-sm); }
+@media (pointer: coarse) {
+  .bot-import-dialog .settings-input { font-size: var(--control-ui-text-sm) !important; }
+}
 .bot-import__paste { min-height: 180px; resize: vertical; font-family: var(--font-mono); font-size: var(--control-ui-text-sm); line-height: 1.45; }
 .bot-import__hint { display: block; margin: 0; color: var(--muted); font-size: var(--control-ui-text-sm); line-height: 1.45; }
 .bot-import__error { margin: 0; }
@@ -119,9 +126,17 @@
 .bot-import__chips code, .bot-import__list code { font-size: var(--control-ui-text-xs); }
 .bot-import__lines { display: grid; gap: 6px; margin: 0; padding-left: 18px; color: var(--text); font-size: var(--control-ui-text-sm); line-height: 1.45; }
 
-.bot-export__memory { display: flex; align-items: flex-start; gap: 10px; margin: 6px 0 0; cursor: pointer; }
-.bot-export__memory input { margin-top: 3px; }
-.bot-export__memory > span { display: grid; gap: 2px; color: var(--text-strong); }
+.bot-export__reviewing { display: flex; align-items: flex-start; gap: 12px; padding: 18px 4px; color: var(--text-strong); }
+.bot-export__reviewing .session-run-spinner { width: 16px; height: 16px; margin-top: 3px; }
+.bot-export__reviewing p { margin-top: 4px; }
+.bot-export__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.bot-export__row > :first-child { min-width: 0; overflow-wrap: anywhere; font-size: var(--control-ui-text-sm); }
+.bot-export__pick { flex: none; }
+.bot-export__pick select { min-width: 190px; }
+.bot-export__outcome { color: var(--text-strong); font-size: var(--control-ui-text-sm); overflow-wrap: anywhere; }
+.bot-export__outcome code, .bot-export__outcome q { font-size: var(--control-ui-text-sm); }
+.bot-export__need { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-size: var(--control-ui-text-sm); }
+.bot-export__need input { margin-top: 3px; }
 
 .bot-roster__empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
@@ -130,4 +145,14 @@
   .bot-import { padding: 16px; }
   .bot-import__field--inline { grid-template-columns: minmax(0, 1fr); }
   .bot-import__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bot-export__row { flex-direction: column; align-items: stretch; }
+  .bot-export__pick select { width: 100%; min-width: 0; }
 }
+
+/* "Missed something?": a passage the reviewer didn't flag. */
+.bot-export__add { display: grid; gap: 8px; }
+.bot-export__field { display: grid; gap: 4px; }
+.bot-export__field > span { color: var(--muted); font-size: var(--control-ui-text-sm); }
+.bot-export__field textarea { resize: vertical; }
+.bot-export__add-actions { display: flex; justify-content: flex-end; }
+.bot-export__undo { margin-left: 4px; }

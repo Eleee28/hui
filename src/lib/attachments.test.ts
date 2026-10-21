@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { File } from "node:buffer";
-import { attachmentBytes, readAttachment, readTranscriptAttachments, validateAttachmentTotal } from "./attachments.ts";
-import type { Attachment } from "./sessions-store.ts";
+import { attachmentBytes, readAttachment, validateAttachmentTotal } from "./attachments.ts";
+import type { Attachment } from "../api/sessions.ts";
 
 const attachment = (dataBase64: string): Attachment => ({ kind: "file", name: "a", mimeType: "text/plain", dataBase64 });
 
@@ -40,23 +40,4 @@ test("rejects names the gateway cannot safely store", async () => {
     () => validateAttachmentTotal([{ ...attachment("YQ=="), name: ".." }]),
     /path separators or controls/,
   );
-});
-
-test("reads a sent message's attachments back into the composer, skipping unreadable ones", async (t) => {
-  const served = new Map([
-    ["/image", () => new Response(new Blob(["png"], { type: "image/png" }))],
-    ["/file", () => new Response(new Blob(["notes"], { type: "application/octet-stream" }))],
-  ]);
-  t.mock.method(globalThis, "fetch", async (url: string) => served.get(url)?.() ?? new Response("", { status: 404 }));
-  const restored = await readTranscriptAttachments([
-    "legacy.txt",
-    { name: "unsent.md", kind: "file" },
-    { name: "shot.png", kind: "image", mimeType: "image/png", url: "/image" },
-    { name: "notes.md", kind: "file", url: "/file" },
-    { name: "gone.png", kind: "image", mimeType: "image/png", url: "/gone" },
-  ]);
-  assert.deepEqual(restored, [
-    { kind: "image", name: "shot.png", mimeType: "image/png", dataBase64: "cG5n" },
-    { kind: "file", name: "notes.md", mimeType: "application/octet-stream", dataBase64: "bm90ZXM=" },
-  ]);
 });

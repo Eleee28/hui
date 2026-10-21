@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import { test } from "vitest";
 import { isRetryableUtilityError, runPiUtilityPrompt } from "./pi.ts";
 
 function fixtureProvider(dir: string, port: number) {
@@ -34,7 +34,7 @@ test("a utility call that only reasons says so instead of reporting an empty ans
   const address = server.address();
   assert(address && typeof address !== "string");
   const previous = { ...process.env };
-  t.after(async () => {
+  t.onTestFinished(async () => {
     process.env = previous;
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     await rm(dir, { recursive: true, force: true });
@@ -64,7 +64,7 @@ test("a utility call reports the provider's error instead of an empty answer", {
   const address = server.address();
   assert(address && typeof address !== "string");
   const previous = { ...process.env };
-  t.after(async () => {
+  t.onTestFinished(async () => {
     process.env = previous;
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     await rm(dir, { recursive: true, force: true });

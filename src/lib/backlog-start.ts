@@ -7,8 +7,74 @@
  * 3. `branch`: a Git checkout defaults to Branch with a shared ref picker.
  *    `worktree`: keeps that ref and additionally asks for a branch suffix.
  */
-import type { BacklogStartInput } from "../../shared/backlog.ts";
-import type { GitCheckoutInfo } from "./sessions-store.ts";
+import type { BacklogStartInput } from "../api/schema/backlog.ts";
+import type { GitCheckoutInfo } from "../api/sessions.ts";
+
+/** Longest suggested name; the full branch adds the prefix and maybe `-N`. */
+const SUGGESTED_BRANCH_NAME_MAX = 40;
+const FALLBACK_BRANCH_WORDS = 4;
+
+/** Words that name the kind of change, which the prefix already carries. */
+const TYPE_WORDS = new Set([
+  "feature", "features", "feat", "fix", "fixes", "bugfix", "bug", "hotfix", "chore",
+  "refactor", "docs", "doc", "task", "story", "improvement", "enhancement", "wip",
+]);
+const STOP_WORDS = new Set([
+  "a", "an", "the", "to", "of", "for", "in", "on", "and", "or", "with", "from", "into",
+  "by", "at", "is", "be", "when", "that", "this", "it", "as", "so", "our", "we",
+]);
+
+/** A readable, bounded Git name component; `session` when nothing is left. */
+function worktreeSlug(title: string): string {
+  const slug = title
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-+|-+$/gu, "")
+    .slice(0, 48)
+    .replace(/-+$/gu, "");
+  return slug || "session";
+}
+
+function slugWords(text: string): string[] {
+  return text
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLocaleLowerCase()
+    .split(/[^a-z0-9]+/u)
+    .filter(Boolean);
+}
+
+function withoutJiraKeys(text: string, jiraKey: string): string {
+  const key = jiraKey.trim().replace(/[^A-Za-z0-9_-]/gu, "");
+  const own = key ? new RegExp(`\\b${key}\\b`, "gi") : undefined;
+  return (own ? text.replace(own, " ") : text).replace(/\b[A-Z][A-Z0-9]+-\d+\b/gu, " ");
+}
+
+function dropLeading(words: string[], unwanted: ReadonlySet<string>): string[] {
+  let index = 0;
+  while (index < words.length && unwanted.has(words[index]!)) index += 1;
+  return words.slice(index);
+}
+
+function joinBounded(words: readonly string[], maxWords: number): string {
+  let name = "";
+  for (const word of words.slice(0, maxWords)) {
+    const next = name ? `${name}-${word}` : word;
+    if (next.length > SUGGESTED_BRANCH_NAME_MAX) break;
+    name = next;
+  }
+  // A single overlong word is cut rather than dropped.
+  return name || (words[0] ?? "").slice(0, SUGGESTED_BRANCH_NAME_MAX);
+}
+
+export function fallbackBranchName(title: string, jiraKey = ""): string {
+  const words = dropLeading(slugWords(withoutJiraKeys(title, jiraKey)), TYPE_WORDS);
+  const meaningful = words.filter((word) => !STOP_WORDS.has(word));
+  return joinBounded(meaningful.length ? meaningful : words, FALLBACK_BRANCH_WORDS)
+    || worktreeSlug(title).slice(0, SUGGESTED_BRANCH_NAME_MAX).replace(/-+$/u, "");
+}
 
 export type BacklogStartMode = "branch" | "worktree";
 export type BacklogStartStep = "folder" | "plain" | "branch" | "worktree";

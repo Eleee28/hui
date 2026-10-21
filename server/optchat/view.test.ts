@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { endOf, nodeCount, PLACEHOLDER, startOf, Tree, type Part } from "./tree.ts";
 import { View, type ViewLimits } from "./view.ts";
 

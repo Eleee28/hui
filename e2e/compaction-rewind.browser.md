@@ -8,7 +8,7 @@ operator PI credentials, sessions or HUI registry were used.
 
 New launcher sessions run on Durable, including their PI extensions. Steps
 1–8 describe PI-worker compaction semantics: use `launch … --pi-sessions` for
-those, and the default launcher for the Durable journey below. The launcher loads `e2e/compaction-extension.ts`, whose `fixture-compact`
+those, and the default launcher for the Durable journey below. The launcher loads `e2e/fixtures/compaction-extension.ts`, whose `fixture-compact`
 command runs PI's own summarizer and resolves once the compaction entry is
 written, and sets PI's `compaction.keepRecentTokens` to 400 so a few short turns
 have something to summarize. The provider answers PI's summarizer request with

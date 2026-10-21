@@ -7,58 +7,14 @@
 import { readFile, stat } from "node:fs/promises";
 import { platform, release } from "node:os";
 
-import type { SessionRecord } from "./sessions.ts";
+import type { SessionRecord } from "./sessions/sessions.ts";
+import type { DiagnosticEvent, ObservabilitySnapshot, UsageTotals } from "./api/diagnostics.ts";
+export type { DiagnosticArea, DiagnosticEvent, DiagnosticLevel, ObservabilitySnapshot, UsageTotals } from "./api/diagnostics.ts";
 
 const MAX_EVENTS = 300;
 const MAX_SUMMARY_CHARS = 240;
 const MAX_DETAIL_CHARS = 600;
 const MAX_TRANSCRIPT_BYTES = 32 * 1024 * 1024;
-
-export type DiagnosticLevel = "info" | "warning" | "error";
-export type DiagnosticArea = "gateway" | "session" | "runtime" | "automation" | "ui";
-
-export type DiagnosticEvent = {
-  id: number;
-  timestamp: string;
-  area: DiagnosticArea;
-  level: DiagnosticLevel;
-  action: string;
-  summary: string;
-  /** Reported cause of a warning or error, such as a runtime's start-up error
-   * or a provider's HTTP error. Redacted, whitespace-collapsed and bounded;
-   * info events never carry one. */
-  detail?: string;
-  sessionId?: string;
-};
-
-export type UsageTotals = {
-  sessions: number;
-  filesRead: number;
-  records: number;
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-  totalTokens: number;
-  costUsd: number | null;
-  models: readonly { model: string; tokens: number }[];
-  unavailable: readonly string[];
-};
-
-export type ObservabilitySnapshot = {
-  generatedAt: string;
-  retention: { kind: "memory"; maximum: number; since: string };
-  activity: readonly DiagnosticEvent[];
-  logs: readonly DiagnosticEvent[];
-  usage: UsageTotals;
-  debug: {
-    node: string;
-    platform: string;
-    uptimeSeconds: number;
-    memory: { rssBytes: number; heapUsedBytes: number; heapTotalBytes: number };
-    eventCount: number;
-  };
-};
 
 let nextId = 1;
 const startedAt = new Date().toISOString();
@@ -199,13 +155,7 @@ export function transcriptUsage(record: unknown): { input: number; output: numbe
 
 type DurableUsage = (conversationId: number) => Promise<{ models?: Record<string, Record<string, unknown>> } | undefined>;
 
-/** Loaded on use: the Durable host itself reports through this module. */
-const gatewayDurableUsage: DurableUsage = async (conversationId) => {
-  const { durableHost } = await import("./runtimes/durable-host.ts");
-  return durableHost().conversationUsage(conversationId as never);
-};
-
-export async function aggregateUsage(sessions: readonly SessionRecord[], durableUsage: DurableUsage = gatewayDurableUsage): Promise<UsageTotals> {
+export async function aggregateUsage(sessions: readonly SessionRecord[], durableUsage?: DurableUsage): Promise<UsageTotals> {
   const totals: UsageTotals = {
     sessions: sessions.length, filesRead: 0, records: 0, inputTokens: 0, outputTokens: 0,
     cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 0, costUsd: null, models: [], unavailable: [],
@@ -221,7 +171,7 @@ export async function aggregateUsage(sessions: readonly SessionRecord[], durable
     if (durable) {
       // Durable keeps spend per conversation and model, including prompt-cache
       // refreshes and nested tool calls, outside the transcript.
-      const usage = await durableUsage(Number(durable[1])).catch(() => undefined);
+      const usage = await durableUsage?.(Number(durable[1])).catch(() => undefined);
       if (!usage) {
         totals.unavailable = [...totals.unavailable, `${session.id}: Durable store unavailable`];
         continue;
@@ -282,7 +232,7 @@ export async function aggregateUsage(sessions: readonly SessionRecord[], durable
   return totals;
 }
 
-export async function readObservability(sessions: readonly SessionRecord[]): Promise<ObservabilitySnapshot> {
+export async function readObservability(sessions: readonly SessionRecord[], durableUsage?: DurableUsage): Promise<ObservabilitySnapshot> {
   const memory = process.memoryUsage();
   const activity = [...events];
   return {
@@ -290,7 +240,7 @@ export async function readObservability(sessions: readonly SessionRecord[]): Pro
     retention: { kind: "memory", maximum: MAX_EVENTS, since: startedAt },
     activity,
     logs: activity.filter(isLogEntry),
-    usage: await aggregateUsage(sessions),
+    usage: await aggregateUsage(sessions, durableUsage),
     debug: {
       node: process.version,
       platform: `${platform()} ${release()}`,

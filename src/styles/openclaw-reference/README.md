@@ -43,17 +43,17 @@ detects unreviewed changes to this versioned snapshot.
 
 ## Verification
 
-`e2e/reference-style-server.mjs` serves the pinned source CSS read-only. The
+`e2e/fixtures/reference-style-server.mjs` serves the pinned source CSS read-only. The
 Browser probe resolves the same DOM under both cascades and copies native
 focus/hover/popover state. This detects divergent declarations; it is **not**
 independent proof of original DOM equivalence or a screenshot pixel diff.
 Pair it with source anatomy review, real PI journeys and inspected screenshots;
 see [the visual goal](../../../docs/visual-parity-goal.md) and the E2E report.
 
-`e2e/original-component-probe.js` additionally renders the actual pinned composer,
+`e2e/probes/original-component-probe.js` additionally renders the actual pinned composer,
 Effort and textarea controller with the original Lit/WA runtime in a disposable
-frame. `e2e/native-switch-probe.js` is retained as a historical pre-migration
-diagnostic; `e2e/webawesome-controls-probe.js` now measures the actual migrated
+frame. `e2e/probes/native-switch-probe.js` is retained as a historical pre-migration
+diagnostic; `e2e/probes/webawesome-controls-probe.js` now measures the actual migrated
 picker, switch, select, tab and dropdown shadow parts against the shipped
 original runtime. These are
 independent component proofs, not a claim about every original application page.

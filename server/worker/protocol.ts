@@ -8,6 +8,7 @@
  * handler's signal; a closed peer aborts them all. Older peers ignore it.
  */
 import type { Readable, Writable } from "node:stream";
+import type { RuntimeModel, RuntimeQueue, RuntimeQuestion, RuntimeUsage } from "../runtimes/types.ts";
 
 export const PROTOCOL_VERSION = 1;
 /** A frame larger than this is a protocol error, not something to buffer.
@@ -15,6 +16,47 @@ export const PROTOCOL_VERSION = 1;
 export const MAX_FRAME_BYTES = 256 * 1024 * 1024;
 
 export type Frame = { t: string } & Record<string, unknown>;
+
+export type HostInfo = {
+  version: number;
+  release: string;
+  /** What this host offers beyond sessions (`bots`); absent from an older host. */
+  features?: string[];
+  pid: number;
+  hostname: string;
+  platform: string;
+  arch: string;
+  node: string;
+  home: string;
+  dataDir: string;
+  mirrorDir: string;
+  agentDir: string;
+  providersDir: string;
+  releaseDir: string;
+};
+
+/** What a gateway hands over to start a PI worker; paths are already remote. */
+export type RemoteLaunch = Record<string, unknown> & {
+  cwd: string;
+  sessionFile?: string;
+  disabledSkills?: { name: string; path: string }[];
+};
+
+/** Everything a gateway reads synchronously from a runtime, sent with each
+ * reply and event, so its copy is never behind the event it is handling. */
+export type RemoteState = {
+  sessionId: string;
+  sessionFile?: string;
+  isStreaming: boolean;
+  resumesInterruptedRuns: boolean;
+  model?: RuntimeModel;
+  usage?: RuntimeUsage;
+  thinking?: string;
+  fast?: true;
+  queue?: RuntimeQueue;
+  questions?: readonly RuntimeQuestion[];
+};
+
 type RequestHandler = (params: Record<string, unknown>, signal: AbortSignal) => Promise<unknown> | unknown;
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

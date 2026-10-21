@@ -2,7 +2,7 @@
  * The catalog of tools HUI ships, for the Tools settings: PI's builtins with their default state, followed by
  * HUI's own tools.
  */
-import type { ToolCatalogEntry } from "../../src/lib/tools-types.ts";
+import type { ToolCatalogEntry } from "./types.ts";
 import { huiToolDefinitions } from "./hui-tools.ts";
 
 /** Shipped capabilities, not a claim about an initialized session. A parity

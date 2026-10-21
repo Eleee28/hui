@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { readToolPresentation, renderToolFileReference, toolFilePath } from "./read-tool-card.ts";
 
 test("read rows summarize their target and retain unsummarized arguments", () => {

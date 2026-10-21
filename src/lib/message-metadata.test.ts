@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { elapsedLabel, metricSummary, relativeTime, replyDraft } from "./message-metadata.ts";
 import { normalizeTranscript } from "./transcript-state.ts";
 

@@ -1,0 +1,159 @@
+<!doctype html>
+<!-- The demo recorder's stage: HUI in a framed browser window or phone on a gradient, with a
+     synthetic cursor (a fingertip on the phone), step captions and a chapter tag. Laid out at 1920×1080 and
+     drawn twice as large, so the page is captured at 3840×2160 with sharp text. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>HUI demo stage</title>
+<style>
+  html, body { margin: 0; width: 3840px; height: 2160px; overflow: hidden; background: #08090d; }
+  #root { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform: scale(2); transform-origin: 0 0; }
+  body { font-family: -apple-system, "SF Pro Display", "Inter", system-ui, sans-serif; color: #f4f4f6; -webkit-font-smoothing: antialiased; }
+  #bg { position: absolute; inset: 0; background:
+    radial-gradient(1100px 760px at 12% 8%, rgb(124 92 255 / 38%), transparent 62%),
+    radial-gradient(1000px 820px at 92% 96%, rgb(32 156 196 / 30%), transparent 60%),
+    linear-gradient(160deg, #11121a, #07080c); }
+  #camera { position: absolute; left: 0; top: 0; transform-origin: 0 0; transition: transform 700ms cubic-bezier(.65, 0, .35, 1); }
+  #window { border-radius: 12px; overflow: hidden; background: #111216;
+    box-shadow: 0 40px 120px rgb(0 0 0 / 55%), 0 0 0 1px rgb(255 255 255 / 9%); }
+  #chrome { position: relative; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: #1a1b21; border-bottom: 1px solid rgb(255 255 255 / 6%); }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  #url { position: absolute; left: 50%; transform: translateX(-50%); min-width: 360px; padding: 4px 14px; border-radius: 7px; background: rgb(255 255 255 / 6%); color: rgb(255 255 255 / 55%); font-size: 13px; text-align: center; }
+  #viewport { position: relative; }
+  iframe { display: block; border: 0; background: #111216; }
+  .phone-only, #urlbar { display: none; }
+  /* The phone: a bezel, a status bar with the island, and the browser's address bar below the page. */
+  #window.phone { padding: 13px; border-radius: 64px; background: #050506; box-shadow: 0 40px 120px rgb(0 0 0 / 60%), 0 0 0 2px #2a2b31, inset 0 0 0 1px rgb(255 255 255 / 8%); }
+  #window.phone #screen { border-radius: 51px; overflow: hidden; background: #111216; }
+  #window.phone #chrome { height: 50px; padding: 0 30px; justify-content: space-between; background: #111216; border: 0; font: 600 16px -apple-system, system-ui, sans-serif; }
+  #window.phone .dot, #window.phone #url { display: none; }
+  #window.phone .phone-only { display: flex; align-items: center; gap: 6px; }
+  #window.phone #island { position: absolute; left: 50%; top: 11px; width: 122px; height: 35px; margin-left: -61px; border-radius: 20px; background: #000; }
+  #window.phone #urlbar { display: flex; align-items: center; justify-content: center; height: 46px; background: #17181d; color: rgb(255 255 255 / 70%); font-size: 15px; gap: 6px; }
+  #cursor.touch svg { display: none; }
+  #cursor.touch::after { content: ""; position: absolute; width: 38px; height: 38px; margin: -19px 0 0 -19px; border-radius: 50%; background: rgb(255 255 255 / 28%); border: 2px solid rgb(255 255 255 / 75%); transition: transform 120ms; }
+  #cursor.touch.down::after { transform: scale(.82); }
+  #ghost { position: absolute; left: 0; top: 0; pointer-events: none; opacity: 0; border-radius: 10px; box-shadow: 0 18px 40px rgb(0 0 0 / 45%); transform-origin: 0 0; transition: opacity 150ms; z-index: 9; }
+  #cursor { position: absolute; left: 0; top: 0; width: 26px; height: 26px; pointer-events: none; z-index: 10;
+    transition: transform var(--move, 600ms) cubic-bezier(.45, 0, .25, 1), opacity 200ms; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 45%)); }
+  #cursor svg { position: absolute; left: -3px; top: -2px; transition: transform 120ms; }
+  #cursor.down svg { transform: scale(.86); }
+  .ripple { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; pointer-events: none; z-index: 9;
+    border: 2px solid rgb(255 255 255 / 85%); background: rgb(124 92 255 / 30%); animation: ripple 520ms ease-out forwards; }
+  @keyframes ripple { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.35); opacity: 0; } }
+  #caption { position: absolute; left: 50%; bottom: 22px; transform: translate(-50%, 16px); max-width: 1400px; padding: 14px 30px; border-radius: 999px;
+    background: rgb(14 15 20 / 84%); backdrop-filter: blur(14px); box-shadow: 0 12px 40px rgb(0 0 0 / 45%), 0 0 0 1px rgb(255 255 255 / 10%);
+    font-size: 30px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; opacity: 0; transition: opacity 320ms, transform 320ms; z-index: 20; }
+  #caption.on { opacity: 1; transform: translate(-50%, 0); }
+  /* The chapter tag, under the window's left edge in the caption band. */
+  #chip { position: absolute; bottom: 38px; display: flex; align-items: center; gap: 14px; font-size: 25px; font-weight: 650; color: rgb(255 255 255 / 82%);
+    opacity: 0; transform: translateY(12px); transition: opacity 400ms, transform 400ms; z-index: 20; }
+  #chip.on { opacity: 1; transform: none; }
+  #chip i { display: inline-grid; place-items: center; height: 40px; padding: 0 12px; border-radius: 10px; background: rgb(255 255 255 / 10%); font-style: normal; font-size: 21px; color: rgb(255 255 255 / 70%); }
+</style>
+</head>
+<body>
+<div id="root">
+<div id="bg"></div>
+<div id="camera">
+  <div id="window"><div id="screen">
+    <div id="chrome"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span id="url">localhost</span>
+      <span class="phone-only">9:41</span><span id="island" class="phone-only"></span>
+      <span class="phone-only"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><rect x="25" y="4.5" width="1.5" height="4" rx=".75" fill="currentColor" opacity=".5"/></svg></span></div>
+    <div id="viewport">
+      <iframe id="app" title="HUI"></iframe>
+      <img id="ghost" alt="">
+      <div id="cursor"><svg width="26" height="30" viewBox="0 0 26 30"><path d="M3 2 L3 24 L9 18.5 L13 27 L17 25.2 L13 16.8 L21 16.5 Z" fill="#111" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></div>
+    </div>
+    <div id="urlbar"><svg width="11" height="14" viewBox="0 0 11 14" fill="currentColor"><rect x="0" y="6" width="11" height="8" rx="2"/><path d="M2.5 6V4a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>hui.your-tailnet.ts.net</div>
+  </div></div>
+</div>
+<div id="caption"></div>
+<div id="chip"><i></i><span></span></div>
+</div>
+<script>
+  // App coordinates are CSS pixels inside the iframe; the camera maps them to the stage.
+  // The window sits above a band for captions, so they never cover the composer.
+  const APP = { width: 1440, height: 810 }, TOP = 34, BAND = 112;
+  const $ = (id) => document.getElementById(id);
+  // The window's size and where the page sits in it (chrome, bezel), in unscaled pixels.
+  let base, origin, frame, cursor, grab = { x: 0, y: 0 };
+  const place = (x, y, scale) => { $("camera").style.transform = `translate(${x}px, ${y}px) scale(${scale})`; };
+  /** A smaller app viewport shows larger text: chat clips use 1280×720, the board 1440×810, the phone 390×844. */
+  function size(width, height, device) {
+    Object.assign(APP, { width, height });
+    $("window").classList.toggle("phone", device === "phone");
+    $("cursor").classList.toggle("touch", device === "phone");
+    for (const element of [$("viewport"), $("app")]) Object.assign(element.style, { width: `${width}px`, height: `${height}px` });
+    frame = { left: $("viewport").offsetLeft, top: $("viewport").offsetTop, width: $("window").offsetWidth, height: $("window").offsetHeight };
+    base = Math.min((1920 - 160) / frame.width, (1080 - TOP - BAND) / frame.height);
+    origin = { x: (1920 - frame.width * base) / 2, y: TOP };
+    // Under a window's left edge; beside a phone, which is too narrow to share its band with the caption.
+    Object.assign($("chip").style, device === "phone" ? { left: "", right: `${1920 - origin.x + 40}px` } : { left: `${origin.x}px`, right: "" });
+    place(origin.x, origin.y, base);
+    stage.cursorTo(width * 0.62, height * 0.7, 0);
+  }
+  window.stage = {
+    load(url, width = 1440, height = 810, device = "desktop") {
+      size(width, height, device);
+      $("app").src = url;
+    },
+    /** Zoom so app point (x, y) sits near the centre, never showing past the window's edges. */
+    zoom(x, y, factor = 1) {
+      if (factor <= 1) return place(origin.x, origin.y, base);
+      const scale = base * factor;
+      const clamp = (value, size, span) => size <= span ? (span - size) / 2 : Math.min(0, Math.max(span - size, value));
+      place(clamp(960 - (x + frame.left) * scale, frame.width * scale, 1920), clamp(540 - (y + frame.top) * scale, frame.height * scale, 1080), scale);
+    },
+    cursorTo(x, y, ms) {
+      const style = $("cursor").style;
+      style.setProperty("--move", `${ms}ms`);
+      style.transform = `translate(${x}px, ${y}px)`;
+      cursor = { x, y };
+    },
+    cursor: () => cursor,
+    press(down) { $("cursor").classList.toggle("down", down); },
+    ripple() {
+      const ring = document.createElement("div");
+      ring.className = "ripple";
+      ring.style.left = `${cursor.x}px`;
+      ring.style.top = `${cursor.y}px`;
+      $("viewport").append(ring);
+      setTimeout(() => ring.remove(), 600);
+    },
+    ghost(src, width, height, x, y) {
+      const ghost = $("ghost");
+      if (!src) { ghost.style.opacity = "0"; return; }
+      Object.assign(ghost.style, { width: `${width}px`, height: `${height}px`, opacity: ".92", transition: "opacity 150ms" });
+      ghost.src = src;
+      grab = { x, y };
+      stage.moveGhost(cursor.x, cursor.y, 0);
+    },
+    moveGhost(x, y, ms) {
+      const ghost = $("ghost");
+      ghost.style.transition = `opacity 150ms, transform ${ms}ms cubic-bezier(.45, 0, .25, 1)`;
+      ghost.style.transform = `translate(${x - grab.x}px, ${y - grab.y}px) rotate(-2deg)`;
+    },
+    caption(text) {
+      const caption = $("caption");
+      caption.classList.toggle("on", Boolean(text));
+      if (text) caption.textContent = text;
+    },
+    chip(number, label) {
+      $("chip").querySelector("i").textContent = String(number).padStart(2, "0");
+      $("chip").querySelector("span").textContent = label;
+      $("chip").classList.add("on");
+      // It names the chapter, then makes room: a zoomed window reaches into the caption band.
+      setTimeout(() => $("chip").classList.remove("on"), 4_500);
+    },
+    /** Stage (page) coordinates of an app point, for real input events. */
+    toStage(x, y) {
+      const box = $("app").getBoundingClientRect();
+      return { x: box.left + x * (box.width / APP.width), y: box.top + y * (box.height / APP.height) };
+    },
+  };
+  size(APP.width, APP.height);
+</script>
+</body>
+</html>

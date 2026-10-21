@@ -2,14 +2,14 @@
  * The browser Work view: the larger live view of one session's agent browser, inside a Work pane tab. Streaming, tabs
  * and pointer marks come from the shared browser view controller; this element fits the frame to the view and stops
  * streaming while the view is hidden. It only watches: the agent drives the browser, the operator can only choose
- * which tab to see. The Work pane owns the tab, its caption and closing (`lib/work-views/browser.ts`).
+ * which tab to see. The Work pane owns the tab, its caption and closing (`views/work/browser.ts`).
  */
 import { html, nothing, type PropertyValues } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { keyed } from "lit/directives/keyed.js";
 import { HuiElement } from "../lit/hui-element.ts";
-import { connectBrowserView } from "../lib/browser-store.ts";
-import { BrowserViewController } from "../lib/browser-view-controller.ts";
+import { connectBrowserView } from "../api/browser.ts";
+import { BrowserViewController } from "../controllers/browser-view-controller.ts";
 import { browserTabOptions, browserViewEmptyMessage, browserViewStatus, fitFrame, relativeTime, type Size } from "../lib/browser-view.ts";
 import { renderPicker } from "../views/settings-picker.ts";
 

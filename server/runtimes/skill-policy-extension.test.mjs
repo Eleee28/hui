@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 import { disabledSkillsFrom, filterDisabledSkills, registerSkillPolicy } from "./skill-policy-extension.mjs";
 
@@ -38,5 +38,7 @@ test("blocks direct commands for disabled skills and leaves enabled commands alo
   const context = { ui: { notify: (message) => notices.push(message) } };
   assert.deepEqual(handlers.get("input")?.({ text: "/skill:testing" }, context), { action: "continue" });
   assert.deepEqual(handlers.get("input")?.({ text: "/skill:review now" }, context), { action: "handled" });
-  assert.deepEqual(notices, ["Skill “review” is disabled for HUI sessions."]);
+  assert.deepEqual(handlers.get("input")?.({ text: "$review now" }, context), { action: "handled" });
+  assert.deepEqual(handlers.get("input")?.({ text: "$testing now" }, context), { action: "continue" });
+  assert.deepEqual(notices, ["Skill “review” is disabled for HUI sessions.", "Skill “review” is disabled for HUI sessions."]);
 });

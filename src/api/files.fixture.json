@@ -1,0 +1,37 @@
+{
+  "maxResolvePaths": 100,
+  "paths": [
+    {
+      "input": "README.MD",
+      "extension": "md"
+    },
+    {
+      "input": "a/b.markdown",
+      "extension": "markdown"
+    },
+    {
+      "input": "foo.mdx",
+      "extension": "mdx"
+    },
+    {
+      "input": ".md",
+      "extension": ""
+    },
+    {
+      "input": "a.MD/file",
+      "extension": ""
+    },
+    {
+      "input": "a/b.",
+      "extension": ""
+    },
+    {
+      "input": "a.md.txt",
+      "extension": "txt"
+    },
+    {
+      "input": "/a/b.PNG",
+      "extension": "png"
+    }
+  ]
+}

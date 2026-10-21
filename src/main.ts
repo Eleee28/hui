@@ -32,10 +32,10 @@ import "./components/select-picker.ts";
 import "./components/rich-embeds.ts";
 import "./components/media-viewer.ts";
 
-import { installUiErrorReporting } from "./lib/ui-errors.ts";
-import { applyThemeMode } from "./lib/theme.ts";
-import { loadSettings } from "./lib/settings-store.ts";
-import { applyTheme, loadThemes } from "./lib/theme-store.ts";
+import { installUiErrorReporting } from "./api/ui-errors.ts";
+import { applyThemeMode } from "./lib/theme/theme.ts";
+import { loadSettings } from "./lib/settings/settings-store.ts";
+import { applyTheme, loadThemes } from "./lib/theme/theme-store.ts";
 import { finishBoot, rememberBootLook, showBootFailure } from "./lib/boot-screen.ts";
 import { viewAssetsLoaded } from "./lib/view-assets.ts";
 

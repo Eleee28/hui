@@ -6,8 +6,8 @@
  */
 import type { TemplateResult } from "lit";
 import type { OpenSettingsDetail } from "./open-settings.ts";
-import { closeSessionPane, isChatPane, locateSessionPane, replacePaneSession, sessionPanes, spotTabs, type SessionLayout } from "./session-multiplexer.ts";
-import { PANE_DIVIDER_SIZE } from "./session-pane-geometry.ts";
+import { closeSessionPane, isChatPane, locateSessionPane, replacePaneSession, sessionPanes, spotTabs, type SessionLayout } from "./session/multiplexer.ts";
+import { PANE_DIVIDER_SIZE } from "./session/pane-geometry.ts";
 import { WORK_SHORTCUTS } from "./work-shortcuts.ts";
 
 export type WorkViewRef =

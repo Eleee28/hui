@@ -6,7 +6,8 @@
 import { html, nothing, type TemplateResult } from "lit";
 import { icons } from "../lib/icons.ts";
 import { navigationPath } from "../lib/navigation.ts";
-import { sessionGroupLabel, type SessionGroup, type SessionStatus, type SessionView } from "../lib/sessions-store.ts";
+import { type SessionGroup, type SessionSearchResult, type SessionStatus, type SessionView } from "../api/sessions.ts";
+import { sessionGroupLabel } from "../lib/session/sessions.ts";
 import { loadViewAssets } from "../lib/view-assets.ts";
 
 loadViewAssets(() => import("../styles/openclaw-workspaces.css"));
@@ -24,6 +25,16 @@ export const DEFAULT_SESSIONS_PAGE_FILTERS: Readonly<SessionsPageFilters> = { st
 const STATE_OPTIONS = [["all", "All"], ["active", "Active"], ["archived", "Archived"]] as const;
 const STATUS_OPTIONS = [["all", "Any"], ["running", "Running"], ["waiting", "Waiting"], ["idle", "Idle"], ["error", "Error"], ["reconnecting", "Reconnecting"], ["disconnected", "Disconnected"]] as const;
 const GROUP_OPTIONS = [["none", "None"], ["group", "Group"], ["project", "Project"]] as const;
+
+/** The transcript search box and the outcome of the last search it ran. */
+export type TranscriptSearchState = {
+  query: string;
+  searching: boolean;
+  /** The query the shown result or error belongs to. */
+  searched: string;
+  result?: SessionSearchResult;
+  error?: string;
+};
 
 export type SessionsPageProps = {
   groups: readonly SessionGroup[];
@@ -49,6 +60,9 @@ export type SessionsPageProps = {
   onDeleteSelected: () => void;
   onCancelDelete: () => void;
   onConfirmDelete: (ids: readonly string[], removeWorktrees: boolean) => void;
+  transcriptSearch: TranscriptSearchState;
+  onTranscriptQuery: (value: string) => void;
+  onTranscriptSearch: () => void;
 };
 
 /** Starting sessions are about to run, so the Running filter includes them. */
@@ -297,6 +311,52 @@ function body(props: SessionsPageProps): TemplateResult {
     : html`${rows.map(({ session }) => sessionRow(session, props))}`;
 }
 
+function transcriptResults(props: SessionsPageProps): TemplateResult | typeof nothing {
+  const { searched, result, error } = props.transcriptSearch;
+  if (error) return html`<p class="sessions-transcript-search__notice sessions-transcript-search__notice--danger" role="alert">${error}</p>`;
+  if (!result) return nothing;
+  const sessions = new Map(props.groups.flatMap((group) => group.sessions).map((session) => [session.id, session]));
+  const hits = result.hits.flatMap((hit) => {
+    const session = sessions.get(hit.id);
+    return session ? [{ hit, session }] : [];
+  }).toSorted((a, b) => b.session.updatedAt.localeCompare(a.session.updatedAt));
+  return html`
+    ${hits.length
+      ? html`<div class="sessions-transcript-search__summary muted">${hits.length === 1 ? "1 session mentions" : `${hits.length} sessions mention`} “${searched}”</div>
+        <div class="sessions-transcript-search__list">
+          ${hits.map(({ hit, session }) => html`<button type="button" class="sessions-transcript-search__result" @click=${() => props.onOpen(session)}>
+            <span class="sessions-transcript-search__result-header">
+              <strong>${session.title}</strong>
+              ${session.archived ? html`<span class="session-label-chip">Archived</span>` : nothing}
+              <span class="muted">${hit.matches === 1 ? "1 message" : `${hit.matches} messages`}</span>
+            </span>
+            <span class="sessions-transcript-search__snippet">${hit.snippet}</span>
+            ${session.cwd ? html`<span class="sessions-transcript-search__key">${session.displayCwd || session.cwd}</span>` : nothing}
+          </button>`)}
+        </div>`
+      : html`<div class="sessions-transcript-search__empty">No transcript mentions “${searched}”.</div>`}
+    ${result.unsearched.map(({ worker, error: reason }) => html`<p class="sessions-transcript-search__notice">Could not search ${worker}: ${reason}</p>`)}`;
+}
+
+function transcriptSearch(props: SessionsPageProps): TemplateResult {
+  const { query, searching } = props.transcriptSearch;
+  const ready = query.trim().length >= 2 && !searching;
+  return html`<div class="settings-group sessions-transcript-search">
+    <form class="sessions-transcript-search__form" @submit=${(event: Event) => {
+      event.preventDefault();
+      if (ready) props.onTranscriptSearch();
+    }}>
+      <label class="data-table-search sessions-transcript-search__input">
+        <span class="sr-only">Search transcript messages</span>
+        <input type="search" placeholder="Search transcript messages…" maxlength="200" .value=${query}
+          @input=${(event: Event) => props.onTranscriptQuery((event.target as HTMLInputElement).value)} />
+      </label>
+      <button class="btn btn--sm" type="submit" ?disabled=${!ready}>${searching ? "Searching…" : "Search"}</button>
+    </form>
+    <div class="sessions-transcript-search__status" aria-live="polite">${transcriptResults(props)}</div>
+  </div>`;
+}
+
 function filterSegment<Value extends string>(
   label: string,
   value: Value,
@@ -367,18 +427,7 @@ export function renderSessionsPage(props: SessionsPageProps): TemplateResult {
                 <h2 class="settings-section__heading">Search transcripts</h2>
               </div>
             </div>
-            <div class="settings-group sessions-transcript-search">
-              <div class="sessions-transcript-search__form">
-                <label class="data-table-search sessions-transcript-search__input">
-                  <span class="sr-only">Search transcript messages</span>
-                  <input type="search" placeholder="Search transcript messages…" disabled />
-                </label>
-                <button class="btn btn--sm" type="button" disabled>Search</button>
-              </div>
-              <p class="sessions-transcript-search__notice">
-                Transcript search will be enabled when PI exposes indexed message search.
-              </p>
-            </div>
+            ${transcriptSearch(props)}
           </section>
           <section class="settings-section">
             <div class="settings-section__header">

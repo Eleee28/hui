@@ -5,7 +5,7 @@ Date: 2026-10-06. Verified against commit `16c9e8f` of
 `50e62aa` after its bridge client changed, launched with the repository
 visual-verification fixture (`e2e/visual-verification.mjs launch`, then again
 with `--pi-sessions`) and driven with the Browser tool. Only the model provider
-is mocked (`e2e/pi-provider-fixture.mjs`, `E2E_SECRET_REQUEST`); HUI, the
+is mocked (`e2e/fixtures/pi-provider-fixture.mjs`, `E2E_SECRET_REQUEST`); HUI, the
 gateway, Pi Durable, the PI SDK worker, the `secret_request` tool, the real
 `bash` tool and the browser are real. The secrets typed were throwaway
 strings; no operator credential was used.
@@ -98,7 +98,7 @@ request, not committed here.
   offers to save the value cannot be observed in headless Chrome; the field
   uses `autocomplete="one-time-code"` so browsers treat it as a one-time code.
 - The 15-minute expiry and the 10-minute file deletion are covered by
-  `server/secret-requests.test.ts` with mocked timers, not by waiting in the
+  `server/agent-tools/secret-requests.test.ts` with mocked timers, not by waiting in the
   browser. A PI worker call that waits more than five minutes was checked by
   hand against a loopback server that replied after 310 s: the bridge client
   succeeded where `fetch` failed with `UND_ERR_HEADERS_TIMEOUT` after 301 s.

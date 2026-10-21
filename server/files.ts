@@ -13,19 +13,36 @@ import { constants } from "node:fs";
 import { access, chmod, lstat, mkdir, open, readdir, readFile, realpath, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, posix, relative, resolve, sep } from "node:path";
-import {
-  MAX_EDITABLE_FILE_BYTES,
-  MAX_RAW_FILE_BYTES,
-  MAX_RESOLVE_PATH_LENGTH,
-  fileExtension,
-  previewMimeType,
-  type FileEntry,
-  type FileLocation,
-  type FileRead,
-  type FileSaved,
-  type FilesListing,
-  type FilesSearch,
-} from "../shared/files.ts";
+import type { FileEntry, FileLocation, FileRead, FileSaved, FilesListing, FilesSearch } from "./api/files.ts";
+
+export const MAX_RESOLVE_PATHS = 100;
+export const MAX_RESOLVE_PATH_LENGTH = 1024;
+export const MAX_EDITABLE_FILE_BYTES = 2_000_000;
+export const MAX_RAW_FILE_BYTES = 64 * 1024 * 1024;
+
+const IMAGE_TYPES: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  avif: "image/avif",
+  bmp: "image/bmp",
+  ico: "image/x-icon",
+};
+
+export function fileExtension(name: string): string {
+  const base = name.slice(name.lastIndexOf("/") + 1);
+  const dot = base.lastIndexOf(".");
+  return dot > 0 ? base.slice(dot + 1).toLowerCase() : "";
+}
+
+
+export function previewMimeType(name: string): string {
+  const extension = fileExtension(name);
+  if (extension === "pdf") return "application/pdf";
+  return IMAGE_TYPES[extension] ?? "application/octet-stream";
+}
 
 /** A refusal with the HTTP status the route answers. */
 export class FilesError extends Error {

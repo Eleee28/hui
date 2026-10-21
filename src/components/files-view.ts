@@ -4,10 +4,11 @@
  * selected file: text in CodeMirror with autosave, Markdown as Source or Rendered, images and PDFs as previews and
  * anything else as metadata with a download.
  *
- * It owns presentation and per-view state (`files-view-state.ts`); the File draft (`file-draft.ts`) owns unsaved text
- * and saves, shared with other views of the same file; the gateway owns the disk. The editor itself loads on demand
- * (`file-editor.ts`). It refreshes when the conversation's agent turn ends and when it becomes visible again. A reveal
- * request (a file reference clicked in the chat, `files-view-state.ts`) opens a file at a line or a folder in the tree.
+ * It owns presentation and per-view state (`lib/files/view-state.ts`); the File draft (`lib/files/draft.ts`) owns
+ * unsaved text and saves, shared with other views of the same file; the gateway owns the disk. The editor itself loads
+ * on demand (`lib/files/editor.ts`). It refreshes when the conversation's agent turn ends and when it becomes visible
+ * again. A reveal request (a file reference clicked in the chat, `lib/files/view-state.ts`) opens a file at a line or a
+ * folder in the tree.
  *
  * Behaviour follows AgentsInTheCloud's Files view (packages/files, MIT, see THIRD_PARTY_NOTICES.md); the markup is HUI's.
  * No decorators: the Work pane's view registry, which imports this lazily, also loads in Node tests.
@@ -18,14 +19,16 @@ import { HuiElement } from "../lit/hui-element.ts";
 import { icons } from "../lib/icons.ts";
 import { loadViewAssets } from "../lib/view-assets.ts";
 import { closeModal, ensureModal } from "../lib/modal-dialog.ts";
-import { renderMarkdown } from "../lib/markdown.ts";
+import { renderMarkdown } from "../lib/markdown/markdown.ts";
 import { writeClipboardText } from "../lib/clipboard.ts";
-import { isMarkdownPath, type FileEntry, type FileRead, type FilesInfo, type FilesSearch } from "../../shared/files.ts";
+import { isMarkdownPath } from "../api/files.ts";
+import type { FileEntry, FileRead, FilesInfo, FilesSearch } from "../api/schema/files.ts";
 import { editFileText, editorText, type FileTextChange } from "../lib/editable-text.ts";
-import { draftKey, draftStatus, existingDraft, forgetDraft, hasUnsavedDrafts, openDraft, releaseDraft, type DraftFile, type FileDraft } from "../lib/file-draft.ts";
+import { draftKey, draftStatus, existingDraft, forgetDraft, hasUnsavedDrafts, openDraft, releaseDraft, type DraftFile, type FileDraft } from "../lib/files/draft.ts";
 import {
   createEntry,
   deleteEntry,
+  fetchPreviewBlob,
   fetchRawFile,
   FilesRequestError,
   listDirectory,
@@ -34,10 +37,10 @@ import {
   saveFile,
   searchFiles,
   uploadFile,
-} from "../lib/files-store.ts";
-import { onFilesViewReveal, readFilesViewState, takeFilesViewReveal, writeFilesViewState, type FilesViewReveal, type MarkdownDisplayMode } from "../lib/files-view-state.ts";
-import { onTurnEnd } from "../lib/session-turn-end.ts";
-import type { FileEditorHandle } from "../lib/file-editor.ts";
+} from "../api/files.ts";
+import { onFilesViewReveal, readFilesViewState, takeFilesViewReveal, writeFilesViewState, type FilesViewReveal, type MarkdownDisplayMode } from "../lib/files/view-state.ts";
+import { onTurnEnd } from "../lib/session/turn-end.ts";
+import type { FileEditorHandle } from "../lib/files/editor.ts";
 
 loadViewAssets(() => import("../styles/files-view.css"));
 
@@ -94,9 +97,9 @@ function guardUnload(): void {
   });
 }
 
-let loadEditor: Promise<typeof import("../lib/file-editor.ts")> | undefined;
+let loadEditor: Promise<typeof import("../lib/files/editor.ts")> | undefined;
 function editorModule() {
-  loadEditor ??= import("../lib/file-editor.ts").catch((error: unknown) => { loadEditor = undefined; throw error; });
+  loadEditor ??= import("../lib/files/editor.ts").catch((error: unknown) => { loadEditor = undefined; throw error; });
   return loadEditor;
 }
 
@@ -485,7 +488,7 @@ export class HuiFilesView extends HuiElement {
     this.draft = draft;
     this.draftKeyValue = key;
     draft.listeners.add(this.draftListener);
-    let module: typeof import("../lib/file-editor.ts");
+    let module: typeof import("../lib/files/editor.ts");
     try {
       module = await editorModule();
     } catch (error) {
@@ -822,7 +825,7 @@ export class HuiFilesView extends HuiElement {
     const file = this.file;
     if (!file) return;
     try {
-      const blob = this.previewUrl ? await (await fetch(this.previewUrl)).blob() : await fetchRawFile(this.sessionId, file.path);
+      const blob = this.previewUrl ? await fetchPreviewBlob(this.previewUrl) : await fetchRawFile(this.sessionId, file.path);
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;

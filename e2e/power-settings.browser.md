@@ -81,5 +81,5 @@ withdrawn prompt and a quick restart. Those are covered by
 `server/power.test.ts`, which runs the real root watcher script through fake
 `osascript`/`pmset` executables. Whether killing `osascript` also closes macOS's
 dialog is unverified. Off macOS, `GET /__hui/power` returns `null`, so the
-section and notice are absent (covered by `server/power-routes.test.ts` and
+section and notice are absent (covered by `server/routes/power.test.ts` and
 `src/views/settings-gateway.test.ts`).

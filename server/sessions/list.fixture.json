@@ -1,0 +1,149 @@
+{
+  "lists": [
+    [
+      {
+        "label": "work",
+        "sessions": [
+          {
+            "id": "a",
+            "title": "A"
+          },
+          {
+            "id": "b",
+            "title": "B"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "label": "work",
+        "sessions": [
+          {
+            "id": "a",
+            "title": "A"
+          },
+          {
+            "id": "b",
+            "title": "B2"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "label": "done",
+        "cwd": "/repo",
+        "workspaceMode": "worktree",
+        "sessions": [
+          {
+            "id": "b",
+            "title": "B2"
+          }
+        ]
+      },
+      {
+        "label": "work",
+        "sessions": []
+      }
+    ],
+    [
+      {
+        "label": "done",
+        "cwd": "/repo",
+        "workspaceMode": "worktree",
+        "sessions": [
+          {
+            "id": "b",
+            "title": "B2"
+          }
+        ]
+      },
+      {
+        "label": "work",
+        "sessions": [
+          {
+            "id": "c",
+            "title": "C"
+          }
+        ]
+      }
+    ]
+  ],
+  "frames": [
+    {
+      "revision": 0,
+      "groups": [
+        {
+          "label": "work",
+          "ids": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "upserts": [
+        {
+          "id": "a",
+          "title": "A"
+        },
+        {
+          "id": "b",
+          "title": "B"
+        }
+      ]
+    },
+    {
+      "revision": 1,
+      "upserts": [
+        {
+          "id": "b",
+          "title": "B2"
+        }
+      ]
+    },
+    {
+      "revision": 2,
+      "groups": [
+        {
+          "label": "done",
+          "cwd": "/repo",
+          "workspaceMode": "worktree",
+          "ids": [
+            "b"
+          ]
+        },
+        {
+          "label": "work",
+          "ids": []
+        }
+      ],
+      "upserts": []
+    },
+    {
+      "revision": 3,
+      "groups": [
+        {
+          "label": "done",
+          "cwd": "/repo",
+          "workspaceMode": "worktree",
+          "ids": [
+            "b"
+          ]
+        },
+        {
+          "label": "work",
+          "ids": [
+            "c"
+          ]
+        }
+      ],
+      "upserts": [
+        {
+          "id": "c",
+          "title": "C"
+        }
+      ]
+    }
+  ]
+}

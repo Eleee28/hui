@@ -4,39 +4,59 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import type { ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test } from "vitest";
 import { waitFor } from "./test-support/wait-for.ts";
+import { SessionStatusStreamFrame } from "./api/sessions.ts";
+import { expectSchema } from "./test-support/api-schema.ts";
 
 // Keep all filesystem-backed module state isolated, including on a failed
 // assertion. The registry and attachment paths are captured at import time.
 process.env["XDG_CONFIG_HOME"] = await mkdtemp(join(tmpdir(), "hui-sse-"));
 
 const {
+  streamSession,
+  streamSessionStatuses,
+} = await import("./hui.ts");
+const {
+  reattachAfterStoreFailure,
+  recoverInterruptedSessions,
+  reopenDurableSessions,
+} = await import("./backend.ts");
+const { sessionMutationErrorStatus } = await import("./routes/sessions.ts");
+const { readAttachments, storeAttachmentFile } = await import("./sessions/attachments.ts");
+const { createSessionLifecycle } = await import("./sessions/lifecycle.ts");
+const { setAgentStage } = await import("./sessions/stages.ts");
+const { createSessionViews } = await import("./sessions/views.ts");
+const {
   createSession,
   deleteSession,
   forkFromSession,
   forkRequest,
   forkSession,
-  readAttachments,
-  reattachAfterStoreFailure,
-  recoverInterruptedSessions,
-  reopenDurableSessions,
   renameWithGeneratedTitle,
-  sessionMutationErrorStatus,
-  storeAttachmentFile,
-  streamSession,
   startWorktreeSession,
-  streamSessionStatuses,
-  setAgentStage,
   updateSession,
-} = await import("./hui.ts");
-const { LiveSessions } = await import("./live-sessions.ts");
-const { SessionRegistryError } = await import("./sessions.ts");
-const { runGit } = await import("./worktrees.ts");
-type SessionStreamMessage = import("./live-sessions.ts").SessionStreamMessage;
-type SessionStatusUpdate = import("./live-sessions.ts").SessionStatusUpdate;
-type SessionSnapshot = import("./live-sessions.ts").SessionSnapshot;
-type SessionRecord = import("./sessions.ts").SessionRecord;
+} = createSessionLifecycle({
+  views: createSessionViews({
+    bots: () => ({ identity: () => undefined }),
+    botRegistry: { list: async () => [] },
+    pullRequestStatuses: () => ({ view: (ref) => ref }),
+    jiraIssues: () => [],
+    watchers: () => ({ list: () => [] }),
+  }),
+  readAttachments,
+  subagents: () => ({ forgetSessions: () => undefined }),
+  taskSuggestions: () => ({ forget: () => undefined }),
+  watchers: () => ({ forget: async () => undefined }),
+  managedBrowser: () => ({ closeOwner: () => undefined }),
+});
+const { LiveSessions } = await import("./sessions/live-sessions.ts");
+const { SessionRegistryError } = await import("./sessions/sessions.ts");
+const { runGit } = await import("./git/worktrees.ts");
+type SessionStreamMessage = import("./sessions/live-sessions.ts").SessionStreamMessage;
+type SessionStatusUpdate = import("./sessions/live-sessions.ts").SessionStatusUpdate;
+type SessionSnapshot = import("./sessions/live-sessions.ts").SessionSnapshot;
+type SessionRecord = import("./sessions/sessions.ts").SessionRecord;
 
 test("gateway startup eagerly opens only interrupted sessions", () => {
   const now = new Date().toISOString();
@@ -221,6 +241,12 @@ test("the gateway status stream multiplexes tagged session lifecycle updates", (
     /event: status\ndata: \{"id":"session-a","status":"idle"\}\n\n/,
   );
   assert.match(response.chunks.join(""), /event: sessions\ndata: \{"revision":1,"groups":\[\{"label":"work","ids":\[\]\}\],"upserts":\[\]\}\n\n/);
+  for (const block of response.chunks.join("").trim().split("\n\n")) {
+    const event = block.match(/^event: (.+)$/mu)?.[1];
+    const data = block.match(/^data: (.+)$/mu)?.[1];
+    assert.ok(event && data);
+    expectSchema(SessionStatusStreamFrame, { event, data: JSON.parse(data) });
+  }
   assert.equal(unsubscribed, true);
   assert.equal(unlisted, true);
 });

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { pickerRows } from "./picker-options.ts";
 
 const fonts = ["JetBrains Mono", "MesloLGS NF", "Hack Nerd Font Mono"].map((font) => ({ value: font, label: font }));

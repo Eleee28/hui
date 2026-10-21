@@ -1,17 +1,8 @@
-/** Browser half of the Contributions page: loads the gateway's GitHub activity
- * and buckets its timestamps into local-time days and Sunday-first weeks. */
-import type { GitHubContributions } from "../../shared/github.ts";
-import { fetchJson } from "./settings-store.ts";
-
+/** Browser half of the Contributions page: buckets the gateway's GitHub activity timestamps into local-time days
+ * and Sunday-first weeks. The request lives in src/api/github-contributions.ts. */
 export type ContributionMetric = "commits" | "pullRequests";
 export type ContributionDay = { date: Date; count: number };
 export type ContributionWeek = { days: ContributionDay[]; total: number };
-
-/** `year` omitted: the last year. */
-export function loadGitHubContributions(year?: number, refresh = false): Promise<GitHubContributions> {
-  const query = new URLSearchParams({ ...(year === undefined ? {} : { year: String(year) }), ...(refresh ? { refresh: "1" } : {}) });
-  return fetchJson<GitHubContributions>(`/__hui/github/contributions${query.size ? `?${query}` : ""}`, { signal: AbortSignal.timeout(180_000) });
-}
 
 export function metricLabel(metric: ContributionMetric, count: number): string {
   const noun = metric === "commits" ? "commit" : "pull request";

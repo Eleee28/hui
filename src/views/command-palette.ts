@@ -6,7 +6,7 @@ import { html, nothing, type TemplateResult } from "lit";
 
 import { icons } from "../lib/icons.ts";
 import type { HuiPage } from "../lib/pages.ts";
-import type { SessionGroup, SessionView } from "../lib/sessions-store.ts";
+import type { SessionGroup, SessionView } from "../api/sessions.ts";
 import { SETTINGS_PAGES, type SettingsPage } from "./settings.ts";
 
 export type CommandPaletteAction =

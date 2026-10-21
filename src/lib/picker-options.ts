@@ -1,5 +1,14 @@
-/** Search filtering shared by the settings pickers, including the optional typed custom row. */
-import type { PickerOption } from "../views/settings-picker.ts";
+/**
+ * The settings pickers' option (OpenClaw v2026.9.5 picker contract, MIT) and the search filtering they share,
+ * including the optional typed custom row.
+ */
+export type PickerOption = {
+  value: string;
+  label: string;
+  description?: string;
+  labelStyle?: string;
+  disabled?: boolean;
+};
 
 /**
  * Rows shown by a picker for a search query. A picker with `customOption`

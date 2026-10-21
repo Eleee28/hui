@@ -32,6 +32,12 @@ details in the owning directory guide.
   explicit CLI fallback.
 - Keep the browser free of filesystem and child-process access. All PI and local
   state access crosses typed `/__hui/` routes owned by `server/`.
+- The browser consumes `/__hui/` only. No code is shared between `src/` and
+  `server/`, `cli/` or `desktop/`. `scripts/boundaries.test.mjs` enforces this
+  and the other dependency rules in `docs/map.md`, with no exceptions. The
+  server publishes its payloads as JSON Schema (`docs/api.schema.json`,
+  `GET /__hui/api-schema`), and the browser's payload types are generated from
+  it with `npm run api:schema`.
 - Runtime integrations implement the generic contract in `server/runtimes/`.
   Do not leak PI-specific protocol details into views.
 - The agreed product currently uses full access. Do not introduce Agents,
@@ -78,6 +84,11 @@ details in the owning directory guide.
   GitHub attachment delivery fails, keep the PR draft and report the proof gap
   instead of storing the images in the source tree. Report chat delivery gaps too.
   Keep unrelated changes and personal workspace files out of commits.
+- This repository is public. Keep Datadog-internal material out of commits, PRs,
+  issues and comments: internal tools, infrastructure, hostnames, repositories,
+  services, people, channels and workflows that only work inside Datadog. They
+  belong in local skills or extensions. Features built on Datadog's public product
+  and APIs, such as the Datadog embeds, are fine.
 
 ## Pull requests
 
@@ -107,6 +118,8 @@ details in the owning directory guide.
 - User installation and developer onboarding live in `README.md`, with longer
   user reference in `docs/guide.md`; the fuller contribution loop and release
   checklist live in `CONTRIBUTING.md`.
+- A release that adds user-visible features ships with a narrated demo video of
+  them: follow [hui-release-video](.agents/skills/hui-release-video/SKILL.md).
 - The repository is private and HUI is distributed as a `.tgz`, not through the
   public npm registry. A new machine can clone `main`, run `npm ci` and `npm pack`,
   or download a checksum-paired archive from a GitHub Release once one exists.

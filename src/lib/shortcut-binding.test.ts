@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { ariaShortcut, formatShortcut, matchesShortcut, shortcutChord, type ShortcutEvent } from "./shortcut-binding.ts";
 
 const press = (code: string, modifiers: Partial<ShortcutEvent> = {}): ShortcutEvent => ({

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { groupCheckoutDefaults } from "./group-session-defaults.ts";
 
 const checkout = { available: true, headBranch: "feature/current", defaultBranch: "main", branches: ["main", "release"] };

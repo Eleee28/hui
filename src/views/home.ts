@@ -1,7 +1,8 @@
 /**
- * The chat view and the New Session form, as render functions of `HomeProps`: launch form, transcript, composer and
- * its pickers, queue, questions, session header and bot identity. All state arrives in props and changes leave
- * through callbacks; the app element owns that state, and the chat projection decides the transcript's rows.
+ * The chat view and the New Session form, as render functions of `HomeProps`: launch form, transcript (with who sent
+ * each message HUI delivered from a bot, a session, a routine or a trigger, and what the agent handed a bot),
+ * composer and its pickers, queue, questions, session header and bot identity. All state arrives in props and changes
+ * leave through callbacks; the app element owns that state, and the chat projection decides the transcript's rows.
  */
 import { formatCount, metricSummary, relativeTime, replyDraft } from "../lib/message-metadata.ts";
 import { renderDirectoryPicker } from "./directory-picker.ts";
@@ -9,7 +10,7 @@ import { html, nothing, type TemplateResult } from "lit";
 import { ref } from "lit/directives/ref.js";
 import { renderPaneMoveHandle } from "./pane-move-handle.ts";
 import { matchesModelSearch, modelSearchText } from "../lib/model-selection.ts";
-import { sessionGroupLabel, unreachableHost } from "../lib/sessions-store.ts";
+import { sessionGroupLabel, unreachableHost } from "../lib/session/sessions.ts";
 import type {
   Attachment,
   RuntimeModel,
@@ -29,33 +30,36 @@ import type {
   TranscriptItem,
   GitCheckoutInfo,
   WorktreeProgress,
-} from "../lib/sessions-store.ts";
+} from "../api/sessions.ts";
 import { attachmentPreview } from "../lib/attachments.ts";
 import { renderAttachmentFileIcon, resolveAttachmentFileIcon } from "../lib/attachment-file-icon.ts";
-import { isSubagentActive, subagentElapsed, subagentVisualState } from "../lib/subagent-activity.ts";
-import { composerEnterMode } from "../lib/composer-state.ts";
-import { compactionBlocks, noteAnnouncement, type NoteLevel } from "../lib/session-ui-state.ts";
-import { adjustTextareaHeight as syncComposerTextarea } from "../lib/composer-textarea.ts";
+import { latestSubagentBatch, subagentElapsed, subagentVisualState, type SubagentVisualState } from "../lib/subagent-activity.ts";
+import { composerEnterMode, composerPlaceholder } from "../lib/composer/state.ts";
+import { APPLE_PLATFORM } from "../lib/shortcut-binding.ts";
+import { compactionBlocks, noteAnnouncement, type NoteLevel } from "../lib/session/ui-state.ts";
+import { adjustTextareaHeight as syncComposerTextarea } from "../lib/composer/textarea.ts";
 import { icons } from "../lib/icons.ts";
+import { isThinkingLevel, PI_THINKING_LEVELS, THINKING_LABELS, THINKING_LEVELS, type ThinkingLevel } from "../lib/thinking.ts";
 import { forkPoint } from "../lib/fork-point.ts";
 import { closeDropdownOnEscape, labelDropdown } from "../lib/web-awesome.ts";
-import type { SplitDirection } from "../lib/session-multiplexer.ts";
-import { renderAgentMarkdown, renderMarkdown } from "../lib/markdown.ts";
+import type { SplitDirection } from "../lib/session/multiplexer.ts";
+import { renderAgentMarkdown, renderMarkdown } from "../lib/markdown/markdown.ts";
 import "../components/file-link.ts";
 import "../components/github-embeds.ts";
+import "../components/datadog-embeds.ts";
 import "../components/browser-preview.ts";
 import "../components/widget-card.ts";
 import "../components/questionnaire-card.ts";
-import type { QuestionnaireResult } from "../../server/questionnaires.ts";
-import { handleCodeBlockDisclosure, markdownBlocks } from "../lib/markdown-blocks.ts";
+import type { QuestionnaireQuestion, QuestionnaireResult } from "../api/schema/sessions.ts";
+import { handleCodeBlockDisclosure, markdownBlocks } from "../lib/markdown/blocks.ts";
 import { openMessageContextMenu } from "../lib/message-context-menu.ts";
 import { progressCardFromTranscript } from "../lib/progress-card.ts";
 import { mediaSizeLabel, presentedMediaFromDetails, type PresentedMediaItem } from "../lib/presented-media.ts";
 import { widgetView, type WidgetView } from "../lib/widgets.ts";
 import type { RunErrorNotice } from "../lib/run-error.ts";
 import { renderProviderBrandIcon } from "../lib/provider-icons.ts";
-import { parseSlackLink } from "../lib/slack-link.ts";
-import { activityLabel, browserPreviewRow, projectChatTranscript, workingLabel, type ChatActivity, type ChatMessage, type ChatProjectionRow } from "./chat/projection.ts";
+import { parseSlackLink } from "../lib/markdown/slack-link.ts";
+import { activityLabel, attributedMessage, browserPreviewRow, projectChatTranscript, workingLabel, type ChatActivity, type ChatMessage, type ChatProjectionRow, type MessageSender } from "./chat/projection.ts";
 import { conversationMarkers } from "./chat/position-rail-model.ts";
 import { positionRail } from "./chat/position-rail.ts";
 import { readToolPresentation, renderReadToolCard, renderToolFileReference, toolFilePath } from "./chat/read-tool-card.ts";
@@ -66,11 +70,12 @@ import { renderWatcherActivity, type WatcherActivityProps } from "./chat/watcher
 import { browserToolSummary } from "../lib/browser-tool-display.ts";
 import { toggleNavigationDrawer } from "./shell.ts";
 import { renderBotAvatar } from "./bots.ts";
-import { chatFaceState, hasRunningTool, type BotFaceState } from "../lib/bot-face.ts";
+import { chatFaceState, hasRunningTool, type BotFaceState } from "../lib/bots/face.ts";
 import { renderCallButton } from "./bot-voice.ts";
 import { renderCallCard } from "./chat-call.ts";
-import type { BotView } from "../lib/bots.ts";
-import { slashCommandQuery } from "../lib/slash-commands.ts";
+import { botLook, previewLine, type BotView } from "../lib/bots/bots.ts";
+import { navigationPath } from "../lib/navigation.ts";
+import { slashCommandQuery, type CommandQuery } from "../lib/composer/slash-commands.ts";
 import { renderSlashMenu, SLASH_MENU_ID, slashOptionId, type SlashMenuProps } from "./slash-menu.ts";
 import { localPathQuery, type LocalPathQuery } from "../lib/local-paths.ts";
 import { worktreeProgressLabel } from "../lib/worktree-progress.ts";
@@ -106,6 +111,8 @@ const STATUS_TEXT: Record<SessionStatus, string> = {
 };
 
 const SEND_LONG_PRESS_MS = 450;
+export const TRANSCRIPT_SCROLLER_SELECTOR = ".chat-thread";
+export const QUESTION_FOCUS_SELECTOR = '.session-question-card :is([role="radio"], [role="checkbox"])[tabindex="0"], .session-question-card input:not([type="hidden"]), .session-question-card textarea';
 const sendLongPressTimers = new WeakMap<HTMLElement, number>();
 const consumedSendLongPresses = new WeakSet<HTMLElement>();
 const composerDragDepth = new WeakMap<HTMLElement, number>();
@@ -132,7 +139,9 @@ function renderProviderIcon(provider: string, trigger = false) {
   );
 }
 
+/** Render reads it for the composer's placeholder, so it answers false where there is no window (Node render tests). */
 function hasCoarsePointer(): boolean {
+  if (typeof window === "undefined") return false;
   return window.matchMedia?.("(pointer: coarse)").matches === true || navigator.maxTouchPoints > 0;
 }
 
@@ -209,6 +218,9 @@ export type HomeProps = {
   fileLinks?: boolean;
   mobileNavLayout?: boolean;
   groups: readonly SessionGroup[];
+  /** Any session by id, a bot's chat and subagents included (session lists leave those out): names and links the
+   * session a message came from. */
+  findSession: (id: string) => SessionView | undefined;
   transcript: readonly TranscriptItem[];
   subagents: readonly SubagentTaskView[];
   /** Waiting on the server to open or start the runtime. */
@@ -227,9 +239,12 @@ export type HomeProps = {
     collapseTaskProgress: boolean;
     sendShortcut: "enter" | "modifierEnter";
     githubEmbeds: boolean;
+    datadogEmbeds: boolean;
   };
   queue: QueueSnapshot;
   thinking: string;
+  /** Fast mode; absent while the runtime cannot change speed. */
+  fast?: boolean;
   question: RuntimeQuestion | undefined;
   connection: SessionConnection;
   copiedId: string;
@@ -259,7 +274,7 @@ export type HomeProps = {
   onDismissNote: () => void;
   /** A muted line about the event stream: reconnecting, or why it stopped. */
   connectionNote: string;
-  onLaunch: (input: { cwd: string; title?: string; group?: string; prompt?: string; commandDraft?: string; model?: string; thinking?: string; worktree?: boolean; branchName?: string; baseRef?: string; worker?: string }) => void;
+  onLaunch: (input: { cwd: string; title?: string; group?: string; prompt?: string; commandDraft?: string; model?: string; thinking?: string; fast?: boolean; worktree?: boolean; branchName?: string; baseRef?: string; worker?: string }) => void;
   onSelectSession: (session: SessionView) => void;
   /** Pane identity keeps controls unique when the same session is split twice. */
   controlScope?: string;
@@ -283,7 +298,7 @@ export type HomeProps = {
   onDraftChange: (draft: string) => void;
   onDraftInput: (draft: string) => void;
   commandMenu: SlashMenuProps;
-  onCommandQuery: (query: string | null) => void;
+  onCommandQuery: (query: CommandQuery | null) => void;
   onCommandKeydown: (event: KeyboardEvent) => void;
   localPathMenu: LocalPathMenuProps;
   onLocalPathQuery: (query: LocalPathQuery | null, cwd?: string) => void;
@@ -305,6 +320,7 @@ export type HomeProps = {
   onDismissRunError: () => void;
   onSelectModel: (provider: string, modelId: string) => void;
   onSelectThinking: (level: string) => void;
+  onSelectFast: (fast: boolean) => void;
   onAbort: () => void;
   onContinue: () => void;
   /** Rewind to before a user message, restoring its text and attachments to the composer. */
@@ -341,8 +357,10 @@ export type HomeProps = {
   launchModels: readonly RuntimeModel[];
   launchModel: RuntimeModel | undefined;
   launchThinking: string;
+  launchFast: boolean;
   onSelectLaunchModel: (provider: string, modelId: string) => void;
   onSelectLaunchThinking: (level: string) => void;
+  onSelectLaunchFast: (fast: boolean) => void;
   directorySuggestions: readonly string[];
   onDirectoryInput: (value: string) => void;
   branchPrefix: string;
@@ -363,6 +381,10 @@ export type HomeProps = {
   onOpenBranchPrefixSettings: () => void;
   /** Present when this pane is a bot's permanent chat in the bot view. */
   bot?: HomeBot;
+  /** The bots whose faces show on the messages they sent and on what the agent sent them. */
+  bots?: readonly Pick<BotView, "id" | "handle" | "name" | "avatar">[];
+  /** Opens a bot's chat; without it a bot's name is not a link. */
+  onOpenBot?: (botId: string) => void;
   /** The bot header's Call button: present while the bot can be called; starts a call or returns to the one under way. */
   call?: { inCall: boolean; onCall: () => void };
 };
@@ -439,6 +461,7 @@ function onSubmit(props: HomeProps) {
       ...(value("group") ? { group: value("group") } : {}),
       ...(props.launchModel ? { model: modelValue(props.launchModel) } : {}),
       ...(props.launchThinking ? { thinking: props.launchThinking } : {}),
+      ...(props.launchFast && props.launchModel?.fast ? { fast: true } : {}),
       ...(props.launchWorker ? { worker: props.launchWorker } : props.workspaceWorktree ? {
         worktree: true,
         ...(props.workspaceBranch ? { branchName: props.workspaceBranch } : {}),
@@ -627,12 +650,13 @@ function renderCheckoutPicker(props: HomeProps) {
 }
 
 function renderLaunchForm(props: HomeProps) {
+  const commandQuery = slashCommandQuery(props.draft, props.draft.length);
   const groupOptions = [...new Set(props.groups.map((group) => group.label))];
   const initialGroup = props.launchDefaults?.group ?? "";
   const initialGroupLabel = initialGroup || "ungrouped";
   const recent = props.groups
     .flatMap((group) => group.sessions)
-    .filter((session) => !session.archived)
+    .filter((session) => !session.archived && !session.parentId)
     .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
     .slice(0, 5);
   return html`
@@ -676,8 +700,8 @@ function renderLaunchForm(props: HomeProps) {
           <div class="agent-chat__input agent-chat__input--mobile-toolbar" @click=${focusComposerFromSurface}>
             ${renderLocalPathMenu({ ...props.localPathMenu, id: sessionControlId(props, LOCAL_PATH_MENU_ID) })}
             ${renderSlashMenu({ ...props.commandMenu, id: sessionControlId(props, SLASH_MENU_ID), loading: false, error: "", streaming: false,
-              commands: props.commandMenu.commands, browseSession: !props.launching,
-              open: props.commandMenu.open && slashCommandQuery(props.draft, props.draft.length) !== null })}
+              commands: props.commandMenu.commands, browseSession: !props.launching && commandQuery?.start === 0,
+              open: props.commandMenu.open && commandQuery !== null })}
             <div class="agent-chat__composer-lede">${renderAttachments(props)}</div>
             <div class="agent-chat__composer-input-row">
               <div class="agent-chat__composer-combobox">
@@ -741,8 +765,11 @@ function renderLaunchForm(props: HomeProps) {
                   })}
                   ${renderThinkingPicker({
                     level: props.launchThinking,
+                    // New sessions run on Durable, which adds Ultra to the model's own levels.
+                    levels: props.launchModel?.thinkingLevels && [...props.launchModel.thinkingLevels, "ultra"],
                     disabled: props.launching,
                     onSelect: props.onSelectLaunchThinking,
+                    ...(props.launchModel?.fast ? { fast: { on: props.launchFast, onSelect: props.onSelectLaunchFast } } : {}),
                   })}
                 </div>
                 <div class="agent-chat__composer-actions">
@@ -845,18 +872,20 @@ export function isLongPrompt(text: string): boolean {
   return text.length > 700 || text.split("\n").length > 10;
 }
 
-function renderUserText(props: HomeProps, item: ChatMessage) {
-  const slack = parseSlackLink(item.text.trim());
+/** A user-role message's text: the operator's own (or a routine's or trigger's) plain, a bot's or a session's (`markdown`)
+ * rendered as the agents write it. */
+function renderUserText(props: HomeProps, item: ChatMessage, embeds: boolean, text = item.text, markdown = false) {
+  const slack = embeds ? parseSlackLink(text.trim()) : undefined;
   if (slack) return html`<div class="chat-text chat-text--plain chat-text--rich-link"><hui-slack-link
     data-url=${slack.url}
     data-workspace=${slack.workspace}
     data-channel-id=${slack.channelId}
     data-kind=${slack.kind}
   ></hui-slack-link></div>`;
-  if (!isLongPrompt(item.text)) return html`<div class="chat-text chat-text--plain">${item.text}</div>`;
+  if (!isLongPrompt(text)) return markdown ? html`<div class="chat-text">${renderAgentMarkdown(text, embeds)}</div>` : html`<div class="chat-text chat-text--plain">${text}</div>`;
   const id = `${props.session?.id ?? "session"}:prompt:${item.id}`;
   const expanded = props.expandedActivityIds.has(id);
-  return html`<div class="chat-text chat-text--plain chat-text--collapsible ${expanded ? "" : "chat-text--collapsed"}">${item.text}</div>
+  return html`<div class="chat-text ${markdown ? "" : "chat-text--plain"} chat-text--collapsible ${expanded ? "" : "chat-text--collapsed"}">${markdown ? renderAgentMarkdown(text, embeds) : text}</div>
     <button type="button" class="chat-prompt-toggle" aria-expanded=${expanded ? "true" : "false"} @click=${() => props.onActivityExpanded(id, !expanded)}>
       ${expanded ? "Show less" : "Show more"}<span class="chat-prompt-toggle__icon ${expanded ? "is-open" : ""}" aria-hidden="true">${chevronDownIcon}</span>
     </button>`;
@@ -889,21 +918,26 @@ function replyToMessage(event: Event, props: HomeProps, text: string) {
   });
 }
 
-function renderMessage(props: HomeProps, item: ChatMessage): TemplateResult {
+/** `embeds`: link previews and cards, which only the latest user message and the latest reply draw.
+ * `attributed`: a message HUI delivered from someone else, shown without its header. */
+function renderMessage(props: HomeProps, item: ChatMessage, embeds: boolean, attributed?: { sender: MessageSender; body: string }): TemplateResult {
+  const shown = attributed?.body ?? item.text;
   return html`<div
     class="chat-bubble ${item.attachments?.length ? "chat-bubble--with-files" : ""} ${item.pending ? "streaming" : ""} ${item.failed ? "chat-bubble--failed" : ""}"
     data-message-id=${item.id}
     tabindex="0"
-    @contextmenu=${(event: MouseEvent) => openMessageContextMenu(event, item.text, (text) => props.onCopy(text, `message-${item.id}`))}
-    @keydown=${(event: KeyboardEvent) => openMessageContextMenu(event, item.text, (text) => props.onCopy(text, `message-${item.id}`))}
+    @contextmenu=${(event: MouseEvent) => openMessageContextMenu(event, shown, (text) => props.onCopy(text, `message-${item.id}`))}
+    @keydown=${(event: KeyboardEvent) => openMessageContextMenu(event, shown, (text) => props.onCopy(text, `message-${item.id}`))}
   >
     ${item.attachments?.length
       ? html`<div class="chat-assistant-attachments" role="list" aria-label="Attachments">
           ${item.attachments.map((attachment) => renderMessageAttachment(attachment))}
         </div>`
       : nothing}
-    ${item.role === "user" ? renderUserText(props, item) : html`<div class="chat-text">${renderAgentMarkdown(item.text)}</div>`}
-    ${item.pending || item.failed || !props.chatPreferences.githubEmbeds ? nothing : html`<hui-github-embeds .text=${item.text}></hui-github-embeds>`}
+    ${attributed ? renderUserText(props, item, embeds, attributed.body, attributed.sender.kind !== "routine" && attributed.sender.kind !== "trigger")
+      : item.role === "user" ? renderUserText(props, item, embeds) : html`<div class="chat-text">${renderAgentMarkdown(item.text, embeds)}</div>`}
+    ${!embeds || item.pending || item.failed || !props.chatPreferences.githubEmbeds ? nothing : html`<hui-github-embeds .text=${item.text}></hui-github-embeds>`}
+    ${!embeds || item.pending || item.failed || !props.chatPreferences.datadogEmbeds ? nothing : html`<hui-datadog-embeds .text=${item.text}></hui-datadog-embeds>`}
     ${renderMetrics(item)}
     ${item.pending ? html`<span class="chat-send-status" role="status">Sending…</span>` : nothing}
     ${item.failed ? html`<span class="chat-send-status chat-send-status--failed" role="alert">Not sent — draft recovered.</span>` : nothing}
@@ -911,9 +945,6 @@ function renderMessage(props: HomeProps, item: ChatMessage): TemplateResult {
 }
 
 function renderActivityItem(props: HomeProps, item: ChatActivity): TemplateResult {
-  if (item.kind === "message") {
-    return html`<div class="chat-activity-message">${renderAgentMarkdown(item.text)}</div>`;
-  }
   if (item.kind === "thinking") {
     return html`<div class="chat-activity-message">${renderMarkdown(item.text)}</div>`;
   }
@@ -1004,23 +1035,31 @@ function widgetActivity(items: readonly ChatActivity[]): WidgetView | undefined 
   return view?.state === "failed" ? undefined : view;
 }
 
-/** An answered `ask_user_question` call: what the operator chose, kept in sight
- * like the card it replaced. A running or failed one stays an ordinary tool row. */
-function questionnaireSummary(items: readonly ChatActivity[]): QuestionnaireResult | undefined {
+type QuestionnaireSummary = QuestionnaireResult & { asked: readonly QuestionnaireQuestion[] };
+
+/** An ended `ask_user_question` call, kept in sight like the card it replaced: what the operator chose, or, when
+ * nobody answered in time, what was asked. A running or failed one stays an ordinary tool row. */
+function questionnaireSummary(items: readonly ChatActivity[]): QuestionnaireSummary | undefined {
   const item = items.length === 1 ? items[0] : undefined;
   if (item?.kind !== "tool" || item.name !== "ask_user_question" || item.status !== "succeeded") return undefined;
   const details = item.details as Partial<QuestionnaireResult> | undefined;
   // Only HUI's own result: a PI extension's call of the same name (older transcripts) has another shape.
   const answers = details?.answers;
-  return Array.isArray(answers) && answers.every((answer) => typeof answer?.header === "string" && Array.isArray(answer.selected))
-    ? { cancelled: details?.cancelled === true, answers }
-    : undefined;
+  if (!Array.isArray(answers) || !answers.every((answer) => typeof answer?.header === "string" && Array.isArray(answer.selected))) return undefined;
+  if (details?.timedOut !== true) return { cancelled: details?.cancelled === true, answers, asked: [] };
+  // The call's own input as the model wrote it, before PI's argument conversion took a lone question for a list of one.
+  const raw = (item.args as { questions?: unknown } | undefined)?.questions;
+  const asked = [raw ?? []].flat().filter((question): question is QuestionnaireQuestion => Array.isArray((question as Partial<QuestionnaireQuestion> | null)?.options));
+  return { cancelled: true, answers: [], timedOut: true, timeoutMinutes: details.timeoutMinutes, asked };
 }
 
-function renderQuestionnaireSummary(id: string, result: QuestionnaireResult): TemplateResult {
+function renderQuestionnaireSummary(id: string, result: QuestionnaireSummary): TemplateResult {
   return html`<div class="chat-group tool chat-group--with-footer" data-chat-row-key=${id}>
-    <div class="chat-group-messages"><div class="chat-question-summary" role="note" aria-label="Your answers">
-      ${result.cancelled || !result.answers.length
+    <div class="chat-group-messages"><div class=${result.timedOut ? "chat-question-summary chat-question-summary--expired" : "chat-question-summary"} role="note" aria-label=${result.timedOut ? "Unanswered questions" : "Your answers"}>
+      ${result.timedOut
+        ? html`<div class="chat-question-summary__line"><strong>Expired</strong><span>No answer within ${result.timeoutMinutes} minutes. The agent continued without your answer; reply in the chat to decide.</span></div>
+          ${result.asked.map((question) => html`<div class="chat-question-summary__line"><strong>${question.header}</strong><span>${question.question} <span class="chat-question-summary__options">${question.options.map(({ label }) => label).join(", ")}</span></span></div>`)}`
+        : result.cancelled || !result.answers.length
         ? html`<div class="chat-question-summary__line"><span>You declined to answer.</span></div>`
         : result.answers.map((answer) => html`<div class="chat-question-summary__line" title=${answer.question}><strong>${answer.header}</strong><span>${answer.selected.join(", ")}</span></div>`)}
     </div></div>
@@ -1036,6 +1075,88 @@ function renderWidgetRow(id: string, widget: WidgetView): TemplateResult {
       .unavailable=${widget.state === "unavailable"}
     ></hui-widget-card></div>
     <div class="chat-group-footer"><div class="chat-group-footer__meta"><span class="chat-sender-name">pi</span></div></div>
+  </div>`;
+}
+
+/** Who sent a message, as its row shows them: a face or an icon, a name, what the name opens and the bubble's color. */
+type SenderView = { name: string; avatar: TemplateResult; color?: string; source?: string; link?: { href: string; open: () => void } };
+
+function senderIcon(glyph: unknown): TemplateResult {
+  return html`<span class="chat-sender-icon">${glyph}</span>`;
+}
+
+function senderView(props: HomeProps, sender: MessageSender): SenderView {
+  if (sender.kind === "bot") {
+    const bot = props.bots?.find((candidate) => candidate.handle === sender.handle);
+    // It was deleted: its handle, without a face to guess.
+    if (!bot) return { name: `@${sender.handle}`, avatar: senderIcon(sender.handle.charAt(0).toUpperCase()) };
+    const open = props.onOpenBot;
+    return {
+      name: bot.name, avatar: renderBotAvatar(bot, "sm"), color: botLook(bot).color,
+      ...(open ? { link: { href: navigationPath({ kind: "bot", id: bot.id }), open: () => open(bot.id) } } : {}),
+    };
+  }
+  if (sender.kind === "routine") return { name: sender.name, avatar: senderIcon(icons.calendarClock), source: "Routine" };
+  if (sender.kind === "trigger") return { name: sender.name, avatar: senderIcon(icons.radio), source: sender.summary || "Trigger" };
+  const id = sender.kind === "parent" ? props.session?.parentId : sender.id;
+  const session = id ? props.findSession(id) : undefined;
+  return {
+    name: session?.title ?? (sender.kind === "parent" ? "Parent session" : sender.title),
+    avatar: senderIcon(icons.messageSquare),
+    ...(session ? { link: { href: navigationPath(session.bot ? { kind: "bot", id: session.bot.id } : { kind: "session", id: session.id }), open: () => props.onSelectSubagent(session.id) } } : {}),
+  };
+}
+
+function renderSenderName(view: SenderView): TemplateResult {
+  const link = view.link;
+  const name = link
+    ? html`<a class="chat-sender-name chat-sender-link" href=${link.href} @click=${(event: MouseEvent) => {
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      link.open();
+    }}>${view.name}</a>`
+    : html`<span class="chat-sender-name">${view.name}</span>`;
+  return html`${name}${view.source ? html`<span class="chat-message-source" title=${view.source}>${view.source}</span>` : nothing}`;
+}
+
+/** A `message_bot` call, kept in sight once its turn folds: to whom, and the message, unfolded on request. Until its
+ * arguments name a target it stays an ordinary tool row. */
+function handoffActivity(items: readonly ChatActivity[]) {
+  const item = items.length === 1 ? items[0] : undefined;
+  if (item?.kind !== "tool" || item.name !== "message_bot") return undefined;
+  const args = typeof item.args === "object" && item.args !== null ? item.args as Record<string, unknown> : {};
+  const to = typeof args["to"] === "string" ? args["to"].trim() : "";
+  return to ? { item, to, message: typeof args["message"] === "string" ? args["message"] : "" } : undefined;
+}
+
+function renderHandoff(props: HomeProps, rowId: string, { item, to, message }: NonNullable<ReturnType<typeof handoffActivity>>): TemplateResult {
+  // `message_bot` names a bot by handle or exact name, or a calling agent by its return address.
+  const handle = to.replace(/^@/u, "").toLowerCase();
+  const bot = props.bots?.find((candidate) => candidate.handle === handle || candidate.name.toLowerCase() === to.toLowerCase());
+  const target = senderView(props, to.startsWith("agent:")
+    ? { kind: "session", title: "the calling agent", id: to.slice("agent:".length) }
+    : { kind: "bot", handle: bot?.handle ?? handle });
+  const status = item.status ?? "running";
+  const expansionId = `${props.session?.id ?? "session"}:handoff:${props.transcript.indexOf(item)}:${item.id}`;
+  return html`<div class="chat-group tool chat-group--with-footer" data-chat-row-key=${rowId}>
+    <div class="chat-group-messages">
+      <details class="chat-tool-msg-collapse chat-handoff" data-status=${status} style=${target.color ? `--chat-sender-color: ${target.color}` : nothing}
+        .open=${props.expandedActivityIds.has(expansionId)}
+        @toggle=${(event: Event) => props.onActivityExpanded(expansionId, (event.currentTarget as HTMLDetailsElement).open)}>
+        <summary class="chat-inline-disclosure chat-tool-msg-summary">
+          <span class="chat-handoff__avatar" aria-hidden="true">${target.avatar}</span>
+          <span class="chat-tool-disclosure__content">
+            <span class="chat-tool-msg-summary__label">${status === "running" ? "Sending to" : status === "failed" ? "Not sent to" : "Sent to"} <strong>${target.name}</strong></span>
+            <span class="chat-tool-msg-summary__preview">${previewLine(message.split(/\n\s*\n/u, 1)[0] ?? "", 160)}</span>
+          </span>
+          <span class="chat-tool-row__chevron" aria-hidden="true">${chevronDownIcon}</span>
+        </summary>
+        <div class="chat-handoff__body">
+          ${status === "failed" && item.output ? html`<p class="chat-run-error" role="alert">${item.output}</p>` : nothing}
+          <div class="chat-text">${renderAgentMarkdown(message)}</div>
+        </div>
+      </details>
+    </div>
   </div>`;
 }
 
@@ -1129,6 +1250,8 @@ function renderCompaction(row: Extract<ChatProjectionRow, { kind: "compaction" }
 
 function renderTranscriptRows(props: HomeProps, rows: readonly ChatProjectionRow[]): TemplateResult {
   const latestAssistantRowId = rows.findLast((row) => row.kind === "messages" && row.role === "assistant")?.id;
+  const latestSent = (role: ChatMessage["role"]) => rows.flatMap((row) => row.kind === "messages" && row.role === role ? row.messages : []).findLast((item) => !item.pending && !item.failed);
+  const withEmbeds = [latestSent("user"), latestSent("assistant")];
   const browserPreview = props.browserPreview ? browserPreviewRow(rows) : undefined;
   return html`${rows.map((row, rowIndex) => {
     if (row.kind === "subagentEvent") return renderSubagentEvent(props, row);
@@ -1149,6 +1272,8 @@ function renderTranscriptRows(props: HomeProps, rows: readonly ChatProjectionRow
       if (widget) return renderWidgetRow(row.id, widget);
       const answers = questionnaireSummary(row.items);
       if (answers) return renderQuestionnaireSummary(row.id, answers);
+      const handoff = handoffActivity(row.items);
+      if (handoff) return renderHandoff(props, row.id, handoff);
       const expansionId = `${props.session?.id ?? "session"}:${row.id}`;
       return html`<div class="chat-group tool chat-group--activity chat-group--with-footer" data-chat-row-key=${row.id}>
         <div class="chat-group-messages">
@@ -1164,31 +1289,37 @@ function renderTranscriptRows(props: HomeProps, rows: readonly ChatProjectionRow
               <span class="chat-activity-group__icon">${chevronDownIcon}</span>
               <span class="chat-activity-group__label">${activityLabel(row.items, props.streaming)}</span>
             </summary>
-            <div class="chat-activity-group__body">${row.items.map((item) => html`<div>${renderActivityItem(props, item)}${renderMetrics(item)}${item.kind === "message" ? html`<button type="button" class="btn btn--ghost btn--sm" @click=${(event: Event) => replyToMessage(event, props, item.text)}>Reply to message</button>` : nothing}</div>`)}</div>
+            <div class="chat-activity-group__body">${row.items.map((item) => html`<div>${renderActivityItem(props, item)}${renderMetrics(item)}</div>`)}</div>
           </details>
           ${browserPreview?.index === rowIndex ? renderBrowserPreview(props, browserPreview) : nothing}
         </div>
       </div>`;
     }
     const last = row.messages.at(-1);
+    // A message HUI delivered from a bot, a session, a routine or a trigger: theirs, on the left, under their name.
+    const sender = row.sender ? senderView(props, row.sender) : undefined;
+    const lastText = row.sender && last ? attributedMessage(last.text)?.body ?? last.text : last?.text;
     // History refreshed from PI carries entry ids; a prompt sent this run has
     // none yet. A prompt PI refused (failed) was never persisted: no rewind.
     // A bot's chat is permanent: the gateway refuses rewinds, so none is offered.
-    const rewindTo: RewindTarget | undefined = row.role !== "user" || !last || last.failed || props.session?.bot ? undefined
+    // Someone else's message was never the operator's to edit and send again.
+    const rewindTo: RewindTarget | undefined = row.role !== "user" || sender || !last || last.failed || props.session?.bot ? undefined
       : last.entryId ?? { userFromEnd: new Set(props.transcript.slice(props.transcript.indexOf(last) + 1)
           .flatMap((item) => item.kind === "message" && item.role === "user" && !item.failed ? [item.entryId ?? item.id] : [])).size };
     const rewindTooltipId = sessionControlId(props, `rewind-tooltip-${row.id}`);
     // Only Pi Durable copies a history into a new conversation; a bot's chat is never forked.
     const forkAt = props.session?.tool === "durable" && !props.session.bot ? forkPoint(props.transcript, last) : undefined;
     const forkTooltipId = sessionControlId(props, `fork-tooltip-${row.id}`);
-    return html`<div class="chat-group ${row.role} chat-group--with-footer ${row.id === latestAssistantRowId ? "chat-group--latest-assistant" : ""}" data-chat-row-key=${row.id}>
-      <div class="chat-group-messages">${row.messages.map((item) => renderMessage(props, item))}</div>
+    return html`<div class="chat-group ${row.role} chat-group--with-footer ${row.id === latestAssistantRowId ? "chat-group--latest-assistant" : ""} ${sender ? "chat-group--peer" : ""}" data-chat-row-key=${row.id}
+      style=${sender?.color ? `--chat-sender-color: ${sender.color}` : nothing}>
+      ${sender ? html`<span class="chat-sender-avatar" aria-hidden="true">${sender.avatar}</span>` : nothing}
+      <div class="chat-group-messages">${row.messages.map((item) => renderMessage(props, item, withEmbeds.includes(item), row.sender ? attributedMessage(item.text) : undefined))}</div>
       ${last?.pending ? nothing : html`<div class="chat-group-footer ${row.role === "user" ? "chat-group-footer--persistent-identity" : ""}">
-        <div class="chat-group-footer__meta"><span class="chat-sender-name">${row.role === "user" ? "You" : props.session?.bot?.name ?? "pi"}</span>
+        <div class="chat-group-footer__meta">${sender ? renderSenderName(sender) : html`<span class="chat-sender-name">${row.role === "user" ? "You" : props.session?.bot?.name ?? "pi"}</span>`}
           ${last?.metrics?.completedAt !== undefined || last?.metrics?.timestamp !== undefined ? html`<time class="chat-group-timestamp" datetime=${new Date(last.metrics.completedAt ?? last.metrics.timestamp!).toISOString()} title=${`${last.metrics.completedAt !== undefined ? "Completed" : "Message created"}: ${new Date(last.metrics.completedAt ?? last.metrics.timestamp!).toLocaleString()}`}>${relativeTime(last.metrics.completedAt ?? last.metrics.timestamp!)}</time>` : nothing}</div>
-        ${last?.text ? html`<div class="chat-group-footer-actions">${renderActionTooltip(sessionControlId(props, `reply-tooltip-${row.id}`), "Reply", html`
-          <button type="button" class="chat-copy-btn" aria-label="Reply to message" aria-describedby=${sessionControlId(props, `reply-tooltip-${row.id}`)} @click=${(event: Event) => replyToMessage(event, props, last.text)}>${icons.messageSquare}</button>
-        `)}${renderCopy(props, last.text, `message-${last.id}`, row.role === "assistant" ? "Copy response" : "Copy prompt")}</div>` : nothing}
+        ${last && lastText ? html`<div class="chat-group-footer-actions">${renderActionTooltip(sessionControlId(props, `reply-tooltip-${row.id}`), "Reply", html`
+          <button type="button" class="chat-copy-btn" aria-label="Reply to message" aria-describedby=${sessionControlId(props, `reply-tooltip-${row.id}`)} @click=${(event: Event) => replyToMessage(event, props, lastText)}>${icons.messageSquare}</button>
+        `)}${renderCopy(props, lastText, `message-${last.id}`, sender ? "Copy message" : row.role === "assistant" ? "Copy response" : "Copy prompt")}</div>` : nothing}
         ${rewindTo ? html`<div class="chat-group-footer-actions">
           ${renderActionTooltip(rewindTooltipId, props.rewindPending ? "Rewinding…" : "Rewind", html`
             <button type="button" class="chat-group-rewind" aria-label=${props.rewindPending ? "Rewinding…" : "Rewind to here"} aria-describedby=${rewindTooltipId} ?disabled=${props.rewindPending} @click=${() => props.onRewind(rewindTo, last?.text ?? "", last?.attachments)}>${rewindIcon}</button>
@@ -1283,6 +1414,7 @@ function renderWorkingIndicator(props: HomeProps) {
 }
 
 function subagentSnippet(task: SubagentTaskView): string {
+  if (task.status === "queued") return "Waiting for a free slot…";
   if (task.status === "starting") return "Starting…";
   if (task.status === "running") return task.summary?.trim() || "Running…";
   if (task.status === "completed") return task.summary?.trim() || "Completed";
@@ -1296,13 +1428,14 @@ function renderSubagentStatusIcon(status: string) {
   const state = subagentVisualState(status);
   if (state === "running") return orbitIcon;
   if (state === "completed") return html`<span class="hui-subagent-status hui-subagent-status--completed">${icons.check}</span>`;
-  if (state === "cancelled") return html`<span class="hui-subagent-status hui-subagent-status--cancelled">${icons.circle}</span>`;
+  if (state === "queued") return html`<span class="hui-subagent-status hui-subagent-status--queued">${icons.circle}</span>`;
+  if (state === "cancelled") return html`<span class="hui-subagent-status hui-subagent-status--cancelled">${icons.circleX}</span>`;
   return html`<span class="hui-subagent-status hui-subagent-status--failed">${icons.alertTriangle}</span>`;
 }
 
 function renderSubagentRow(props: HomeProps, task: SubagentTaskView, now: number) {
   const snippet = subagentSnippet(task).replace(/\s+/g, " ");
-  const elapsed = subagentElapsed(task, now);
+  const elapsed = task.status === "queued" ? undefined : subagentElapsed(task, now);
   return html`<button
     class="chat-subagents__row chat-subagents__row--${subagentVisualState(task.status)}"
     data-subagent-task-id=${task.taskId}
@@ -1318,34 +1451,54 @@ function renderSubagentRow(props: HomeProps, task: SubagentTaskView, now: number
   </button>`;
 }
 
+/** OpenClaw's Swarm card, between the transcript and the composer, for the latest batch of this session's subagents:
+ * one dot per child, counts, and under Child details the children, each opening its session. A batch that all
+ * succeeded folds into one row. */
 function renderSubagentActivity(props: HomeProps) {
   const now = Date.now();
-  const visible = props.subagents.filter((task) => {
-    if (isSubagentActive(task.status)) return true;
-    const endedAt = Date.parse(task.endedAt ?? task.updatedAt);
-    return Number.isFinite(endedAt) && endedAt + 60_000 > now;
-  });
-  if (visible.length === 0) return nothing;
-  if (visible.length === 1) {
-    return html`<div class="chat-subagents" aria-label="Background agents">${renderSubagentRow(props, visible[0]!, now)}</div>`;
-  }
-  const running = visible.filter((task) => isSubagentActive(task.status)).length;
-  const current = visible.find((task) => isSubagentActive(task.status)) ?? visible[0]!;
-  const id = "subagents";
+  const tasks = latestSubagentBatch(props.subagents, now);
+  if (tasks.length === 0) return nothing;
+  const states = tasks.map((task) => subagentVisualState(task.status));
+  const count = (state: SubagentVisualState) => states.filter((each) => each === state).length;
+  const running = count("running");
+  const queued = count("queued");
+  const done = count("completed");
+  const failed = tasks.length - running - queued - done;
+  const finished = running + queued === 0;
+  const succeeded = finished && failed === 0;
+  const title = tasks.length === 1 ? tasks[0]!.title : "Parallel tasks";
+  const counts = finished
+    ? `${done} completed · ${failed} failed or stopped`
+    : `${running} running · ${queued} queued · ${failed} failed or stopped`;
+  const outcome = html`<span class="chat-swarm__outcome">${props.streaming
+    ? "Child runs finished. The parent is processing their results."
+    : "Child runs finished. Check the conversation for the final response."}</span>`;
+  const markers = (["running", "queued", "failed", "done"] as const).flatMap((marker) =>
+    Array.from({ length: { running, queued, failed, done }[marker] }, () => html`<span class="chat-swarm__marker chat-swarm__marker--${marker}"></span>`));
+  // Per batch, so a new batch starts folded.
+  const id = `subagents:${tasks[0]!.taskId}`;
   const expanded = props.expandedActivityIds.has(id);
-  return html`<details class="chat-subagents chat-subagents--group" aria-label="Background agents" .open=${expanded}
-    @toggle=${(event: Event) => {
-      const open = (event.currentTarget as HTMLDetailsElement).open;
-      if (open !== expanded) props.onActivityExpanded(id, open);
-    }}>
-    <summary class="chat-subagents__summary">
-      <span class="chat-subagents__icon">${renderSubagentStatusIcon(running ? "running" : current.status)}</span>
-      <span class="chat-subagents__label">${visible.length} subagents</span>
-      <span class="chat-subagents__snippet">${running ? `${running} running · ${current.title}` : "All finished"}</span>
-      <span class="chat-subagents__chevron" aria-hidden="true">${chevronDownIcon}</span>
-    </summary>
-    <div class="chat-subagents__list">${visible.map((task) => renderSubagentRow(props, task, now))}</div>
-  </details>`;
+  return html`<aside class="chat-swarm" aria-label="Parallel tasks">
+    <details class="chat-swarm__group ${succeeded ? "chat-swarm__group--completed" : ""}" .open=${expanded}
+      @toggle=${(event: Event) => {
+        const open = (event.currentTarget as HTMLDetailsElement).open;
+        if (open !== expanded) props.onActivityExpanded(id, open);
+      }}>
+      <summary class="chat-swarm__summary">${succeeded
+        ? html`<span class="chat-swarm__task-icon chat-swarm__task-icon--done" aria-hidden="true">${icons.check}</span>
+          <span class="chat-swarm__header"><strong title=${title}>${title}</strong></span>
+          <span class="chat-swarm__counts">${done} completed</span>
+          <span class="chat-swarm__disclosure"><span class="sr-only">Child details</span>${chevronDownIcon}</span>`
+        : html`<span class="chat-swarm__header"><strong title=${title}>${title}</strong><span>${done + failed} of ${tasks.length}</span></span>
+          <span class="chat-swarm__markers" aria-hidden="true">${markers}</span>
+          <span class="chat-swarm__counts">${counts}</span>
+          ${finished ? outcome : nothing}
+          <span class="chat-swarm__disclosure">Child details ${chevronDownIcon}</span>`}
+      </summary>
+      ${succeeded ? outcome : nothing}
+      <div class="chat-swarm__tasks">${tasks.map((task) => renderSubagentRow(props, task, now))}</div>
+    </details>
+  </aside>`;
 }
 
 function submitPromptFromForm(props: HomeProps, form: HTMLFormElement, mode: PromptMode) {
@@ -1605,7 +1758,14 @@ function renderComposer(props: HomeProps) {
                 }
               }}
               @paste=${onComposerPaste(props)}
-              placeholder=${props.session?.status === "disconnected" ? "Draft while disconnected…" : disconnected ? "Draft while HUI reconnects…" : props.streaming ? "Add to this run…" : "Send a message…"}
+              placeholder=${composerPlaceholder({
+                status: props.session?.status,
+                reconnecting: disconnected,
+                streaming: props.streaming,
+                coarsePointer: hasCoarsePointer(),
+                sendShortcut: props.chatPreferences.sendShortcut,
+                applePlatform: APPLE_PLATFORM,
+              })}
               ?disabled=${booting || props.sending}
               aria-label="Message"
               role="combobox" aria-autocomplete="list" aria-haspopup="listbox"
@@ -1637,8 +1797,10 @@ function renderComposer(props: HomeProps) {
           })}
           ${renderThinkingPicker({
             level: props.thinking,
+            levels: props.currentModel?.thinkingLevels,
             disabled: props.streaming || props.opening,
             onSelect: props.onSelectThinking,
+            ...(props.fast !== undefined && props.currentModel?.fast ? { fast: { on: props.fast, onSelect: props.onSelectFast } } : {}),
           })}</div>
             </div>
             <div class="agent-chat__composer-actions">
@@ -1733,19 +1895,15 @@ function modelValue(model: RuntimeModel): string {
   return model.provider ? `${model.provider}/${model.id}` : model.id;
 }
 
-const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
-const THINKING_LABELS: Record<(typeof THINKING_LEVELS)[number], string> = {
-  off: "Off",
-  minimal: "Minimal",
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  xhigh: "Maximum",
-};
+function thinkingRank(level: string): number {
+  return THINKING_LEVELS.indexOf(level as ThinkingLevel);
+}
 
-function thinkingIndex(level: string): number {
-  const index = THINKING_LEVELS.indexOf(level as (typeof THINKING_LEVELS)[number]);
-  return index < 0 ? THINKING_LEVELS.indexOf("medium") : index;
+/** The level the model is sent, as PI clamps it: the next one up it has, else its highest. */
+function shownThinking(level: string, levels: readonly ThinkingLevel[]): ThinkingLevel {
+  return levels.includes(level as ThinkingLevel)
+    ? level as ThinkingLevel
+    : levels.find((candidate) => thinkingRank(candidate) >= thinkingRank(level)) ?? levels.at(-1) ?? "medium";
 }
 
 /** Composer pickers share one popover lane, so a trigger closes its sibling first. */
@@ -1882,18 +2040,31 @@ function renderModelPicker(options: ModelPickerOptions) {
 
 type ThinkingPickerOptions = {
   level: string;
+  /** The model's levels; all of HUI's while it reports none. */
+  levels: readonly string[] | undefined;
   disabled: boolean;
   onSelect: (level: string) => void;
+  /** Present when the model has a fast mode the session can use. */
+  fast?: { on: boolean; onSelect: (fast: boolean) => void };
 };
 
 function renderThinkingPicker(options: ThinkingPickerOptions) {
-  const index = thinkingIndex(options.level);
-  const level = THINKING_LEVELS[index] ?? "medium";
-  const fill = THINKING_LEVELS.length > 1 ? (index / (THINKING_LEVELS.length - 1)) * 100 : 0;
-  const angle = -120 + (level === "off" ? 0 : index / (THINKING_LEVELS.length - 1)) * 240;
+  const known = (options.levels ?? []).filter(isThinkingLevel);
+  const levels: readonly ThinkingLevel[] = known.length ? known : PI_THINKING_LEVELS;
+  // OpenClaw's glow: on Ultra and on the model's own highest level.
+  const top = levels.findLastIndex((candidate) => candidate !== "ultra");
+  const boost = (at: number) => levels[at] === "ultra" ? "ultra" : at === top && levels[at] !== "off" ? "max" : "";
+  const level = shownThinking(options.level, levels);
+  const index = levels.indexOf(level);
+  const last = Math.max(1, levels.length - 1);
+  const fill = (index / last) * 100;
+  const angle = -120 + (level === "off" ? 0 : index / last) * 240;
+  const fast = options.fast;
+  const disabled = options.disabled || (levels.length < 2 && !fast);
+  const label = `Thinking: ${level}${fast?.on ? ", fast" : ""}`;
   return html`<details class="chat-controls__inline-select chat-controls__effort-picker" @keydown=${closeComposerPicker} @toggle=${positionComposerPicker}>
-    <summary class="chat-controls__inline-select-trigger chat-controls__effort-trigger ${options.disabled ? "chat-controls__inline-select-trigger--disabled" : ""}" aria-label=${`Thinking: ${options.level || "medium"}`} aria-disabled=${String(options.disabled)} @click=${(event: MouseEvent) => {
-      if (options.disabled) event.preventDefault();
+    <summary class="chat-controls__inline-select-trigger chat-controls__effort-trigger ${disabled ? "chat-controls__inline-select-trigger--disabled" : ""}" aria-label=${label} aria-disabled=${String(disabled)} @click=${(event: MouseEvent) => {
+      if (disabled) event.preventDefault();
       else prepareComposerPicker(event);
     }}>
       <span class="chat-controls__effort-gauge ${level === "off" ? "chat-controls__effort-gauge--off" : ""}" aria-hidden="true">
@@ -1902,48 +2073,59 @@ function renderThinkingPicker(options: ThinkingPickerOptions) {
           <path class="chat-controls__effort-gauge-needle" d="M12 12V6" style=${`transform: rotate(${angle}deg)`}></path>
           <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"></circle>
         </svg>
+        ${fast?.on ? html`<span class="chat-controls__effort-fast-badge">${icons.zap}</span>` : nothing}
       </span>
+      ${fast?.on ? html`<span class="chat-controls__effort-zap" aria-hidden="true">${icons.zap}</span>` : nothing}
       <span class="chat-controls__inline-select-label">${THINKING_LABELS[level]}</span>
       <span class="chat-controls__inline-select-chevron" aria-hidden="true">${chevronUpIcon}</span>
     </summary>
     <div class="chat-controls__inline-select-menu chat-controls__effort-menu" popover="manual">
-      <div class="chat-controls__reasoning-panel">
+      ${levels.length > 1 ? html`<div class="chat-controls__reasoning-panel">
         <div class="chat-controls__reasoning-head">
           <span class="chat-controls__effort-heading">Effort</span>
           <span class="chat-controls__effort-value" aria-hidden="true" .textContent=${THINKING_LABELS[level]}></span>
         </div>
         <div class="chat-controls__reasoning-slider">
           <div class="chat-controls__reasoning-dots" aria-hidden="true">
-            ${THINKING_LEVELS.map(() => html`<span class="chat-controls__reasoning-dot"></span>`)}
+            ${levels.map(() => html`<span class="chat-controls__reasoning-dot"></span>`)}
           </div>
           <input
             class="chat-controls__reasoning-range"
             type="range"
             min="0"
-            max=${String(THINKING_LEVELS.length - 1)}
+            max=${String(levels.length - 1)}
             step="1"
             .value=${String(index)}
             style=${`--reasoning-fill: ${fill}%`}
+            data-effort-boost=${boost(index)}
             aria-label="Thinking effort"
             aria-valuetext=${THINKING_LABELS[level]}
             ?disabled=${options.disabled}
             @input=${(event: Event) => {
               const input = event.currentTarget as HTMLInputElement;
               const at = Number(input.value);
-              const next = THINKING_LEVELS[at] ?? "medium";
-              input.style.setProperty("--reasoning-fill", `${(at / (THINKING_LEVELS.length - 1)) * 100}%`);
+              const next = levels[at] ?? level;
+              input.style.setProperty("--reasoning-fill", `${(at / last) * 100}%`);
               input.setAttribute("aria-valuetext", THINKING_LABELS[next]);
+              input.dataset["effortBoost"] = boost(at);
               const value = input.closest(".chat-controls__reasoning-panel")?.querySelector(".chat-controls__effort-value");
               if (value) value.textContent = THINKING_LABELS[next];
             }}
             @change=${(event: Event) => {
-              const next = THINKING_LEVELS[Number((event.currentTarget as HTMLInputElement).value)] ?? "medium";
-              options.onSelect(next);
+              options.onSelect(levels[Number((event.currentTarget as HTMLInputElement).value)] ?? level);
             }}
           />
         </div>
         <div class="chat-controls__effort-scale" aria-hidden="true"><span>Faster</span><span>Smarter</span></div>
-      </div>
+      </div>` : nothing}
+      ${fast ? html`<div class="chat-controls__speed-panel">
+        <span class="chat-controls__effort-heading">Speed</span>
+        <div class="chat-controls__speed-options" role="radiogroup" aria-label="Speed">
+          ${([[false, "Standard"], [true, "Fast"]] as const).map(([value, text]) => html`<button type="button" role="radio"
+            class="chat-controls__speed-option" aria-checked=${String(fast.on === value)} ?disabled=${options.disabled}
+            @click=${() => { if (fast.on !== value) fast.onSelect(value); }}>${text}</button>`)}
+        </div>
+      </div>` : nothing}
     </div>
   </details>`;
 }
@@ -2327,10 +2509,7 @@ function renderHeader(props: HomeProps, session: SessionView) {
 }
 
 function renderTranscript(props: HomeProps, session: SessionView) {
-  const rows = projectChatTranscript(
-    props.transcript.filter((item) => item.kind !== "tool" || item.name !== "progress_card"),
-    props.streaming,
-  );
+  const rows = projectChatTranscript(props.transcript.filter((item) => item.kind !== "tool" || item.name !== "progress_card"));
   return html`
     ${renderHeader(props, session)}
     <section class="card chat">
@@ -2349,10 +2528,11 @@ function renderTranscript(props: HomeProps, session: SessionView) {
                     @scroll=${(event: Event) => props.onTranscriptScroll(event.currentTarget as HTMLElement)}
                     @click=${(event: Event) => { void copyCodeBlock(event, props); }}>
                     ${positionRail({ sessionId: session.id, markers: props.opening || session.status === "starting" ? [] : conversationMarkers(rows), onNavigate: props.onTranscriptNavigate })}
-                    <div class="chat-thread-inner" data-hui-files-session=${props.fileLinks ? session.id : nothing} ${markdownBlocks()}>${renderTranscriptBody(props, rows)}${renderSubagentActivity(props)}${props.watchers ? renderWatcherActivity(props.watchers) : nothing}</div>
+                    <div class="chat-thread-inner" data-hui-files-session=${props.fileLinks ? session.id : nothing} ${markdownBlocks()}>${renderTranscriptBody(props, rows)}${props.watchers ? renderWatcherActivity(props.watchers) : nothing}</div>
                   </div>
                 </div>
                 <div class="chat-scroll-to-bottom-wrap"><button type="button" class="chat-scroll-to-bottom" data-visible=${String(props.showScrollToBottom)} ?inert=${!props.showScrollToBottom} aria-hidden=${String(!props.showScrollToBottom)} @click=${props.onScrollToBottom} aria-label="Scroll to latest">${icons.arrowDown}</button></div>
+                ${renderSubagentActivity(props)}
                 ${renderComposer(props)}
               </div>
             </div>

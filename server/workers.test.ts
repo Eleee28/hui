@@ -11,9 +11,11 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { after, before, test } from "node:test";
+import { afterAll, beforeAll, test } from "vitest";
 import { fileURLToPath } from "node:url";
 import { completeLines } from "./test-support/json-lines.ts";
+import { expectSchema } from "./test-support/api-schema.ts";
+import { WorkerView } from "./api/workers.ts";
 
 const repo = fileURLToPath(new URL("../", import.meta.url));
 const root = await mkdtemp(join(tmpdir(), "hui-workers-"));
@@ -32,10 +34,10 @@ const { workers } = await import("./workers.ts");
 const { remoteRuntime } = await import("./runtimes/remote.ts");
 const piRuntime = remoteRuntime("pi");
 const { workerRelease } = await import("./worker/release.ts");
-const { registerAgentToolHandler } = await import("./agent-tools-bridge.ts");
+const { registerAgentToolHandler } = await import("./agent-tools/bridge.ts");
 const { GATEWAY_ONLY_TOOLS } = await import("./worker/gateway-tools.ts");
-const { readRegistry, writeRegistry } = await import("./sessions.ts");
-const { SecretRequests } = await import("./secret-requests.ts");
+const { readRegistry, writeRegistry } = await import("./sessions/sessions.ts");
+const { SecretRequests } = await import("./agent-tools/secret-requests.ts");
 const durable = remoteRuntime("durable");
 const control = (path: string, init?: RequestInit) => fetch(`${baseUrl.replace(/\/v1$/u, "")}/control/${path}`, init);
 type Session = Awaited<ReturnType<typeof piRuntime.start>>;
@@ -91,7 +93,7 @@ async function remoteContents(): Promise<Array<[file: string, text: string]>> {
   }, "one pass over the remote files that none was replaced during");
 }
 
-before(async () => {
+beforeAll(async () => {
   await mkdir(join(agentDir, "skills", "gateway-skill"), { recursive: true });
   await mkdir(join(agentDir, "extensions"), { recursive: true });
   await mkdir(join(root, "gateway", "package", "skills", "package-skill"), { recursive: true });
@@ -99,7 +101,7 @@ before(async () => {
   await writeFile(join(agentDir, "skills", "gateway-skill", "SKILL.md"), "---\nname: gateway-skill\ndescription: Lives only on the gateway.\n---\nBody\n");
   await writeFile(join(root, "gateway", "package", "package.json"), JSON.stringify({ name: "local-package", version: "1.0.0", pi: { skills: ["./skills"] } }));
   await writeFile(join(root, "gateway", "package", "skills", "package-skill", "SKILL.md"), "---\nname: package-skill\ndescription: From a local PI package.\n---\nBody\n");
-  await writeFile(join(agentDir, "extensions", "question.ts"), await readFile(join(repo, "e2e", "question-extension.ts"), "utf8"));
+  await writeFile(join(agentDir, "extensions", "question.ts"), await readFile(join(repo, "e2e", "fixtures", "question-extension.ts"), "utf8"));
   await writeFile(join(agentDir, "extensions", "oauth-provider.ts"), `export default function (pi) {
   pi.registerProvider("fx-oauth", {
     baseUrl: process.env.HUI_TEST_BASE_URL, api: "anthropic-messages",
@@ -115,7 +117,7 @@ before(async () => {
   });
 }
 `);
-  provider = spawn(process.execPath, [join(repo, "e2e/pi-provider-fixture.mjs")], {
+  provider = spawn(process.execPath, [join(repo, "e2e/fixtures/pi-provider-fixture.mjs")], {
     env: { ...process.env, HUI_E2E_PROVIDER_PORT: "0", HUI_E2E_WORKSPACE: project, HUI_E2E_PROVIDER_LOG: join(root, "provider.jsonl"), HUI_E2E_PROVIDER_KEY: KEY },
     stdio: ["ignore", "pipe", "inherit"],
   });
@@ -156,7 +158,7 @@ before(async () => {
   workerId = (await workers.create({ name: "test remote", command: command.map((word) => `'${word}'`).join(" ") })).id;
 });
 
-after(async () => {
+afterAll(async () => {
   workers.disconnectAll();
   provider?.kill();
   // The host is durable by design; stop the one this suite started.
@@ -182,6 +184,7 @@ test("a remote session runs with gateway credentials and mirrored resources, lea
       assert.ok(!text.includes(KEY), `${file} holds the provider key`);
     }
     const view = (await workers.list()).find((worker) => worker.id === workerId)!;
+    expectSchema(WorkerView, view);
     assert.equal(view.state, "connected");
     assert.ok(view.sync && view.sync.files > 0 && view.sync.errors.length === 0, JSON.stringify(view.sync));
   } finally {
@@ -425,6 +428,34 @@ test("a Durable session runs on the worker, keeps going without the gateway and 
   }
 });
 
+test("a worker's tracked routine receipt survives disconnection and reacquires its original answer without another prompt", async () => {
+  const key = "remote-tracked-routine";
+  const first = await durable.start({ cwd: project, worker: workerId, huiSessionId: key });
+  assert.equal(typeof first.waitForTrackedPrompt, "function");
+  assert.equal(typeof first.cancelTrackedPrompt, "function");
+  await first.prompt("E2E_REPLAY tracked routine", undefined, { requestId: "worker-run-1" });
+  await control("wait-replay-ready");
+  await first.followUp!("withdrawn queued routine", undefined, { requestId: "worker-run-2" });
+  await first.cancelTrackedPrompt!("worker-run-2");
+  await assert.rejects(first.waitForTrackedPrompt!("worker-run-2"), /not answered/u);
+  assert.equal(first.isStreaming, true, "withdrawing its queued receipt does not abort the preceding run");
+  workers.disconnect(workerId);
+  first.dispose();
+  await control("release-replay", { method: "POST" });
+  const second = await durable.start({ cwd: project, worker: workerId, huiSessionId: key, sessionFile: first.sessionFile! });
+  try {
+    const result = await second.waitForTrackedPrompt!("worker-run-1");
+    assert.deepEqual(result, { summary: "Replay prefix — replay suffix" });
+    await waitFor(() => !second.isStreaming || undefined, "the accepted tracked run to settle");
+    const before = second.transcript();
+    await second.prompt("E2E_REPLAY tracked routine", undefined, { requestId: "worker-run-1" });
+    assert.deepEqual(second.transcript(), before, "the same request identity is deduplicated on the worker");
+    assert.equal(second.transcript().filter((entry) => entry.kind === "message" && entry.role === "user").length, 1);
+  } finally {
+    second.dispose();
+  }
+});
+
 test("a Durable session on the worker honors HUI's settings and providers, whose keys stay on the gateway", async () => {
   const hui = join(root, "gateway", "config", "hui");
   const managedKey = "gateway-only-openai-key";
@@ -613,7 +644,7 @@ test("losing the gateway during a HUI tool call fails that call, and the run set
 });
 
 test("a dropped connection leaves a session reconnecting, and HUI's own reconnect catches it up", async () => {
-  const { LiveSessions } = await import("./live-sessions.ts");
+  const { LiveSessions } = await import("./sessions/live-sessions.ts");
   const key = "remote-durable-reconnect";
   await registerRemote(key);
   const record = async () => (await readRegistry()).find((item) => item.id === key)!;
@@ -647,7 +678,7 @@ test("a dropped connection leaves a session reconnecting, and HUI's own reconnec
 });
 
 test("a session whose worker was disconnected or removed is disconnected, and no open reconnects it", async () => {
-  const { LiveSessions } = await import("./live-sessions.ts");
+  const { LiveSessions } = await import("./sessions/live-sessions.ts");
   const key = "remote-durable-disconnected";
   await registerRemote(key);
   const manager = new LiveSessions();

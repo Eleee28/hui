@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 import {
   type DrawerMediaQuery,
   APP_SHELL_DRAWER_MEDIA,
@@ -22,7 +22,7 @@ import {
   SETTINGS_DRAWER_DEFAULT_OPEN,
   SETTINGS_PAGES,
 } from "./settings.ts";
-import type { SessionGroup, SessionView } from "../lib/sessions-store.ts";
+import type { SessionGroup, SessionView } from "../api/sessions.ts";
 
 function session(
   id: string,
@@ -37,10 +37,11 @@ function session(
     cwd: `/work/${group}`,
     tool: "pi",
     status: "idle",
+    displayCwd: "",
     createdAt: "2026-09-22T00:00:00.000Z",
     updatedAt: "2026-09-22T00:00:00.000Z",
     ...overrides,
-  };
+  } as SessionView;
 }
 
 const SESSION_GROUPS: SessionGroup[] = [
@@ -85,16 +86,16 @@ function controlledMedia(initialMatches = true) {
 }
 
 test("the primary sidebar lists work destinations and ends with Settings", () => {
-  assert.deepEqual(PRIMARY_NAV.map((item) => item.id), ["contributions", "cron", "plugins", "skills"]);
+  assert.deepEqual(PRIMARY_NAV.map((item) => item.id), ["contributions", "sessions"]);
   const source = readFileSync(new URL("./shell.ts", import.meta.url), "utf8");
   const nav = source.slice(source.indexOf('<nav class="sidebar-nav"'), source.indexOf("</nav>", source.indexOf('<nav class="sidebar-nav"')));
   assert.doesNotMatch(nav, /(?<![A-Z_])NAV\.map|icons\.home/u);
-  // Kanban is a HUI route rendered directly below Automations.
-  assert.match(nav, /item\.id === "cron" \? kanbanNavItem\(props\)/u);
+  // Kanban is a HUI route rendered directly below Contributions.
+  assert.match(nav, /item\.id === "contributions" \? kanbanNavItem\(props\)/u);
   assert.match(nav, /sidebar-nav__settings[\s\S]*props\.onOpenSettings\(\)[\s\S]*>Settings<\/span>\s*<\/a>\s*$/u);
 });
 
-test("settings navigation contains only the fourteen accepted regions", () => {
+test("settings navigation contains only the thirteen accepted regions", () => {
   assert.deepEqual(
     SETTINGS_PAGES.map((page) => page.id),
     [
@@ -109,7 +110,6 @@ test("settings navigation contains only the fourteen accepted regions", () => {
       "memory",
       "automation",
       "security",
-      "sessions",
       "worktrees",
       "diagnostics",
     ],
@@ -307,34 +307,6 @@ test("session drafts project a persistent pencil into the action slot", () => {
   assert.match(styles, /\.session-row-wrap:hover \.session-row__menu-btn--draft \.session-row__more-icon/);
 });
 
-test("embedded chat panes report draft presence to the shell that owns the sidebar", () => {
-  // Each pane is its own hui-app with a private draft set; without this bridge
-  // the sidebar only learned about drafts at startup or after a reload.
-  const app = readFileSync(new URL("../hui-app.ts", import.meta.url), "utf8");
-  assert.match(app, /if \(this\.embeddedPane\) this\.onPaneDraftChange\?\.\(sessionId, hasDraft\);/);
-  assert.match(app, /\.onPaneDraftChange=\$\{\(sessionId: string, hasDraft: boolean\) => this\.markSessionDraft\(sessionId, hasDraft\)\}/);
-});
-
-test("returning to the still-selected session restores its composer draft key", () => {
-  // New session keeps `selected` but switches the composer to the new-session
-  // draft. Without this, typing after returning persisted under the wrong key
-  // and the row never showed its pencil.
-  const app = readFileSync(new URL("../hui-app.ts", import.meta.url), "utf8");
-  assert.match(
-    app,
-    /if \(this\.selected\?\.id === target\.id\) \{[^}]*this\.switchComposerDraft\(sessionDraftKey\(target\.id\)\);[^}]*return;/s,
-  );
-});
-
-test("the app refuses the launch draft key to panes at both composer boundaries", () => {
-  // firstUpdated used to hand a pane the launch key milliseconds after its own
-  // navigation set `session:<id>`, and persisting the launch key let a pane
-  // clobber, or an unmounting pane clear, the shell's unsent text.
-  const app = readFileSync(new URL("../hui-app.ts", import.meta.url), "utf8");
-  const refusals = app.match(/if \(!mayUseComposerDraftKey\(this\.embeddedPane, key\)\) return;/g) ?? [];
-  assert.equal(refusals.length, 2, "switchComposerDraft and persistComposerDraft must both refuse the launch key");
-});
-
 test("active search reveals matches without changing the collapsed preference", () => {
   const collapsed = new Set(["Frontend"]);
   assert.equal(isSessionGroupCollapsed(collapsed, "Frontend", ""), true);
@@ -429,8 +401,6 @@ test("the shell retains reference chrome geometry with header utilities", () => 
   assert.match(source, /class="topbar"/);
   assert.match(source, /class="shell-nav"/);
   assert.match(source, /class="sidebar-shell sidebar-drawer__body"/);
-  const appSource = readFileSync(new URL("../hui-app.ts", import.meta.url), "utf8");
-  assert.match(appSource, /@keydown=\$\{closeDrawerOnEscape\}/);
   assert.doesNotMatch(source, /sidebar-shell__footer|sidebar-footer-bar|renderFooter/);
   assert.doesNotMatch(source, /sidebar-agent-card|deck-card/);
   // The header's only control is the collapse toggle, first in the top row: New session
@@ -464,14 +434,14 @@ test("the Bots tab's Agents | Bots switch tops the sidebar, and Bots shows only 
   // The top row: the collapse toggle, then the switch. Nothing sits above them, and each
   // tab has a sidebar of its own below.
   const top = sidebar.slice(at('<div class="sidebar-shell sidebar-drawer__body">'), at('<label class="sidebar-search'));
-  assert.match(top, /^<div class="sidebar-shell sidebar-drawer__body">\s*<div class="sidebar-brand">\s*<button type="button" class="[^"]*sidebar-brand__collapse"[^>]*>\$\{icons\.panelLeftClose\}<\/button>\s*\$\{props\.bots \? html.<div class="sidebar-switch">\$\{renderSidebarTabs\(props\.bots\)\}<\/div>. : nothing\}\s*<\/div>\s*$/u);
+  assert.match(top, /^<div class="sidebar-shell sidebar-drawer__body">\s*<div class="sidebar-brand">\s*<button type="button" class="[^"]*sidebar-brand__collapse"[^>]*>\$\{icons\.panelLeftClose\}<\/button>\s*<div class="sidebar-switch">\$\{renderSidebarTabs\(props\.bots\)\}<\/div>\s*<\/div>\s*$/u);
   assert.ok(at('<label class="sidebar-search') < at('<nav class="sidebar-nav"'));
   assert.equal(sidebar.split("renderSidebarTabs(").length, 2, "one switch, not one per list");
   // Bots: no primary navigation, and the toolbar names the roster.
   assert.match(sidebar, /\$\{botsTab \? nothing : html`<nav class="sidebar-nav"/u);
   assert.match(sidebar, /<span>\$\{botsTab \? "Bots" : "Sessions"\}<\/span>/u);
   // The lists under the header are its tab panel, labelled by the selected tab.
-  assert.match(sidebar, /role=\$\{props\.bots \? "tabpanel" : nothing\}\s*aria-labelledby=\$\{props\.bots \? `sidebar-tab-\$\{props\.bots\.tab\}` : nothing\}/u);
+  assert.match(sidebar, /role="tabpanel" aria-labelledby="sidebar-tab-\$\{props\.bots\.tab\}"/u);
   // A full-width tab bar over a divider, unlike the uppercase section labels below it.
   const rule = (selector: string) => {
     const start = css.indexOf(`${selector} {`);
@@ -545,10 +515,9 @@ test("accepted settings describe implementation status without reopening product
   assert.doesNotMatch(`${connection.summary} ${connection.description}`, /approval/i);
 });
 
-test("sessions and security render implemented settings instead of placeholders", () => {
+test("security renders implemented settings instead of placeholders", () => {
   const source = readFileSync(new URL("./settings.ts", import.meta.url), "utf8");
 
-  assert.match(source, /props\.page === "sessions"\s*\? renderSessionsSettingsPage\(props\)/);
   assert.match(source, /props\.page === "security"\s*\? renderSecurityPage\(props\)/);
   assert.doesNotMatch(source, /sessions: "Session defaults/);
   assert.doesNotMatch(source, /security: "Secrets, audit history/);
@@ -733,13 +702,6 @@ test("both mobile drawers make the global update notice inert until closed", () 
     setDrawer(sidebar, false, false);
     assert.deepEqual(states, [true, false]);
   }
-});
-
-test("document-level Escape closes Settings or stops the running turn", () => {
-  const appSource = readFileSync(new URL("../hui-app.ts", import.meta.url), "utf8");
-  assert.match(appSource, /event\.key === "Escape"\) \{\s*this\.handleGlobalEscape\(event\)/u);
-  assert.match(appSource, /if \(this\.settingsOpen\) \{\s*event\.preventDefault\(\);\s*this\.closeSettings\(\);/u);
-  assert.match(appSource, /this\.streaming && !this\.stopping\) \{\s*event\.preventDefault\(\);\s*this\.abort\(\);/u);
 });
 
 test("session link names retain upstream single-line navigation semantics", () => {

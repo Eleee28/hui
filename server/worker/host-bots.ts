@@ -1,12 +1,12 @@
 /**
  * Bots on this worker (HUI-18): what a gateway asks the host for a bot whose
  * chat runs here. Its conversation and OptChat memory live in the host's own
- * Durable store, so these reuse the gateway's adapters (`bot-conversations.ts`
- * and `bot-memory.ts`) against the host's DurableHost: a bot's conversation is
+ * Durable store, so these reuse the gateway's adapters (`bots/conversations.ts`
+ * and `bots/memory.ts`) against the host's DurableHost: a bot's conversation is
  * created here exactly as the gateway creates a local one, its `hui.bot`
  * document and OptChat in one commit. Every bot has a home here, HUI's private
  * folder for it under the data directory (`home(botId)`), as the gateway keeps
- * one under its configuration: its SOUL.md lives there (`bot-souls.ts`, the
+ * one under its configuration: its SOUL.md lives there (`bots/souls.ts`, the
  * gateway's own implementation and guard, on this directory), and a bot without
  * a directory of its own works there. The bot itself (its record, routines,
  * roster) stays with the gateway; nothing here knows other bots.
@@ -18,30 +18,38 @@
  * this host's loader finds them at, the mirrored ones included), and hears of a
  * grant made here in a `bot.access` frame.
  */
-import { realpath, stat } from "node:fs/promises";
+import { BOT_FACTS_FILE, localBotFacts } from "../bots/facts.ts";
+import { realpath, rm, stat } from "node:fs/promises";
 import { isAbsolute, join, relative } from "node:path";
-import { BOT_LIMITS, BOT_THINKING_LEVELS, type BotMemoryStatus } from "../../shared/bots.ts";
-import { parseCallRecord } from "../../shared/calls.ts";
-import { durableBotConversations } from "../bot-conversations.ts";
-import { BotMemoryUnavailableError, optChatBotMemory, type BotMemorySettings } from "../bot-memory.ts";
-import { BOT_SKILL_NAME, localBotSkills, type BotOwnSkill } from "../bot-skills.ts";
-import { localBotSouls } from "../bot-souls.ts";
-import { accessField, normalizeSoul } from "../bots.ts";
+import { BOT_LIMITS, BOT_THINKING_LEVELS, type BotMemoryStatus } from "../bots-format.ts";
+import { parseCallRecord } from "../calls-format.ts";
+import { durableBotConversations } from "../bots/conversations.ts";
+import { BotMemoryUnavailableError, optChatBotMemory, type BotMemorySettings } from "../bots/memory.ts";
+import { BOT_TEMPLATE_LIMITS } from "../bots/templates/formats.ts";
+import { BOT_SKILL_NAME, localBotSkills, type BotOwnSkill } from "../bots/skills.ts";
+import { caseClash, skillFilePath } from "../bots/templates/common.ts";
+import { localBotSouls } from "../bots/souls.ts";
+import { BotConflictError, BotInputError, BotNotFoundError, accessField, normalizeSoul } from "../bots/bots.ts";
+import { createDurableBots, type DurableBotsDeps } from "../bots/durable-access.ts";
 import type { DurableHost } from "../runtimes/durable-host.ts";
 import { durableConversationId } from "../runtimes/durable.ts";
-import { resolveWorkingDirectory } from "../working-directories.ts";
+import { resolveWorkingDirectory } from "../git/working-directories.ts";
 import { isRecord, type Frame, type Peer } from "./protocol.ts";
 
 /** What `hello` lists when the host can run bots, so a gateway tells an older host from this one. */
 export const BOTS_FEATURE = "bots";
+/** Manual knowledge lives beside each bot on its execution host. */
+export const BOT_FACTS_FEATURE = "bot-facts";
 /** The frame a watched memory's status arrives in. */
 export const BOT_MEMORY_STATUS_FRAME = "bot.memory.status";
 /** What `hello` lists when the host keeps bots' tool and skill lists (`bot.access.*`, `bot.offer`) and reports grants. */
 export const BOT_ACCESS_FEATURE = "bot-access";
 /** The frame a bot's lists arrive in after the operator allowed one of its requests here: `{ botId, access }`. */
 export const BOT_ACCESS_FRAME = "bot.access";
-/** What `hello` lists when the host keeps a bot's own skills in its home (`bot.skills.*`, `bot-skills.ts`): an imported bot's. */
+/** What `hello` lists when the host keeps a bot's own skills in its home (`bot.skills.*`, `bots/skills.ts`): an imported bot's. */
 export const BOT_SKILLS_FEATURE = "bot-skills";
+/** What `hello` lists when `bot.skills.*` also carry the files beside a SKILL.md (a template's scripts). */
+export const BOT_SKILL_FILES_FEATURE = "bot-skill-files";
 
 const ID = /^[A-Za-z0-9_-]{1,100}$/u;
 const MODEL = /^[^/\s]+\/\S+$/u;
@@ -57,6 +65,12 @@ export type HostBotsOptions = {
   botsDir: string;
   /** The model a bot without one of its own starts on: Settings' primary model, as the gateway mirrors it here. */
   primaryModel?: () => Promise<string | undefined>;
+  /** A chat's `bots` section, as a connected gateway gives it. */
+  section: DurableBotsDeps["section"];
+  /** Settings' profile name, for a bot's first conversation. */
+  operator: () => Promise<string | undefined>;
+  /** The operator allowed a bot's request here: what its lists are now. */
+  recorded: DurableBotsDeps["recorded"];
 };
 
 type Handler = (params: Record<string, unknown>) => Promise<unknown>;
@@ -102,14 +116,27 @@ function memorySettings(value: unknown): BotMemorySettings {
   return { name, ...(model ? { model } : {}), ...(thinking ? { thinking } : {}) };
 }
 
-/** A bot's own skills as `bot.skills.write` takes them: at most 200, each a skill's name and a SKILL.md of at most 256 KB. */
+/** A bot's own skills as `bot.skills.write` takes them: at most 200, each a skill's name, a SKILL.md of at most 256 KB and
+ * the files beside it, within a template's limits. */
 function skillFiles(value: unknown): BotOwnSkill[] {
   if (!Array.isArray(value) || value.length > 200) throw new Error("A bot's skills must be a list of at most 200.");
   return value.map((skill) => {
     if (!isRecord(skill) || typeof skill["name"] !== "string" || !BOT_SKILL_NAME.test(skill["name"]) || typeof skill["text"] !== "string" || skill["text"].length > 256 * 1024) {
       throw new Error("Each of a bot's skills needs a skill's name and its SKILL.md.");
     }
-    return { name: skill["name"], text: skill["text"] };
+    const files = skill["files"] ?? [];
+    if (!Array.isArray(files) || files.length > BOT_TEMPLATE_LIMITS.skillFiles) throw new Error(`A skill has at most ${BOT_TEMPLATE_LIMITS.skillFiles} files beside its SKILL.md.`);
+    let total = 0;
+    const checked = files.map((file) => {
+      if (!isRecord(file) || typeof file["path"] !== "string" || skillFilePath(file["path"]) !== file["path"] || typeof file["text"] !== "string") {
+        throw new Error("Each file of a skill needs its path inside the skill's folder and its text.");
+      }
+      total += Buffer.byteLength(file["text"]);
+      if (Buffer.byteLength(file["text"]) > BOT_TEMPLATE_LIMITS.skillFileBytes || total > BOT_TEMPLATE_LIMITS.skillFilesBytes) throw new Error(`The files of skill ${skill["name"]} are too large.`);
+      return { path: file["path"], text: file["text"] };
+    });
+    if (caseClash(checked.map((file) => file.path))) throw new Error(`Two files of skill ${skill["name"]} differ only by case.`);
+    return { name: skill["name"], text: skill["text"], ...(checked.length ? { files: checked } : {}) };
   });
 }
 
@@ -122,11 +149,24 @@ export function hostBots(options: HostBotsOptions) {
   /** SOUL.md in those homes, with the gateway's guard: a deleted bot's home goes only when it really is that folder of
    * this bots directory, and a link in its place is removed, never followed. */
   const souls = localBotSouls(options.botsDir);
+  const facts = localBotFacts(options.botsDir);
+  // The worker wire otherwise transports only Error.message; preserve the facts API's status categories explicitly.
+  const factsReply = async (read: () => Promise<unknown>) => {
+    try { return { facts: await read() }; }
+    catch (error) {
+      return { error: error instanceof Error ? error.message : String(error), code: error instanceof BotConflictError ? "conflict" : error instanceof BotNotFoundError ? "not-found" : error instanceof BotInputError ? "input" : "store" };
+    }
+  };
   /** Each bot's own skills, in its home here: what an import brought. */
   const ownSkills = localBotSkills(options.botsDir);
   /** Each bot's name as its gateway last gave it (the create, then every `bots` section): a bot still called "New Bot"
    * asks for a real one in its first conversation. */
   const names = new Map<string, string>();
+  // Its SOUL.md (or its first conversation) from its home here, and write_soul writes it there.
+  options.durable.configureDurableBots(createDurableBots(options.durable, {
+    section: options.section, recorded: options.recorded,
+    souls: { home, operator: options.operator, name: (id) => names.get(id) },
+  }));
 
   /** A directory chosen for the bot that lies inside its home here: deleting the home would take it along. */
   const chosenInsideHome = async (id: string, cwd: unknown): Promise<boolean> => {
@@ -236,8 +276,14 @@ export function hostBots(options: HostBotsOptions) {
         await souls.prepare(botId(params["botId"]));
         return {};
       },
+      "bot.facts.retire": async (params) => factsReply(async () => { await facts.retire(botId(params["botId"])); return []; }),
+      "bot.facts.list": async (params) => factsReply(() => facts.list(botId(params["botId"]))),
+      "bot.facts.create": async (params) => factsReply(() => facts.create(botId(params["botId"]), params["input"])),
+      "bot.facts.update": async (params) => factsReply(() => facts.update(botId(params["botId"]), botId(params["factId"]), params["input"])),
+      "bot.facts.delete": async (params) => factsReply(() => facts.delete(botId(params["botId"]), botId(params["factId"]), params["revision"] as number)),
       "bot.soul.read": async (params) => ({ soul: (await souls.read(botId(params["botId"]))) ?? null }),
-      /** Writes a bot's own skills into its home here (an import's), each `{ name, text }`: its folder's name and SKILL.md. */
+      /** Writes a bot's own skills into its home here (an import's), each `{ name, text, files? }`: its folder's name, SKILL.md
+       * and the files beside it. */
       "bot.skills.write": async (params) => {
         await ownSkills.write(botId(params["botId"]), skillFiles(params["skills"]));
         return {};
@@ -268,7 +314,11 @@ export function hostBots(options: HostBotsOptions) {
        */
       "bot.remove-home": async (params) => {
         const id = botId(params["botId"]);
-        if (await chosenInsideHome(id, params["cwd"])) await souls.write(id, undefined);
+        await facts.retire(id);
+        if (await chosenInsideHome(id, params["cwd"])) {
+          await souls.write(id, undefined);
+          await rm(join(home(id), BOT_FACTS_FILE), { force: true });
+        }
         else await souls.remove(id);
         names.delete(id);
         return {};
@@ -317,9 +367,6 @@ export function hostBots(options: HostBotsOptions) {
 
   return {
     handlers,
-    home,
-    /** The bot's name as its gateway last gave it; undefined until one did since this host started. */
-    nameOf: (id: string): string | undefined => names.get(id),
     /** What a gateway's `bots` section reply says the bot is called now. */
     named(id: string, name: string): void {
       if (ID.test(id) && name) names.set(id, name.slice(0, BOT_LIMITS.name));

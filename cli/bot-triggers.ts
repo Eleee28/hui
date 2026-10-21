@@ -3,9 +3,9 @@
  * Triggers section of the Bots tab uses them: list, add, remove and test. Every trigger is a listener's: `add` prints
  * the URL its listener reports to, this once.
  */
-import { BOT_TRIGGER_SOURCE_LABELS, botTriggerFilterSummary, cooldownLabel, type BotTrigger, type BotTriggerCreated, type BotTriggerRun, type BotTriggersList } from "../shared/bot-triggers.ts";
-import type { BotView } from "../shared/bots.ts";
-import type { BotIO } from "./bots.ts";
+import { BOT_TRIGGER_SOURCE_LABELS, botTriggerFilterSummary, cooldownLabel, type BotTrigger, type BotTriggerCreated, type BotTriggerRun, type BotTriggersList } from "../server/bots/triggers-format.ts";
+import type { BotView } from "../server/api/bots.ts";
+import type { BotIO } from "./gateway-client.ts";
 
 export type TriggerFlags = {
   json?: boolean;
@@ -76,7 +76,7 @@ export function formatTrigger(trigger: BotTrigger): string {
 export async function triggerCommand(base: string, action: string, operands: readonly string[], flags: TriggerFlags, io: BotIO): Promise<number> {
   const print = (value: unknown, text: string) => io.out(`${flags.json ? JSON.stringify(value) : text}\n`);
   // Loaded here, so `hui --help` and the argument checks above don't load the rest of the bot CLI.
-  const { findBot, request } = await import("./bots.ts");
+  const { findBot, request } = await import("./gateway-client.ts");
   const bot = await findBot(base, operands[0]!);
   const path = `/__hui/bots/${encodeURIComponent(bot.id)}/triggers`;
   const one = (ref: string) => `${path}/${encodeURIComponent(ref)}`;

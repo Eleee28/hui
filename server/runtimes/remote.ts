@@ -10,9 +10,9 @@
  */
 import { readFile } from "node:fs/promises";
 import { workers, type RemoteSessionLink, type RemoteSessionSink, type RemoteSnapshot } from "../workers.ts";
-import type { RemoteState } from "../worker/host.ts";
-import type { RuntimeInspection } from "../../src/lib/tools-types.ts";
-import type { AgentRuntime, PromptAttachment, RuntimeCommand, RuntimeEvent, RuntimeModel, RuntimeSession, RuntimeUnreachableError, StartOptions, TranscriptEntry } from "./types.ts";
+import type { RemoteState } from "../worker/protocol.ts";
+import type { RuntimeInspection } from "./types.ts";
+import type { AgentRuntime, PromptAttachment, RuntimeCommand, RuntimeEvent, RuntimeModel, RuntimePromptOptions, RuntimePromptResult, RuntimeSession, RuntimeUnreachableError, StartOptions, TranscriptEntry } from "./types.ts";
 
 type Frame = RemoteSnapshot & { event?: RuntimeEvent };
 
@@ -52,7 +52,7 @@ class RemoteRuntimeSession implements RuntimeSession, RemoteSessionSink {
     // Only what the remote runtime offers is exposed, so the gateway never
     // shows a control that would fail.
     const self = this as unknown as Record<string, unknown>;
-    for (const name of ["steer", "followUp", "abort", "setModel", "setThinking", "respondQuestion", "cancelQuestion", "compact", "cancelCompaction", "rewind", "fork", "continueRun", "listModels", "listCommands", "inspect", "attachmentImage", "clear", "reload"]) {
+    for (const name of ["steer", "followUp", "abort", "setModel", "setThinking", "setFast", "respondQuestion", "cancelQuestion", "compact", "cancelCompaction", "rewind", "fork", "continueRun", "listModels", "listCommands", "inspect", "attachmentImage", "clear", "reload", "waitForTrackedPrompt", "cancelTrackedPrompt"]) {
       if (!started.methods.includes(name)) self[name] = undefined;
     }
     this.#attached();
@@ -124,9 +124,11 @@ class RemoteRuntimeSession implements RuntimeSession, RemoteSessionSink {
       : item));
   }
 
-  async prompt(text: string, attachments?: readonly PromptAttachment[]): Promise<void> { await this.#call("prompt", text, await this.#stage(attachments)); }
+  async prompt(text: string, attachments?: readonly PromptAttachment[], options?: RuntimePromptOptions): Promise<void> { await this.#call("prompt", text, await this.#stage(attachments), options); }
   async steer(text: string, attachments?: readonly PromptAttachment[]): Promise<void> { await this.#call("steer", text, await this.#stage(attachments)); }
-  async followUp(text: string, attachments?: readonly PromptAttachment[]): Promise<void> { await this.#call("followUp", text, await this.#stage(attachments)); }
+  async followUp(text: string, attachments?: readonly PromptAttachment[], options?: RuntimePromptOptions): Promise<void> { await this.#call("followUp", text, await this.#stage(attachments), options); }
+  async waitForTrackedPrompt(requestId: string): Promise<RuntimePromptResult> { return this.#call("waitForTrackedPrompt", requestId); }
+  async cancelTrackedPrompt(requestId: string): Promise<void> { await this.#call("cancelTrackedPrompt", requestId); }
   subscribe(listener: (event: RuntimeEvent) => void): () => void {
     this.#listeners.add(listener);
     // Delivered once the caller has finished subscribing, before anything newer.
@@ -142,6 +144,7 @@ class RemoteRuntimeSession implements RuntimeSession, RemoteSessionSink {
   currentModel() { return this.#state.model; }
   currentUsage() { return this.#state.usage; }
   currentThinking() { return this.#state.thinking; }
+  currentFast() { return this.#state.fast === true; }
   pendingQueue() { return this.#state.queue ?? { steering: [], followUp: [] }; }
   pendingQuestions() { return this.#state.questions ?? []; }
   listModels(): Promise<readonly RuntimeModel[]> { return this.#call("listModels"); }
@@ -149,6 +152,7 @@ class RemoteRuntimeSession implements RuntimeSession, RemoteSessionSink {
   inspect(): Promise<RuntimeInspection> { return this.#call("inspect"); }
   async setModel(provider: string, id: string): Promise<void> { await this.#call("setModel", provider, id); }
   async setThinking(level: string): Promise<void> { await this.#call("setThinking", level); }
+  async setFast(on: boolean): Promise<void> { await this.#call("setFast", on); }
   async respondQuestion(id: string, response: unknown): Promise<void> { await this.#call("respondQuestion", id, response); }
   async cancelQuestion(id: string): Promise<void> { await this.#call("cancelQuestion", id); }
   async abort(): Promise<void> { await this.#call("abort"); }

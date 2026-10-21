@@ -1,8 +1,8 @@
-import type { JiraParentCandidate } from "../../shared/jira.ts";
+import type { JiraParentCandidate } from "../../server/api/jira.ts";
 import type { TranscriptEntry } from "../../server/runtimes/types.ts";
-import { interruptedRunPrompt } from "../../server/interrupted-run.ts";
-import { CONTINUE_PROMPT } from "../../src/lib/subagent-completion.ts";
-import { CONTINUE_AFTER_ERROR_PROMPT } from "../../src/lib/run-error.ts";
+import { interruptedRunPrompt } from "../../server/sessions/interrupted-run.ts";
+import { CONTINUE_PROMPT } from "../../server/agent-tools/subagent-completion.ts";
+import { CONTINUE_AFTER_ERROR_PROMPT } from "../../server/sessions/digest.ts";
 import { assistant, bash, edit, read, step, thinking, user, write } from "./transcript.ts";
 import { ciFailuresTail, gitQuestionsTail, lintCleanupTail, stylingTail } from "./tails.ts";
 

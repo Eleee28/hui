@@ -55,7 +55,7 @@ Verified on 2026-09-24 in the running HUI app through the Browser tool.
 
 ## Checks and evidence
 
-- `npm test -- src/views/shell.test.ts src/lib/sidebar-sessions.test.ts`:
+- `npm test -- src/views/shell.test.ts src/lib/session/sidebar-sessions.test.ts`:
   **37 passed**.
 - `npm test`: **383 passed**.
 - `npm run typecheck`, `npm run build`, `git diff --check`: passed.

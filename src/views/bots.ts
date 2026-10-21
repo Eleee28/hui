@@ -1,44 +1,52 @@
 /**
- * The Bots tab: the sidebar roster, a bot's side panel (Routines | Memory |
- * Soul | Tools | Settings, the last two in `bot-tools.ts` and `bot-settings.ts`)
- * and the archive and delete confirmations. Rendering only; every read and
- * write is a prop callback owned by `hui-app.ts`. The bot's chat is the
- * ordinary session pane (`renderHome`) with a bot header, not a fork.
+ * The Bots tab: the sidebar roster, a bot's side panel (its overview, after
+ * OpenAI's Dots, and the Routines, Triggers, Tools and Settings pages its rows
+ * open, the last three in `bot-triggers.ts`, `bot-tools.ts` and
+ * `bot-settings.ts`; its resizable edge and Expand) and the archive and delete
+ * confirmations. Rendering only; every read and write is a prop callback owned
+ * by `hui-app.ts`, and a drag only moves the panel's edge until it ends. The
+ * bot's chat is the ordinary session pane (`renderHome`) with a bot header, not
+ * a fork.
  */
+import { renderBotFacts } from "./bot-facts.ts";
+import type { BotFactsActions, BotFactsState } from "../lib/bots/facts.ts";
 import { html, nothing, type TemplateResult } from "lit";
 import { keyed } from "lit/directives/keyed.js";
+import { repeat } from "lit/directives/repeat.js";
 import { icons } from "../lib/icons.ts";
-import { closeDropdownOnEscape, labelDropdown } from "../lib/web-awesome.ts";
+import { closeDropdownOnEscape, hasOpenWebAwesomePopup, labelDropdown } from "../lib/web-awesome.ts";
 import { navigationPath } from "../lib/navigation.ts";
-import type { BotMemoryStatus, BotView } from "../lib/bots.ts";
-import { BOT_LIMITS, botLook } from "../../shared/bots.ts";
-import type { WorkerState } from "../../shared/workers.ts";
-import { rosterFaceState, type BotFaceSize, type BotFaceState } from "../lib/bot-face.ts";
+import { botLook, type BotView } from "../lib/bots/bots.ts";
+import type { BotTrigger } from "../api/schema/bot-triggers.ts";
+import type { WorkerState } from "../api/schema/workers.ts";
+import { rosterFaceState, type BotFaceSize, type BotFaceState } from "../lib/bots/face.ts";
 import "../components/bot-face.ts";
-import type { AutomationRun, AutomationSnapshot, AutomationTask, AutomationTaskInput } from "../lib/automation-types.ts";
+import type { AutomationRun, AutomationSnapshot, AutomationTask, AutomationTaskInput } from "../api/schema/automation.ts";
+import { automationRunLabel, automationRunRecoveryDetail } from "../lib/automation-recovery.ts";
 import {
   archivedBotCount,
   archivedRosterBots,
   botAccessibleName,
   botActivity,
   botActivityAt,
+  botActivityLabel,
   botPreview,
+  clampBotPanelWidth,
   compactRelativeTime,
   hiddenBotCount,
   rosterBots,
-  tabAfterKey,
   botSettingsShortcutLabel,
-  BOT_PANEL_TABS,
-  type BotPanelTab,
-} from "../lib/bot-roster.ts";
-import { botRoutineRuns, botRoutines, routineFacts, routineSchedule, RoutineFormError, ROUTINE_WEEKDAYS } from "../lib/bot-routines.ts";
-import { memoryBudgetLabel, memoryUsageDetail, memoryUsageLabel, type MemoryLine } from "../lib/bot-memory.ts";
-import { renderMarkdown } from "../lib/markdown.ts";
-import { describeRoutineSchedule, formatTimestamp, runIsActive } from "./settings-automation.ts";
+  BOT_PANEL_MIN_WIDTH,
+  type BotActivity,
+  type BotPanelView,
+} from "../lib/bots/roster.ts";
+import { botRecentRuns, botRoutineRuns, botRoutines, routineFacts, routineSchedule, RoutineFormError, ROUTINE_WEEKDAYS } from "../lib/bots/routines.ts";
+import { botToolsOffLabel } from "../lib/bots/tools.ts";
+import { describeRoutineSchedule, formatTimestamp } from "./settings-automation.ts";
 import { renderSettingsToggle } from "./settings-toggle.ts";
-import { renderBotSettings, type BotSettingsProps } from "./bot-settings.ts";
+import { botCallsLabel, botModelLabel, botTaggingLabel, renderBotSettings, type BotSettingsProps } from "./bot-settings.ts";
 import { renderBotToolsTab, type BotToolsProps } from "./bot-tools.ts";
-import { renderBotTriggers, type BotTriggersProps } from "./bot-triggers.ts";
+import { agoLabel, renderBotTriggers, TRIGGER_RUN_LABELS, type BotTriggersProps } from "./bot-triggers.ts";
 import { loadViewAssets } from "../lib/view-assets.ts";
 
 loadViewAssets(() => import("../styles/bots.css"));
@@ -64,13 +72,13 @@ export function renderBotAvatar(bot: Pick<BotView, "id" | "avatar">, size: BotFa
     .seed=${look.seed} state=${options.state ?? "idle"} .level=${options.level}></hui-bot-face>${badge}</span>`;
 }
 
-function activityBadge(bot: BotView) {
-  const activity = botActivity(bot);
-  if (activity === "idle") return nothing;
+function activityBadge(activity: BotActivity) {
+  if (activity === "done") return html`<span class="bot-avatar__badge bot-avatar__badge--done" title="Done"></span>`;
+  if (activity === "sleeping") return html`<span class="bot-avatar__badge bot-avatar__badge--sleeping" title="Sleeping">z</span>`;
   if (activity === "waiting") return html`<span class="bot-avatar__badge bot-avatar__badge--waiting" title="Waiting for your answer">${icons.hand}</span>`;
   if (activity === "error") return html`<span class="bot-avatar__badge bot-avatar__badge--error" title="Failed">${icons.alertTriangle}</span>`;
   if (activity === "away") return html`<span class="bot-avatar__badge bot-avatar__badge--away" title="Unreachable">${icons.plug}</span>`;
-  return html`<span class="bot-avatar__badge bot-avatar__badge--${activity}" title=${activity === "summarizing" ? "Summarizing memory…" : "Active now"}></span>`;
+  return nothing;
 }
 
 /* ── roster ───────────────────────────────────────────────────────────────── */
@@ -122,21 +130,21 @@ function botRow(bot: BotView, props: BotRosterProps, drawer: RosterDrawer) {
   const active = props.activeBotId === bot.id;
   const open = props.menuFor === bot.id;
   const at = botActivityAt(bot);
-  const activity = botActivity(bot);
+  const activity = botActivity(bot, active);
   const preview = activity === "summarizing" ? "Summarizing memory…" : activity === "waiting" ? "Waiting for your answer" : botPreview(bot);
   const unread = bot.unread && !active;
   return html`<div
     class="session-row-wrap session-row-host sidebar-recent-session bot-row ${active ? "sidebar-recent-session--active" : ""} ${unread ? "sidebar-recent-session--unread" : ""} ${bot.hidden ? "bot-row--hidden" : ""} ${props.pendingId === bot.id ? "sidebar-recent-session--moving" : ""}"
     data-bot-id=${bot.id} data-session-row-action-count="1">
     <a href=${navigationPath({ kind: "bot", id: bot.id })} class="session-row sidebar-recent-session__link bot-row__link" draggable="false"
-      aria-current=${active ? "true" : "false"} aria-label=${botAccessibleName(bot)}
+      aria-current=${active ? "true" : "false"} aria-label=${botAccessibleName(bot, active)}
       @click=${(event: MouseEvent) => {
         if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
         drawer.navigate(event);
         props.onSelect(bot);
       }}>
-      ${renderBotAvatar(bot, "sm", { state: rosterFaceState(bot), badge: activityBadge(bot) })}
+      ${renderBotAvatar(bot, "sm", { state: rosterFaceState(bot, active), badge: activityBadge(activity) })}
       <span class="bot-row__text">
         <span class="bot-row__top">
           <span class="bot-row__name sidebar-recent-session__name">${bot.name}</span>
@@ -147,7 +155,6 @@ function botRow(bot: BotView, props: BotRosterProps, drawer: RosterDrawer) {
           ${bot.worker ? html`<span class="bot-row__tag bot-row__machine" title=${`Runs on ${bot.worker.name}`}>${icons.globe}<span>${bot.worker.name}</span></span>` : nothing}
           ${bot.hidden ? html`<span class="bot-row__tag">Hidden</span>` : nothing}
           <span class="bot-row__preview">${preview}</span>
-          ${unread ? html`<span class="sidebar-session-unread-dot bot-row__unread" title="Unread"></span>` : nothing}
         </span>
       </span>
     </a>
@@ -246,7 +253,7 @@ export function renderBotRoster(props: BotRosterProps, drawer: RosterDrawer) {
   return html`${props.error ? html`<p class="sidebar-list__note is-error" role="alert">${props.error} <button type="button" class="btn btn--sm" @click=${props.onRetry}>Retry</button></p>` : nothing}
     <div class="session-group__rows sidebar-recent-sessions__list bot-roster__rows">
       ${rows.length
-        ? rows.map((bot) => botRow(bot, props, drawer))
+        ? repeat(rows, (bot) => bot.id, (bot) => botRow(bot, props, drawer))
         : html`<p class="sidebar-list__note" role="status">${props.query.trim() ? "No matching bots." : "Every bot is hidden."}</p>`}
     </div>
     ${renderRosterToggles(props, drawer)}`;
@@ -335,27 +342,30 @@ export function renderBotPlaceholder(props: BotPlaceholderProps) {
 
 /* ── side panel ───────────────────────────────────────────────────────────── */
 
-export type BotMemoryState = {
-  loading: boolean;
-  error: string;
-  status?: BotMemoryStatus;
-  lines?: readonly MemoryLine[];
-};
-
-export type MemoryZoomState = { loading: boolean; error: string; lines: readonly MemoryLine[] };
-
-/** The Soul tab's read of SOUL.md: `soul` is undefined until read, null while the bot has none. */
-export type BotSoulState = { loading: boolean; error: string; soul?: string | null };
-
 export type BotPanelProps = {
   bot: BotView;
   id: string;
-  tab: BotPanelTab;
-  /** Narrow layouts show the panel as a sheet over the chat. */
+  /** The bot's overview, or a page one of its rows opened. */
+  view: BotPanelView;
+  /** The row that opened the page showing (its `data-panel-link`): a section's + opens its page on the add form. */
+  openedFrom?: string;
+  /** Narrow layouts show the panel as a sheet over the chat; a sheet neither resizes nor expands. */
   sheet: boolean;
+  /** Expand is offered: docked, and no call is under way (a call shows over the chat, which an expanded panel hides). */
+  expandable: boolean;
+  /** The panel fills the bot's view, its chat hidden underneath. */
+  expanded: boolean;
+  /** Its width beside the chat, as the operator left it. */
+  width: number;
   timezone: string;
-  onTab: (tab: BotPanelTab) => void;
+  /** The profile's Call (the chat header's own button), while the bot can be called: an expanded panel hides the
+   * chat's header. */
+  call?: TemplateResult;
+  onView: (view: BotPanelView, from?: string) => void;
   onClose: () => void;
+  onExpand: (expanded: boolean) => void;
+  /** The width a drag or the keys settled on, already within the room the chat leaves. */
+  onResize: (width: number) => void;
   routines: {
     automation: AutomationSnapshot | undefined;
     error: string;
@@ -369,60 +379,23 @@ export type BotPanelProps = {
     onDelete: (task: AutomationTask) => void;
     onRetry: () => void;
   };
-  memory: {
-    state: BotMemoryState;
-    zoom: ReadonlyMap<string, MemoryZoomState>;
-    onZoom: (line: MemoryLine) => void;
-    onRefresh: () => void;
-    /** OptChat's browse page; a same-origin link opens it in a new tab. */
-    pageUrl: string;
-  };
-  soul: {
-    state: BotSoulState;
-    /** The editor's text; undefined while SOUL.md is only shown. */
-    draft: string | undefined;
-    saving: boolean;
-    saveError: string;
-    /** Opens the editor on SOUL.md, or empty for Write it yourself. */
-    onEdit: () => void;
-    onDraft: (text: string) => void;
-    onSave: () => void;
-    onCancel: () => void;
-    onRetry: () => void;
-  };
-  /** The Tools tab's state and actions (`BotToolsController.props`). */
+  /** The Tools page's state and actions (`BotToolsController.props`). */
   tools: Omit<BotToolsProps, "bot">;
-  /** The Routines tab's Triggers section (`BotTriggersController.props`). */
+  facts?: { state: BotFactsState } & BotFactsActions;
+  /** The triggers, on the overview and their page (`BotTriggersController.props`). */
   triggers: Omit<BotTriggersProps, "bot" | "now">;
-  /** The Settings tab: everything but the bot, the ids and its face, which the panel supplies. */
+  /** The Settings page: everything but the bot, the ids and its face, which the panel supplies. */
   settings: Omit<BotSettingsProps, "bot" | "id" | "face">;
 };
 
-const PANEL_TAB_LABELS: Record<BotPanelTab, string> = { routines: "Routines", memory: "Memory", soul: "Soul", tools: "Tools", settings: "Settings" };
-
-function panelTabId(panelId: string, tab: BotPanelTab): string {
-  return `${panelId}-tab-${tab}`;
-}
-
-function onPanelTabKeydown(event: KeyboardEvent, props: BotPanelProps) {
-  const next = tabAfterKey(BOT_PANEL_TABS, props.tab, event.key);
-  if (!next) return;
-  event.preventDefault();
-  props.onTab(next);
-  const list = (event.currentTarget as HTMLElement).closest('[role="tablist"]');
-  queueMicrotask(() => list?.querySelector<HTMLElement>(`#${CSS.escape(panelTabId(props.id, next))}`)?.focus());
-}
-
-const RUN_LABELS: Record<AutomationRun["status"], string> = {
-  queued: "Queued",
-  running: "Running",
-  completed: "Completed",
-  failed: "Failed",
-  skipped: "Skipped",
-  cancelled: "Cancelled",
-};
+const VIEW_TITLES: Record<Exclude<BotPanelView, "overview">, string> = { routines: "Routines", triggers: "Triggers", tools: "Tools & skills", settings: "Settings", facts: "Memory" };
 
 const playIcon = html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>`;
+/** Lucide maximize-2 and minimize-2, as the Work pane's. */
+const expandIcon = html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6" /><path d="m21 3-7 7" /><path d="m3 21 7-7" /><path d="M9 21H3v-6" /></svg>`;
+const restoreIcon = html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 10 7-7" /><path d="M20 10h-6V4" /><path d="m3 21 7-7" /><path d="M4 14h6v6" /></svg>`;
+
+/* ── the routines page ── */
 
 function renderRoutine(task: AutomationTask, props: BotPanelProps) {
   const { routines } = props;
@@ -431,7 +404,7 @@ function renderRoutine(task: AutomationTask, props: BotPanelProps) {
       <span class="bot-routine__name">${task.name}</span>
       ${renderSettingsToggle(`Enable ${task.name}`, task.enabled, (checked) => routines.onSetEnabled(task, checked), routines.pending)}
     </div>
-    <p class="bot-routine__meta">${describeRoutineSchedule(task.schedule)} · ${task.enabled ? `next ${formatTimestamp(task.nextRunAt)}` : "paused"}</p>
+    <p class="bot-routine__meta">${routineWhen(task)}</p>
     ${renderRoutineFacts(task, props)}
     <p class="bot-routine__prompt" title=${task.prompt}>${task.prompt}</p>
     <div class="bot-routine__actions">
@@ -439,6 +412,11 @@ function renderRoutine(task: AutomationTask, props: BotPanelProps) {
       <button type="button" class="btn btn--sm btn--ghost bot-routine__delete" ?disabled=${routines.pending} aria-label=${`Delete ${task.name}`} @click=${() => routines.onDelete(task)}>${icons.trash}<span>Delete</span></button>
     </div>
   </li>`;
+}
+
+/** "Daily at 08:00 · next Tomorrow 08:00", or "… · paused". */
+function routineWhen(task: AutomationTask): string {
+  return `${describeRoutineSchedule(task.schedule)} · ${task.enabled ? `next ${formatTimestamp(task.nextRunAt)}` : "paused"}`;
 }
 
 /** Who made a routine when the bot did, and a temporary routine's limits: "made by @ada", "until 18:00", "3 runs left". */
@@ -450,9 +428,11 @@ function renderRoutineFacts(task: AutomationTask, props: BotPanelProps) {
 }
 
 function renderRun(run: AutomationRun) {
+  const recovery = automationRunRecoveryDetail(run, formatTimestamp);
   return html`<li class="bot-run" data-run=${run.id} data-status=${run.status}>
-    <div class="bot-run__head"><span class="bot-run__name">${run.taskName}</span><span class="bot-run__status">${RUN_LABELS[run.status]}</span></div>
+    <div class="bot-run__head"><span class="bot-run__name">${run.taskName}</span><span class="bot-run__status">${automationRunLabel(run)}</span></div>
     <p class="bot-run__facts">${run.source === "manual" ? "Run now" : "Scheduled"} · ${formatTimestamp(run.startedAt ?? run.createdAt)}</p>
+    ${recovery ? html`<p class="bot-run__body">${recovery}</p>` : nothing}
     ${run.summary ? html`<p class="bot-run__body">${run.summary}</p>` : nothing}
     ${run.error ? html`<p class="bot-run__body bot-run__body--error" role="alert">${run.error}</p>` : nothing}
   </li>`;
@@ -532,13 +512,17 @@ function renderRoutineForm(props: BotPanelProps, open: boolean) {
   </details>`;
 }
 
-function renderRoutinesTab(props: BotPanelProps) {
+/** Reading the routines, or why they could not be read. */
+function renderRoutinesState(props: BotPanelProps) {
   const { routines } = props;
-  if (!routines.automation) {
-    return routines.error
-      ? html`<div class="bot-panel__state" role="alert">${routines.error} <button type="button" class="btn btn--sm" @click=${routines.onRetry}>Retry</button></div>`
-      : html`<p class="bot-panel__state" role="status">Reading routines…</p>`;
-  }
+  return routines.error
+    ? html`<div class="bot-panel__state" role="alert">${routines.error} <button type="button" class="btn btn--sm" @click=${routines.onRetry}>Retry</button></div>`
+    : html`<p class="bot-panel__state" role="status">Reading routines…</p>`;
+}
+
+function renderRoutinesView(props: BotPanelProps) {
+  const { routines } = props;
+  if (!routines.automation) return renderRoutinesState(props);
   const tasks = botRoutines(routines.automation, props.bot.sessionId);
   const runs = botRoutineRuns(routines.automation, props.bot.sessionId);
   return html`
@@ -546,162 +530,268 @@ function renderRoutinesTab(props: BotPanelProps) {
     ${tasks.length
       ? html`<ul class="bot-routines" aria-label="Routines">${tasks.map((task) => renderRoutine(task, props))}</ul>`
       : html`<p class="bot-panel__hint">No routines yet. A routine sends its prompt to ${props.bot.name}'s chat on a schedule, marked with its name.</p>`}
-    ${renderRoutineForm(props, tasks.length === 0)}
+    ${renderRoutineForm(props, tasks.length === 0 || props.openedFrom === "routines-add")}
     <section class="bot-panel__section" aria-labelledby=${`${props.id}-runs`}>
       <h3 class="bot-panel__heading" id=${`${props.id}-runs`}>Latest runs</h3>
       ${runs.length
         ? html`<ul class="bot-runs">${runs.map(renderRun)}</ul>`
         : html`<p class="bot-panel__hint">Runs appear here with their outcome.</p>`}
-      ${runs.some(runIsActive) ? html`<p class="bot-panel__hint" role="status">A run is in progress.</p>` : nothing}
+      ${runs.some((run) => run.status === "running") ? html`<p class="bot-panel__hint" role="status">A run is in progress.</p>` : nothing}
     </section>
     ${routines.automation && routines.error ? html`<p class="bot-field__error" role="alert">Refresh failed: ${routines.error}</p>` : nothing}`;
 }
 
-function renderMemoryLine(line: MemoryLine, props: BotPanelProps, depth: number): TemplateResult {
-  const { memory } = props;
-  if (line.message) {
-    return html`<li class="bot-memory__item bot-memory__item--message" style=${`--memory-depth: ${depth}`}>
-      <div class="bot-memory__message"><span class="bot-memory__address">message ${line.id}</span><span class="bot-memory__message-text">${line.text}</span></div>
-    </li>`;
-  }
-  const zoom = memory.zoom.get(line.address);
-  return html`<li class="bot-memory__item" style=${`--memory-depth: ${depth}`}>
-    <button type="button" class="bot-memory__line" aria-expanded=${String(Boolean(zoom))}
-      aria-label=${`${zoom ? "Collapse" : "Zoom into"} ${line.address}: ${line.text}`} @click=${() => memory.onZoom(line)}>
-      <span class="bot-memory__chevron" aria-hidden="true">${icons.chevron}</span>
-      <span class="bot-memory__address">${line.address}</span><span class="bot-memory__text">${line.text}</span>
-    </button>
-    ${zoom?.loading ? html`<p class="bot-memory__zoom-state" role="status">Opening ${line.address}…</p>` : nothing}
-    ${zoom?.error ? html`<p class="bot-memory__zoom-state bot-field__error" role="alert">${zoom.error}</p>` : nothing}
-    ${zoom?.lines.length ? html`<ol class="bot-memory__children">${zoom.lines.map((child) => renderMemoryLine(child, props, depth + 1))}</ol>` : nothing}
-  </li>`;
+/* ── the overview ── */
+
+/** A section of the overview: its heading, and a + that opens its page on the add form. */
+function overviewHead(props: BotPanelProps, section: string, title: string, add?: { label: string; view: BotPanelView }) {
+  return html`<div class="bot-overview__head">
+    <h3 class="bot-panel__heading" id=${`${props.id}-overview-${section}`}>${title}</h3>
+    ${add ? html`<button type="button" class="btn btn--ghost btn--icon chat-icon-btn bot-overview__add" data-panel-link=${`${section}-add`}
+      aria-label=${add.label} title=${add.label} @click=${() => props.onView(add.view, `${section}-add`)}>${icons.plus}</button>` : nothing}
+  </div>`;
 }
 
-function renderMemoryTab(props: BotPanelProps) {
-  const { state } = props.memory;
-  const status = state.status;
-  if (!status) {
-    return state.error
-      ? html`<div class="bot-panel__state" role="alert">${state.error} <button type="button" class="btn btn--sm" @click=${props.memory.onRefresh}>Retry</button></div>`
-      : html`<p class="bot-panel__state" role="status">Reading memory…</p>`;
-  }
-  const lines = state.lines ?? [];
-  return html`
-    <dl class="bot-memory__stats">
-      <div><dt>Messages</dt><dd>${status.messages.toLocaleString()}</dd></div>
-      <div><dt>View</dt><dd>${memoryBudgetLabel(status.viewBytes)}</dd></div>
-      <div><dt>Lines</dt><dd>${status.viewLines.toLocaleString()}</dd></div>
-      <div><dt>Pending summaries</dt><dd>${status.pending.toLocaleString()}</dd></div>
-      <div class="bot-memory__usage"><dt>${props.bot.worker ? `Summarizer since HUI started on ${props.bot.worker.name}` : "Summarizer since the gateway started"}</dt><dd title=${memoryUsageDetail(status.usage)}>${memoryUsageLabel(status.usage)}</dd></div>
-    </dl>
-    ${status.waiting ? html`<p class="bot-memory__notice" role="status">Summarizing memory…</p>` : nothing}
-    ${status.failing ? html`<p class="bot-memory__notice bot-memory__notice--failing" role="alert">Summaries are failing${status.failing.node ? ` at ${status.failing.node}` : ""}: ${status.failing.error}. HUI keeps retrying.</p>` : nothing}
-    ${state.error ? html`<p class="bot-field__error" role="alert">Refresh failed: ${state.error}</p>` : nothing}
-    <div class="bot-memory__actions">
-      <a class="btn btn--sm" href=${props.memory.pageUrl} target="_blank" rel="noopener">${icons.externalLink}<span>Open memory page</span></a>
-      <button type="button" class="btn btn--sm btn--ghost" ?disabled=${state.loading} @click=${props.memory.onRefresh}>${icons.refresh}<span>${state.loading ? "Refreshing…" : "Refresh"}</span></button>
-    </div>
-    ${lines.length
-      ? html`<ol class="bot-memory__view" aria-label="Memory view, oldest first">${lines.map((line) => renderMemoryLine(line, props, 0))}</ol>`
-      : html`<p class="bot-panel__hint">Nothing remembered yet. Each message joins the memory; older ones are summarized into shorter lines you can zoom back into.</p>`}`;
+/** A row that opens a page: what it is, and a line about it. Its switch, when it has one, sits beside it. */
+function overviewLink(props: BotPanelProps, view: BotPanelView, link: string, name: string, meta: unknown, tone = "") {
+  return html`<button type="button" class="bot-overview__link" data-panel-link=${link} @click=${() => props.onView(view, link)}>
+    <span class="bot-overview__name">${name}</span>
+    <span class="bot-overview__meta ${tone}">${meta}</span>
+  </button>`;
 }
 
-/** SOUL.md's editor: a textarea with Save and Cancel (Escape), the count against the limit, errors inline. */
-function renderSoulEditor(props: BotPanelProps, draft: string) {
-  const { soul } = props;
-  const length = draft.trim().length;
-  const over = length > BOT_LIMITS.soul;
-  return html`<form class="bot-soul__editor" novalidate
-    @submit=${(event: SubmitEvent) => { event.preventDefault(); if (!over) soul.onSave(); }}
-    @keydown=${(event: KeyboardEvent) => {
-      if (event.key !== "Escape" || soul.saving) return;
-      event.preventDefault();
-      event.stopPropagation();
-      soul.onCancel();
-    }}>
-    <label class="bot-field"><span class="bot-field__label">SOUL.md</span>
-      <textarea class="settings-input bot-soul__textarea" name="soul" rows="16" spellcheck="true" .value=${draft} ?disabled=${soul.saving}
-        aria-invalid=${over ? "true" : "false"} placeholder="# Who I am"
-        @input=${(event: Event) => soul.onDraft((event.currentTarget as HTMLTextAreaElement).value)}></textarea></label>
-    <p class="bot-field__hint ${over ? "bot-field__error" : ""}" aria-live="polite">${length
-      ? `${length.toLocaleString()} of ${BOT_LIMITS.soul.toLocaleString()} characters. ${props.bot.name} reads it from its next turn.`
-      : `Saved empty, SOUL.md goes and ${props.bot.name} asks what you expect from it again.`}</p>
-    ${soul.saveError ? html`<p class="bot-field__error" role="alert">${soul.saveError}</p>` : nothing}
-    <div class="bot-soul__actions">
-      <button type="submit" class="btn primary btn--sm" ?disabled=${soul.saving || over}>${soul.saving ? "Saving…" : "Save"}</button>
-      <button type="button" class="btn btn--sm" ?disabled=${soul.saving} @click=${soul.onCancel}>Cancel</button>
+/** Face, name, role and what it is doing, then Call and Edit, as a Dots profile opens. */
+function renderProfile(props: BotPanelProps) {
+  const { bot } = props;
+  const activity = botActivityLabel(bot, true);
+  const meta = [bot.title, `${activity.charAt(0).toUpperCase()}${activity.slice(1)}`, bot.worker ? `on ${bot.worker.name}` : ""].filter(Boolean).join(" · ");
+  return html`<section class="bot-profile" aria-labelledby=${`${props.id}-name`}>
+    ${renderBotAvatar(bot, "lg", { state: rosterFaceState(bot, true) })}
+    <h2 class="bot-profile__name" id=${`${props.id}-name`}>${bot.name}</h2>
+    <p class="bot-profile__meta">${meta}</p>
+    <div class="bot-profile__actions">
+      ${props.call ?? nothing}
+      <button type="button" class="btn btn--ghost btn--icon chat-icon-btn bot-profile__edit" data-panel-link="settings-profile"
+        aria-label=${`Edit ${bot.name}`} title=${`Edit (${botSettingsShortcutLabel()})`} @click=${() => props.onView("settings", "settings-profile")}>${icons.edit}</button>
     </div>
-  </form>`;
+  </section>`;
 }
 
-/** SOUL.md as markdown with Edit; while the bot has none, what its first conversation does, and Write it yourself. */
-function renderSoulTab(props: BotPanelProps) {
-  const { soul } = props;
-  const { state } = soul;
-  const name = props.bot.name;
-  if (soul.draft !== undefined) return renderSoulEditor(props, soul.draft);
-  if (state.soul === undefined) {
-    return state.error
-      ? html`<div class="bot-panel__state" role="alert">${state.error} <button type="button" class="btn btn--sm" @click=${soul.onRetry}>Retry</button></div>`
-      : html`<p class="bot-panel__state" role="status">Reading ${name}'s soul…</p>`;
-  }
-  const refreshFailed = state.error ? html`<p class="bot-field__error" role="alert">Refresh failed: ${state.error}</p>` : nothing;
-  if (state.soul === null) {
-    return html`<div class="bot-soul__empty">
-      <p class="bot-soul__empty-title">${name} writes its soul in your first conversation</p>
-      <p class="bot-panel__hint">It asks what you expect from it, a question or two at a time, then saves who it is, what it looks after, how it works and when it reaches out to you as its SOUL.md. Later, just tell it what to change.</p>
-      <button type="button" class="btn btn--sm bot-soul__write" @click=${soul.onEdit}>${icons.edit}<span>Write it yourself</span></button>
-    </div>
-    ${refreshFailed}`;
-  }
-  return html`<div class="bot-soul__toolbar">
-      <span class="bot-soul__file">SOUL.md</span>
-      <button type="button" class="btn btn--sm bot-soul__edit" aria-label=${`Edit ${name}'s soul`} @click=${soul.onEdit}>${icons.edit}<span>Edit</span></button>
-    </div>
-    ${state.soul.length > BOT_LIMITS.soul
-      ? html`<p class="bot-memory__notice" role="status">SOUL.md has ${state.soul.length.toLocaleString()} characters; ${name} reads only the first ${BOT_LIMITS.soul.toLocaleString()}.</p>`
-      : nothing}
-    <div class="chat-text bot-soul__body">${renderMarkdown(state.soul)}</div>
-    ${refreshFailed}
-    <p class="bot-panel__hint">${name} follows this every turn. Ask it to change something and it updates SOUL.md and tells you.</p>`;
+function renderRoutinesSummary(props: BotPanelProps) {
+  const { routines, bot } = props;
+  const tasks = routines.automation ? botRoutines(routines.automation, bot.sessionId) : [];
+  return html`<section class="bot-overview__section" aria-labelledby=${`${props.id}-overview-routines`}>
+    ${overviewHead(props, "routines", "Routines", { label: "Add routine", view: "routines" })}
+    ${!routines.automation ? renderRoutinesState(props) : tasks.length
+      ? html`<ul class="bot-overview__list">${tasks.map((task) => html`<li class="bot-overview__row ${task.enabled ? "" : "bot-overview__row--off"}">
+          ${overviewLink(props, "routines", `routine-${task.id}`, task.name, routineWhen(task))}
+          ${renderSettingsToggle(`Enable ${task.name}`, task.enabled, (checked) => routines.onSetEnabled(task, checked), routines.pending)}
+        </li>`)}</ul>`
+      : html`<p class="bot-panel__hint">No routines yet. Ask ${bot.name} to do something on a schedule, or add one.</p>`}
+    ${routines.automation && routines.actionError ? html`<p class="bot-field__error" role="alert">${routines.actionError}</p>` : nothing}
+  </section>`;
 }
 
-function renderPanelTab(props: BotPanelProps) {
-  switch (props.tab) {
-    case "routines": return html`${renderRoutinesTab(props)}${renderBotTriggers({ bot: props.bot, now: Date.now(), ...props.triggers })}`;
-    case "memory": return renderMemoryTab(props);
-    case "soul": return renderSoulTab(props);
+/** When a trigger last fired, or the problem its listener reported. */
+function triggerLine(trigger: BotTrigger, now: number) {
+  if (trigger.watch?.error) return trigger.watch.error;
+  return trigger.lastFiredAt ? `Last fired ${agoLabel(trigger.lastFiredAt, now)}` : "Never fired";
+}
+
+function renderTriggersSummary(props: BotPanelProps, now: number) {
+  const { state } = props.triggers;
+  const list = state.list;
+  return html`<section class="bot-overview__section" aria-labelledby=${`${props.id}-overview-triggers`}>
+    ${overviewHead(props, "triggers", "Triggers", { label: "Add trigger", view: "triggers" })}
+    ${!list
+      ? state.error
+        ? html`<div class="bot-panel__state" role="alert">${state.error} <button type="button" class="btn btn--sm" @click=${props.triggers.onRetry}>Retry</button></div>`
+        : html`<p class="bot-panel__state" role="status">Reading triggers…</p>`
+      : list.triggers.length
+        ? html`<ul class="bot-overview__list">${list.triggers.map((trigger) => html`<li class="bot-overview__row ${trigger.enabled ? "" : "bot-overview__row--off"}">
+            ${overviewLink(props, "triggers", `trigger-${trigger.id}`, trigger.name, triggerLine(trigger, now), trigger.watch?.error ? "bot-overview__meta--error" : "")}
+            ${renderSettingsToggle(`Enable ${trigger.name}`, trigger.enabled, (checked) => props.triggers.onToggle(trigger, checked), state.pending)}
+          </li>`)}</ul>`
+        : html`<p class="bot-panel__hint">No triggers yet. A trigger wakes ${props.bot.name} when a listener you run reports an event.</p>`}
+    ${list && state.actionError ? html`<p class="bot-field__error" role="alert">${state.actionError}</p>` : nothing}
+  </section>`;
+}
+
+/** What the bot did on its own lately: its routines' and triggers' runs, newest first. */
+function renderActivity(props: BotPanelProps, now: number) {
+  const routineRuns = botRoutineRuns(props.routines.automation, props.bot.sessionId);
+  const runs = botRecentRuns(routineRuns, props.triggers.state.list?.runs ?? []);
+  return html`<section class="bot-overview__section" aria-labelledby=${`${props.id}-overview-activity`}>
+    ${overviewHead(props, "activity", "Activity")}
+    ${runs.length
+      ? html`<ul class="bot-overview__list">${runs.map((entry) => {
+          const routine = entry.kind === "routine";
+          const label = routine ? automationRunLabel(entry.run) : TRIGGER_RUN_LABELS[entry.run.status];
+          const recovery = routine ? automationRunRecoveryDetail(entry.run, formatTimestamp) : "";
+          const detail = routine ? entry.run.error ?? entry.run.summary : entry.run.reason ?? entry.run.summary;
+          const when = agoLabel(entry.at, now);
+          return html`<li class="bot-overview__row" data-status=${entry.run.status}>
+            ${overviewLink(props, routine ? "routines" : "triggers", `run-${entry.run.id}`, routine ? entry.run.taskName : entry.run.triggerName,
+              html`<span class="bot-overview__status">${label}</span>${recovery ? html` · ${recovery}` : nothing} · ${when}${detail ? html` · ${detail}` : nothing}`)}
+          </li>`;
+        })}</ul>`
+      : html`<p class="bot-panel__hint">Runs of ${props.bot.name}'s routines and triggers show here.</p>`}
+  </section>`;
+}
+
+/** Where the bot works, short: its own folder (the one HUI made, named by its id), or a chosen folder's last two
+ * names; the whole path is the row's title. */
+function workspaceLabel(bot: Pick<BotView, "id" | "cwd">): string {
+  const parts = bot.cwd.split("/").filter(Boolean);
+  if (parts.at(-1) === bot.id) return "Its own folder";
+  return parts.length > 2 ? `…/${parts.slice(-2).join("/")}` : bot.cwd;
+}
+
+/** How the bot is set up, one row each, every row opening the page that changes it. */
+function renderSetup(props: BotPanelProps) {
+  const { bot } = props;
+  const row = (link: string, view: BotPanelView, title: string, value: string, full = value) => html`<button type="button"
+    class="bot-overview__setup" data-panel-link=${link} @click=${() => props.onView(view, link)}>
+    <span class="bot-overview__name">${title}</span><span class="bot-overview__value" title=${full}>${value}</span>${icons.chevron}
+  </button>`;
+  const where = bot.worker ? ` on ${bot.worker.name}` : "";
+  return html`<section class="bot-overview__section" aria-labelledby=${`${props.id}-overview-setup`}>
+    ${overviewHead(props, "setup", "Setup")}
+    <div class="bot-overview__list">
+      ${row("settings-tagging", "settings", "Tagging", botTaggingLabel(bot), bot.description ?? botTaggingLabel(bot))}
+      ${row("settings-model", "settings", "Model", botModelLabel(bot, props.settings.models))}
+      ${row("tools", "tools", "Tools & skills", botToolsOffLabel(bot))}
+      ${row("facts", "facts", "Memory", "Facts, preferences & decisions")}
+      ${row("settings-calls", "settings", "Calls", botCallsLabel(bot, props.settings.call))}
+      ${row("settings-workspace", "settings", "Workspace", `${workspaceLabel(bot)}${where}`, `${bot.cwd}${where}`)}
+    </div>
+  </section>`;
+}
+
+/** The panel's first page, after OpenAI's Dots: who the bot is, what it does on its own and how it is set up. Wide,
+ * it splits in two columns: the profile and setup on the left, what it does on the right. */
+function renderOverview(props: BotPanelProps) {
+  const now = Date.now();
+  return html`<div class="bot-overview">
+    ${renderProfile(props)}
+    <div class="bot-overview__does">
+      ${renderRoutinesSummary(props)}
+      ${renderTriggersSummary(props, now)}
+      ${renderActivity(props, now)}
+    </div>
+    ${renderSetup(props)}
+  </div>`;
+}
+
+function renderPanelView(props: BotPanelProps) {
+  switch (props.view) {
+    case "overview": return renderOverview(props);
+    case "facts": return props.facts ? renderBotFacts(props.facts) : nothing;
+    case "routines": return renderRoutinesView(props);
+    case "triggers": return renderBotTriggers({ bot: props.bot, now: Date.now(), ...props.triggers, adding: props.openedFrom === "triggers-add" });
     // Keyed, as Settings: another bot's switches and skill search start afresh.
     case "tools": return keyed(props.bot.id, renderBotToolsTab({ bot: props.bot, ...props.tools }));
-    // Keyed: another bot's tab starts afresh (its look closed, nothing typed carried over).
+    // Keyed: another bot's page starts afresh (its look closed, nothing typed carried over).
     case "settings": return keyed(props.bot.id, renderBotSettings({ ...props.settings, bot: props.bot, id: props.id, face: (avatar) => renderBotAvatar({ id: props.bot.id, avatar }, "md") }));
   }
 }
 
-/** The panel: a header with the bot's name and Close, then its tabs on a full-width row of their own (as the
- * sidebar's Agents | Bots), which leaves room for more tabs than a segmented control beside Close would. */
+/* ── size: drag, keys, expand ── */
+
+/** The drag in progress (one pointer at a time): where the pointer and the width started, the room beside the chat,
+ * and whether it moved, since a click on the edge must not save the width the window squeezed it to. */
+let drag: { x: number; width: number; available: number; panel: HTMLElement; moved: boolean } | undefined;
+
+/** The panel a handle resizes, its width now and the width of the bot's view it shares with the chat. */
+function measure(handle: HTMLElement) {
+  const panel = handle.closest<HTMLElement>(".bot-panel")!;
+  return { panel, width: panel.getBoundingClientRect().width, available: panel.parentElement?.clientWidth ?? Number.POSITIVE_INFINITY };
+}
+
+/** The panel's left edge, as the Work pane's: drag it, or use ← → (Shift for bigger steps), Home and End on it. The
+ * width follows the pointer without a render; the app keeps it once the drag ends. */
+function renderResizer(props: BotPanelProps) {
+  if (props.sheet || props.expanded) return nothing;
+  const end = () => {
+    if (!drag) return;
+    const { panel, available, moved } = drag;
+    drag = undefined;
+    panel.classList.remove("bot-panel--resizing");
+    if (moved) props.onResize(clampBotPanelWidth(panel.getBoundingClientRect().width, available));
+  };
+  return html`<div class="bot-panel__resizer" role="separator" aria-orientation="vertical" aria-label="Resize the bot panel" tabindex="0"
+    aria-valuenow=${props.width} aria-valuemin=${BOT_PANEL_MIN_WIDTH}
+    @focus=${(event: FocusEvent) => {
+      // The room the chat leaves changes with the window: what a screen reader announces is measured when it lands here.
+      const handle = event.currentTarget as HTMLElement;
+      const { width, available } = measure(handle);
+      handle.setAttribute("aria-valuenow", String(Math.round(width)));
+      handle.setAttribute("aria-valuemax", String(clampBotPanelWidth(Number.POSITIVE_INFINITY, available)));
+    }}
+    @pointerdown=${(event: PointerEvent) => {
+      if (event.button !== 0) return;
+      const handle = event.currentTarget as HTMLElement;
+      drag = { x: event.clientX, ...measure(handle), moved: false };
+      handle.setPointerCapture(event.pointerId);
+      drag.panel.classList.add("bot-panel--resizing");
+      // No text selection while dragging; the keys stay on the handle, as clicking it would leave them.
+      event.preventDefault();
+      handle.focus({ preventScroll: true });
+    }}
+    @pointermove=${(event: PointerEvent) => {
+      if (!drag) return;
+      drag.moved = true;
+      drag.panel.style.setProperty("--bot-panel-width", `${clampBotPanelWidth(drag.width + drag.x - event.clientX, drag.available)}px`);
+    }}
+    @pointerup=${end} @pointercancel=${end} @lostpointercapture=${end}
+    @keydown=${(event: KeyboardEvent) => {
+      const { width, available } = measure(event.currentTarget as HTMLElement);
+      const step = event.shiftKey ? 80 : 24;
+      const next = event.key === "ArrowLeft" ? width + step : event.key === "ArrowRight" ? width - step
+        : event.key === "Home" ? BOT_PANEL_MIN_WIDTH : event.key === "End" ? Number.POSITIVE_INFINITY : undefined;
+      if (next === undefined) return;
+      event.preventDefault();
+      props.onResize(clampBotPanelWidth(next, available));
+    }}></div>`;
+}
+
+/** The overview's header holds only Expand and Close: its profile names the bot. A page's adds the way back and its
+ * title. */
+function renderPanelHeader(props: BotPanelProps) {
+  const view = props.view;
+  const expanded = props.expanded;
+  return html`<header class="bot-panel__header">
+    ${view === "overview" ? html`<span class="bot-panel__spacer"></span>` : html`
+      <button type="button" class="btn btn--ghost btn--icon chat-icon-btn bot-panel__back" aria-label=${`Back to ${props.bot.name}`} title="Back"
+        @click=${() => props.onView("overview")}>${icons.arrowLeft}</button>
+      <h2 class="bot-panel__title">${VIEW_TITLES[view]}</h2>`}
+    ${props.expandable ? html`<button type="button" class="btn btn--ghost btn--icon chat-icon-btn bot-panel__expand"
+      aria-label=${expanded ? "Show the chat beside the panel" : "Expand the panel"} title=${expanded ? "Show the chat (Esc)" : "Expand"}
+      @click=${() => props.onExpand(!expanded)}>${expanded ? restoreIcon : expandIcon}</button>` : nothing}
+    <button type="button" class="btn btn--ghost btn--icon chat-icon-btn bot-panel__close" aria-label="Close the bot panel" title="Close" @click=${props.onClose}>${icons.close}</button>
+  </header>`;
+}
+
+/** The panel beside the bot's chat: its overview, or a page one of the overview's rows opened. Docked, its left edge
+ * resizes it and Expand makes it fill the bot's view; on narrow screens it is a sheet over the chat. */
 export function renderBotPanel(props: BotPanelProps) {
-  const tabpanel = `${props.id}-tabpanel`;
   return html`${props.sheet ? html`<button type="button" class="bot-panel__backdrop" tabindex="-1" aria-label="Close the bot panel" @click=${props.onClose}></button>` : nothing}
-    <aside class="bot-panel ${props.sheet ? "bot-panel--sheet" : ""}" id=${props.id} aria-label=${`${props.bot.name}: bot panel`}
+    <aside class="bot-panel ${props.sheet ? "bot-panel--sheet" : ""}" id=${props.id}
+      aria-label=${`${props.bot.name}: bot panel`} data-view=${props.view} style=${`--bot-panel-width: ${props.width}px`}
       @keydown=${(event: KeyboardEvent) => {
-        if (event.key !== "Escape" || !props.sheet || event.defaultPrevented) return;
+        // A popup inside (a menu, a picker) or a field taking back its text has its own Escape first.
+        if (event.key !== "Escape" || event.isComposing || event.defaultPrevented || hasOpenWebAwesomePopup(event)) return;
+        // Escape never reaches the chat from here, where it would stop the bot's turn: it closes the sheet, brings the
+        // chat back beside an expanded panel, and docked does nothing.
         event.preventDefault();
         event.stopPropagation();
-        props.onClose();
+        if (props.sheet) props.onClose();
+        else if (props.expanded) props.onExpand(false);
       }}>
-      <header class="bot-panel__header">
-        <h2 class="bot-panel__title">${props.bot.name}</h2>
-        <button type="button" class="btn btn--ghost btn--icon chat-icon-btn bot-panel__close" aria-label="Close the bot panel" title="Close" @click=${props.onClose}>${icons.close}</button>
-      </header>
-      <div class="bot-panel__tabs" role="tablist" aria-label=${`${props.bot.name}'s panel`}>
-        ${BOT_PANEL_TABS.map((tab) => html`<button type="button" role="tab" class="bot-panel__tab" id=${panelTabId(props.id, tab)} data-tab=${tab}
-          aria-selected=${String(props.tab === tab)} aria-controls=${tabpanel} tabindex=${props.tab === tab ? "0" : "-1"}
-          title=${tab === "settings" ? `Settings (${botSettingsShortcutLabel()})` : nothing}
-          @click=${() => props.onTab(tab)} @keydown=${(event: KeyboardEvent) => onPanelTabKeydown(event, props)}>${PANEL_TAB_LABELS[tab]}${tab === "routines" && props.bot.routines ? html`<span class="bot-panel__count">${props.bot.routines}</span>` : nothing}</button>`)}
-      </div>
-      <div class="bot-panel__body" role="tabpanel" id=${tabpanel} aria-labelledby=${panelTabId(props.id, props.tab)} tabindex="0">
-        ${renderPanelTab(props)}
+      ${renderResizer(props)}
+      ${renderPanelHeader(props)}
+      <div class="bot-panel__body" role="region" tabindex="0" aria-label=${props.view === "overview" ? `About ${props.bot.name}` : VIEW_TITLES[props.view]}>
+        <div class="bot-panel__content">${renderPanelView(props)}</div>
       </div>
     </aside>`;
 }

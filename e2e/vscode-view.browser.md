@@ -1,6 +1,6 @@
 # VS Code view journey
 
-The Work pane's VS Code view (`<hui-vscode-view>`, `src/lib/work-views/vscode.ts`)
+The Work pane's VS Code view (`<hui-vscode-view>`, `src/views/work/vscode.ts`)
 in the real app, opened from a conversation's Work pane, with each provider:
 the openvscode-server HUI installs (Linux), VS Code desktop through
 `code serve-web`, and Settings switching between them. Keep screenshots outside Git.
@@ -10,7 +10,7 @@ the openvscode-server HUI installs (Linux), VS Code desktop through
 1. Real programs, never installed into a profile or the system:
    - openvscode-server: Gitpod's release tarball for this machine
      (`openvscode-server-v1.109.5-linux-x64.tar.gz`, the asset whose SHA-256 is
-     pinned in `server/vscode-install.ts`), served from a local mirror: a small
+     pinned in `server/vscode/install.ts`), served from a local mirror: a small
      HTTP server answering `/releases/openvscode-server-v1.109.5/<asset>` from a
      directory holding it. A throttle (about 40 MB/s) keeps the progress visible.
    - VS Code: `NIXPKGS_ALLOW_UNFREE=1 NIX_CONFIG='experimental-features = nix-command flakes' nix build --impure nixpkgs#vscode --no-link --print-out-paths`
@@ -75,20 +75,20 @@ the openvscode-server HUI installs (Linux), VS Code desktop through
 7. **Offline.** With no route to update.code.visualstudio.com, serve-web's first
    start fails after 60 seconds without a byte with *VS Code could not download
    its web server from Microsoft…* and **Retry** (covered by
-   `server/vscode.test.ts`; not repeated in the browser).
+   `server/vscode/vscode.test.ts`; not repeated in the browser).
 
 ## Automated coverage
 
-`server/vscode.test.ts` (provider detection per platform, serve-web help and
+`server/vscode/vscode.test.ts` (provider detection per platform, serve-web help and
 version parsing, the provider order, consent gating: no spawn and no
 `--accept-server-license-terms` before consent, the flag with it; serve-web's
 download progress, stall and cancel; lazy start, idle stop, crash, process-group
 stop, stale-server reaping, tickets and cookie secrets),
-`server/vscode-install.test.ts` (architecture mapping, a fake release host with a
+`server/vscode/install.test.ts` (architecture mapping, a fake release host with a
 redirect, checksum and size mismatches rejected, a cut-off download cleaned up,
 staging then atomic rename, a server that does not run left uninstalled,
-cancel, the gateway's HTTP proxy honoured), `server/vscode-proxy.test.ts` (path
+cancel, the gateway's HTTP proxy honoured), `server/vscode/proxy.test.ts` (path
 and header rewriting, cookie scoping including the WebSocket's 101, the
 workbench patch for both providers, cookie and WebSocket guards against fake
-servers) and `server/vscode-routes.test.ts` (the routes through HUI's middleware,
+servers) and `server/routes/vscode.test.ts` (the routes through HUI's middleware,
 the license actions, a legacy settings file).

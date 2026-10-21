@@ -2,7 +2,7 @@
 
 Verified on 2026-09-30 with the HUI Browser tool (headless) against
 `node e2e/visual-verification.mjs launch --branch <branch> --github-fixture`.
-The fake `gh` (`e2e/github-cli-fixture.mjs`) is signed in to `hui-e2e` (active,
+The fake `gh` (`e2e/fixtures/github-cli-fixture.mjs`) is signed in to `hui-e2e` (active,
 created 2022) and `hui-e2e-personal` (created 2019), each with deterministic
 synthetic commits and pull requests since creation in `<run>/gh/contributions.json`.
 No operator GitHub account was read.

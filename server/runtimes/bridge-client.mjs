@@ -15,7 +15,7 @@ import { text } from "node:stream/consumers";
 export const directHuiBridge = new AsyncLocalStorage();
 
 /**
- * PI-side client of HUI's private agent bridge (server/agent-tools-bridge.ts).
+ * PI-side client of HUI's private agent bridge (server/agent-tools/bridge.ts).
  * The URL, bearer token and caller identity come from the environment HUI
  * gives each PI child; tool parameters can never choose another caller.
  * Plain node:http, not fetch: fetch gives up on a reply after five minutes,

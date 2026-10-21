@@ -10,7 +10,7 @@ was read or changed.
    `pi-sessions`, `xdg/hui` and `gh`.
 2. Start Vite with `XDG_CONFIG_HOME`, `PI_CODING_AGENT_DIR` and
    `PI_CODING_AGENT_SESSION_DIR` under the root, plus
-   `HUI_GITHUB_CLI=$PWD/e2e/github-cli-fixture.mjs`, `HUI_FAKE_GH_DIR=<root>/gh`
+   `HUI_GITHUB_CLI=$PWD/e2e/fixtures/github-cli-fixture.mjs`, `HUI_FAKE_GH_DIR=<root>/gh`
    and `HUI_FAKE_GH_CODE=HUIE-2E42`. Set `NO_PROXY=127.0.0.1,localhost` when an
    HTTP proxy is configured.
 3. Open `/settings/integrations` at 1440×900, then 390×844. Approve a pending

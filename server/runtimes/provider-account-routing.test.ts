@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test, type TestContext } from "vitest";
 import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findPackageJSON } from "node:module";
 import { pathToFileURL } from "node:url";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
-import { ProviderAccounts, credentialStore } from "../provider-accounts.ts";
+import { ProviderAccounts, credentialStore } from "../pi/provider-accounts.ts";
 import { createSessionModelRuntime, writeProviderSelections } from "./hui-models.ts";
 import { quotaFailure, retryAt } from "./provider-account-routing.ts";
 
@@ -15,9 +15,9 @@ type Message = Awaited<ReturnType<Stream["result"]>>;
 const piAiPackage = findPackageJSON("@earendil-works/pi-ai", import.meta.resolve("@earendil-works/pi-coding-agent"))!;
 const { AssistantMessageEventStream } = await import(new URL("./dist/utils/event-stream.js", pathToFileURL(piAiPackage)).href) as { AssistantMessageEventStream: new() => Stream };
 const second = "11111111-1111-4111-8111-111111111111";
-async function fixture(t: test.TestContext) {
+async function fixture(t: TestContext) {
   const dir = await mkdtemp(join(tmpdir(), "hui-account-routing-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }));
   const accounts = new ProviderAccounts(dir);
   await credentialStore(accounts.authPath()).modify("openai", async () => ({ type: "api_key", key: "first-key" }));
   await credentialStore(accounts.authPath(second)).modify("openai", async () => ({ type: "api_key", key: "second-key" }));
@@ -146,7 +146,7 @@ test("real PI OpenAI HTTP adapter rotates credentials after 429 and streams the 
     response.end();
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  t.after(() => { server.closeAllConnections(); return new Promise<void>((resolve) => server.close(() => resolve())); });
+  t.onTestFinished(() => { server.closeAllConnections(); return new Promise<void>((resolve) => server.close(() => resolve())); });
   const address = server.address(); assert(address && typeof address === "object");
   const result = await f.runtime.completeSimple(f.model, { messages: [{ role: "user", content: "hello", timestamp: Date.now() }] }, { fetch: (_url, init) => fetch(`http://127.0.0.1:${address.port}/`, init) });
   assert.equal(result.stopReason, "stop", result.errorMessage ?? "Expected successful completion");

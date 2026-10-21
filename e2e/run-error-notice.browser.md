@@ -1,7 +1,7 @@
 # Run error notice browser verification
 
 Verified on 2026-09-25 with HUI's real Vite gateway, the installed PI 0.73.1 RPC
-runtime and `e2e/pi-provider-fixture.mjs`. `HOME`, `XDG_CONFIG_HOME`, both PI
+runtime and `e2e/fixtures/pi-provider-fixture.mjs`. `HOME`, `XDG_CONFIG_HOME`, both PI
 agent-directory variables and PI's session directory pointed at a disposable
 `/tmp/hui-e2e-runerr.*` root. Setup follows `chat-composer.browser.md`.
 

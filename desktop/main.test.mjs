@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import vm from 'node:vm';
-import test from 'node:test';
+import { test } from "vitest";
 import policy from './policy.cjs';
 
 async function shell(t, settings = { themeMode: 'system' }) {
@@ -43,7 +43,7 @@ async function shell(t, settings = { themeMode: 'system' }) {
   }
   const electron = { app, BrowserWindow: Window, dialog: { showErrorBox: (...args) => errors.push(args) }, Menu: { buildFromTemplate: (menu) => menu, setApplicationMenu(menu) { applicationMenu = menu; } }, nativeTheme, shell: { openExternal: async () => {} } };
   const modules = { electron, 'node:child_process': { execFile: (...args) => { launchArgs = args; complete = args[3]; } }, 'node:fs': {}, 'node:path': path, './policy.cjs': policy };
-  t.after(() => {});
+  t.onTestFinished(() => {});
   vm.runInNewContext(await readFile(new URL('./main.cjs', import.meta.url), 'utf8'), {
     require: (name) => modules[name], URL,
     fetch: async (url, init) => {

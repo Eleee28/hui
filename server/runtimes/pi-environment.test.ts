@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { piEnvironment } from "./pi-environment.ts";
 
 test("PI child environment preserves explicit identity and inherited variables", () => {

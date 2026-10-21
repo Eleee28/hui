@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test, type TestContext } from "node:test";
+import { test, vi } from "vitest";
 
 import type {
   AgentRuntime,
@@ -18,7 +18,7 @@ import type {
   StartOptions,
   TranscriptEntry,
 } from "./runtimes/types.ts";
-import { DEFAULT_SETTINGS } from "../src/lib/settings.ts";
+import { DEFAULT_SETTINGS } from "./hui-settings.ts";
 import { RuntimeOutputError, RuntimeUnreachableError } from "./runtimes/types.ts";
 import { waitFor } from "./test-support/wait-for.ts";
 
@@ -26,16 +26,26 @@ import { waitFor } from "./test-support/wait-for.ts";
 // be in place before the module is loaded.
 process.env["XDG_CONFIG_HOME"] = await mkdtemp(join(tmpdir(), "hui-live-"));
 
-const { LiveSessions, SessionBusyError } = await import("./live-sessions.ts");
-const { deleteSession } = await import("./hui.ts");
-const { readRegistry, SessionRegistryError, updateRegistry } = await import("./sessions.ts");
+const { LiveSessions, SessionBusyError } = await import("./sessions/live-sessions.ts");
+const { createSessionLifecycle } = await import("./sessions/lifecycle.ts");
+const cleanedUp = { subagents: [] as string[], taskSuggestions: [] as string[], watchers: [] as string[], managedBrowser: [] as string[] };
+const { deleteSession } = createSessionLifecycle({
+  views: { pendingView: () => { throw new Error("No pending sessions here."); } },
+  readAttachments: async () => ({ attachments: [], cleanupRejected: async () => undefined }),
+  subagents: () => ({ forgetSessions: (ids) => { cleanedUp.subagents.push(...ids); } }),
+  taskSuggestions: () => ({ forget: (ids) => { cleanedUp.taskSuggestions.push(...ids); } }),
+  watchers: () => ({ forget: async (ids) => { cleanedUp.watchers.push(...ids); } }),
+  managedBrowser: () => ({ closeOwner: (owner) => { cleanedUp.managedBrowser.push(owner); } }),
+});
+const { readRegistry, SessionRegistryError, updateRegistry } = await import("./sessions/sessions.ts");
 const { readObservability } = await import("./observability.ts");
 const { workers } = await import("./workers.ts");
-type SessionRecord = import("./sessions.ts").SessionRecord;
-type SessionStreamMessage = import("./live-sessions.ts").SessionStreamMessage;
-type SessionSnapshot = import("./live-sessions.ts").SessionSnapshot;
-type SessionStatusUpdate = import("./live-sessions.ts").SessionStatusUpdate;
-type SecretQuestion = import("./secret-requests.ts").SecretQuestion;
+const { terminals } = await import("./terminals/terminals.ts");
+type SessionRecord = import("./sessions/sessions.ts").SessionRecord;
+type SessionStreamMessage = import("./sessions/live-sessions.ts").SessionStreamMessage;
+type SessionSnapshot = import("./sessions/live-sessions.ts").SessionSnapshot;
+type SessionStatusUpdate = import("./sessions/live-sessions.ts").SessionStatusUpdate;
+type SecretQuestion = import("./agent-tools/secret-requests.ts").SecretQuestion;
 
 /** Stands in for a pi subprocess, so the state machine can be driven event by
  * event instead of waiting five seconds for a real boot. */
@@ -371,7 +381,7 @@ test("a follow-up reports its queue item, which leaves the queue when HUI sends 
   manager.disposeAll();
 });
 
-test("a bot's chat announces each prompt it accepts with a snapshot; other sessions' streams stay as they were", async () => {
+test("every session announces a prompt with a snapshot before its run, so screens show it above the reply", async () => {
   const started: FakeSession[] = [];
   const manager = new LiveSessions(factory(started));
   const framesOf = async (record: SessionRecord): Promise<string[]> => {
@@ -386,9 +396,11 @@ test("a bot's chat announces each prompt it accepts with a snapshot; other sessi
     unsubscribe();
     return frames;
   };
-  assert.deepEqual(await framesOf({ ...recordFor("bot-chat"), bot: "bot-1" }), ["running", "snapshot: user hello | user [routine: Morning] check"],
-    "every screen and terminal sees a message another client sent, before its reply");
-  assert.deepEqual(await framesOf(recordFor("plain-chat")), ["running"], "an ordinary session gets no extra frame");
+  // Fresh ids: the registry outlives this test, and a reused id would boot into the unsettled run left here.
+  assert.deepEqual(await framesOf({ ...recordFor(`bot-chat-${crypto.randomUUID()}`), bot: "bot-1" }), ["snapshot: user hello | user [routine: Morning] check", "running"],
+    "every screen and terminal sees a message another client sent, before its run");
+  assert.deepEqual(await framesOf(recordFor(`plain-chat-${crypto.randomUUID()}`)), ["snapshot: user hello | user [routine: Morning] check", "running"],
+    "a subagent's or automation's prompt in an ordinary session too");
   manager.disposeAll();
 });
 
@@ -688,7 +700,7 @@ test("manual continuation remains available after automatic recovery is exhauste
 test("settled background activity becomes unread and a reader clears it", async () => {
   const started: FakeSession[] = [];
   const manager = new LiveSessions(factory(started));
-  const updates: import("./live-sessions.ts").SessionStatusUpdate[] = [];
+  const updates: import("./sessions/live-sessions.ts").SessionStatusUpdate[] = [];
   manager.watchStatuses((update) => updates.push(update));
   manager.ensure(recordFor("unread"));
   await waitForBoot(manager, "unread");
@@ -789,6 +801,8 @@ test("a primary failure before output retries once on the configured fallback", 
     if (session.prompts.length === 2) retried();
   };
 
+  const notices: unknown[] = [];
+  manager.subscribe("fallback", (message) => { if (message.kind === "event" && message.event.type === "notice") notices.push(message.event); });
   await manager.prompt("fallback", "keep working");
   session.history = [
     { kind: "message", role: "user", text: "keep working" },
@@ -797,6 +811,7 @@ test("a primary failure before output retries once on the configured fallback", 
   session.emit({ type: "settled" });
   await retryAccepted;
 
+  assert.deepEqual(notices, [{ type: "notice", level: "warning", message: "Primary model failed before producing output. Retrying with anthropic/sonnet.", recovery: true }]);
   assert.deepEqual(session.switched, ["anthropic/sonnet"]);
   assert.deepEqual(session.prompts, ["keep working", "keep working"]);
   const restored = new Promise<void>((resolve) => {
@@ -879,6 +894,7 @@ test("a refused runtime prompt releases the manager-owned busy guard", async () 
 
   await assert.rejects(() => manager.prompt("refused", "first"), /runtime refused/);
   assert.equal(manager.status("refused"), "idle");
+  assert.deepEqual(manager.snapshot("refused").transcript, [], "the refused prompt left the conversation it was shown in");
   await assert.rejects(() => manager.prompt("refused", "retry"), /runtime refused/);
   assert.equal(attempts, 2, "the retry reached the runtime instead of being rejected as busy");
 });
@@ -1366,6 +1382,26 @@ test("switching model persists it and tells every open stream", async () => {
   assert.equal(stored?.model, "openai/gpt");
 });
 
+test("switching to a model without the session's thinking level reports the level the runtime fitted", async () => {
+  class Fitting extends FakeSession {
+    override async setModel(provider: string, id: string): Promise<void> {
+      await super.setModel(provider, id);
+      this.thinking = "high";
+    }
+  }
+  const runtime = new Fitting();
+  runtime.thinking = "max";
+  const manager = new LiveSessions({ id: "pi", start: async () => runtime });
+  const seen: SessionStreamMessage[] = [];
+  manager.ensure(recordFor("switch-fit"));
+  manager.subscribe("switch-fit", (message) => seen.push(message));
+  await waitForBoot(manager, "switch-fit");
+
+  await manager.setModel("switch-fit", "openai", "gpt");
+  assert.equal(manager.snapshot("switch-fit").thinking, "high");
+  assert.deepEqual(seen.filter((message) => message.kind === "thinking").at(-1), { kind: "thinking", level: "high" });
+});
+
 test("a thinking change rolls PI back when persistence fails", async () => {
   const runtime = new FakeSession();
   runtime.sessionFile = undefined;
@@ -1575,7 +1611,7 @@ async function bootWithCompaction(id: string, resumed: Extract<RuntimeEvent, { t
       return session;
     },
   });
-  const updates: import("./live-sessions.ts").SessionStatusUpdate[] = [];
+  const updates: import("./sessions/live-sessions.ts").SessionStatusUpdate[] = [];
   manager.watchStatuses((update) => updates.push(update));
   const record = { ...recordFor(id), tool: "durable" };
   manager.ensure(record);
@@ -1982,6 +2018,36 @@ test("a failed history refresh settles idle without replacing the streamed proje
   assert.equal(manager.snapshot("stale-history").status, "idle");
 });
 
+test("fast mode is saved with the session and turned back on when it boots again", async () => {
+  class FastSession extends FakeSession {
+    fast = false;
+    currentFast(): boolean { return this.fast; }
+    async setFast(on: boolean): Promise<void> { this.fast = on; }
+  }
+  const started: FastSession[] = [];
+  const runtime: AgentRuntime = { id: "pi", start: async () => { const session = new FastSession(); started.push(session); return session; } };
+  const manager = new LiveSessions(runtime);
+  manager.ensure(recordFor("fast"));
+  await waitForBoot(manager, "fast");
+  const messages: SessionStreamMessage[] = [];
+  manager.subscribe("fast", (message) => messages.push(message));
+  assert.equal(manager.snapshot("fast").fast, false);
+
+  assert.equal(await manager.setFast("fast", true), true);
+  assert.equal((await stored("fast"))?.fast, true);
+  assert.ok(messages.some((message) => message.kind === "fast" && message.fast));
+  manager.disposeAll();
+
+  const restarted = new LiveSessions(runtime);
+  restarted.ensure((await stored("fast"))!);
+  await waitForBoot(restarted, "fast");
+  assert.equal(started[1]?.fast, true);
+  assert.equal(restarted.snapshot("fast").fast, true);
+  await restarted.setFast("fast", false);
+  assert.equal((await stored("fast"))?.fast, undefined);
+  restarted.disposeAll();
+});
+
 test("queue, thinking and questions share the reconnect snapshot and delegate commands", async () => {
   const started: FakeSession[] = [];
   const manager = new LiveSessions(factory(started));
@@ -2105,7 +2171,7 @@ test("HUI-owned follow-ups can be edited, reordered, removed and steered before 
 /** A worker connection scripted in memory: a prompt streams on the worker
  * until `settle`, and `hold` keeps the next prompt on its way there. A start
  * fails with `unreachable` while it is set, as a worker HUI cannot reach. */
-function scriptedWorker(t: TestContext) {
+function scriptedWorker() {
   const calls: string[] = [];
   let streaming = false;
   let seq = 1;
@@ -2118,7 +2184,7 @@ function scriptedWorker(t: TestContext) {
     history: [] as TranscriptEntry[],
     unreachable: undefined as RuntimeUnreachableError | undefined,
   };
-  t.mock.method(workers, "startSession", async (...args: Parameters<typeof workers.startSession>) => {
+  vi.spyOn(workers, "startSession").mockImplementation(async (...args: Parameters<typeof workers.startSession>) => {
     control.starts += 1;
     if (control.unreachable) throw control.unreachable;
     sink = args[4];
@@ -2163,8 +2229,8 @@ function scriptedWorker(t: TestContext) {
   });
 }
 
-test("a worker session hands a follow-up to its runtime only while a run streams there and none waits in HUI's queue", async (t) => {
-  const worker = scriptedWorker(t);
+test("a worker session hands a follow-up to its runtime only while a run streams there and none waits in HUI's queue", async () => {
+  const worker = scriptedWorker();
   const id = "remote-follow-up";
   const manager = new LiveSessions(factory([]));
   manager.ensure({ ...recordFor(id), worker: "w" });
@@ -2193,8 +2259,8 @@ test("a worker session hands a follow-up to its runtime only while a run streams
   manager.disposeAll();
 });
 
-test("follow-ups HUI holds for an unreachable worker session hold up a gateway restart and run once it reattaches", async (t) => {
-  const worker = scriptedWorker(t);
+test("follow-ups HUI holds for an unreachable worker session hold up a gateway restart and run once it reattaches", async () => {
+  const worker = scriptedWorker();
   const id = "remote-reattach-follow-up";
   const record = { ...recordFor(id), worker: "w" };
   const manager = new LiveSessions(factory([]));
@@ -2228,8 +2294,8 @@ const failures = (seen: readonly SessionStreamMessage[]) =>
   seen.filter((message) => message.kind === "closed" || (message.kind === "event" && message.event.type === "error")
     || (message.kind === "status" && message.status === "error"));
 
-test("a worker session whose connection drops is reconnecting, not failed, and comes back caught up", async (t) => {
-  const worker = scriptedWorker(t);
+test("a worker session whose connection drops is reconnecting, not failed, and comes back caught up", async () => {
+  const worker = scriptedWorker();
   const id = "remote-drop";
   const record = { ...recordFor(id), worker: "w" };
   const manager = new LiveSessions(factory([]));
@@ -2260,8 +2326,8 @@ test("a worker session whose connection drops is reconnecting, not failed, and c
   manager.disposeAll();
 });
 
-test("a worker session HUI stopped reconnecting is disconnected until it is reattached explicitly", async (t) => {
-  const worker = scriptedWorker(t);
+test("a worker session HUI stopped reconnecting is disconnected until it is reattached explicitly", async () => {
+  const worker = scriptedWorker();
   const id = "remote-disconnected";
   const record = { ...recordFor(id), worker: "w" };
   const manager = new LiveSessions(factory([]));
@@ -2290,8 +2356,8 @@ test("a worker session HUI stopped reconnecting is disconnected until it is reat
   manager.disposeAll();
 });
 
-test("a run that finished on the worker while HUI was away settles for what waits on it when HUI reattaches", async (t) => {
-  const worker = scriptedWorker(t);
+test("a run that finished on the worker while HUI was away settles for what waits on it when HUI reattaches", async () => {
+  const worker = scriptedWorker();
   const id = "remote-settled-away";
   let records: SessionRecord[] = [{ ...recordFor(id), worker: "w" }];
   // As the gateway reattaches: with the record the registry holds.
@@ -2318,8 +2384,8 @@ test("a run that finished on the worker while HUI was away settles for what wait
   manager.disposeAll();
 });
 
-test("a worker HUI cannot reach leaves a session reconnecting while HUI retries, else disconnected", async (t) => {
-  const worker = scriptedWorker(t);
+test("a worker HUI cannot reach leaves a session reconnecting while HUI retries, else disconnected", async () => {
+  const worker = scriptedWorker();
   const manager = new LiveSessions(factory([]));
   worker.unreachable = new RuntimeUnreachableError("Connection refused", true);
   const record = { ...recordFor("remote-unreachable"), worker: "w" };
@@ -2418,9 +2484,14 @@ test("deleting a parent closes descendant runtimes and blocks stale child opens"
   const records = [parent, child, grandchild, outside];
   for (const row of records) { manager.ensure(row); await waitForBoot(manager, row.id); }
   let stored = records;
+  for (const calls of Object.values(cleanedUp)) calls.length = 0;
+  const closedTerminals = vi.spyOn(terminals, "closeOwner");
   await deleteSession(parent.id, manager, async (mutate) => { stored = [...mutate(stored)]; return stored; });
   assert.deepEqual(stored.map((r) => r.id), [outside.id]);
   assert.deepEqual(started.map((runtime) => runtime.disposed), [true, true, true, false]);
   for (const row of [parent, child, grandchild]) assert.equal(manager.ensure(row), false);
+  const tree = [parent.id, child.id, grandchild.id].sort();
+  for (const calls of [...Object.values(cleanedUp), closedTerminals.mock.calls.map(([owner]) => owner)]) assert.deepEqual([...calls].sort(), tree);
+  closedTerminals.mockRestore();
   manager.disposeAll();
 });

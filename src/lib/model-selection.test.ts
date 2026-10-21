@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { matchesModelSearch, modelSearchText, resolveLaunchModel } from "./model-selection.ts";
 
 const models = [

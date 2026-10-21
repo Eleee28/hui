@@ -5,8 +5,8 @@
 import { html, nothing, type TemplateResult } from "lit";
 
 import type { HuiPage } from "../lib/pages.ts";
-import type { ObservabilitySnapshot } from "../lib/observability.ts";
-import type { GatewayHealth } from "../lib/control-surfaces.ts";
+import type { ObservabilitySnapshot } from "../api/observability.ts";
+import type { GatewayHealth } from "../api/control-surfaces.ts";
 import { icons } from "../lib/icons.ts";
 
 export type ObservabilityProps = {

@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readdir, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test, { type TestContext } from "node:test";
+import { test, type TestContext } from "vitest";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { MacPower } from "./power.ts";
@@ -34,7 +34,7 @@ async function fixture(t: TestContext, { osascript = "approve" as keyof typeof O
   };
   const instances: MacPower[] = [];
   const make = (gatewayPid = pid) => { const power = new MacPower({ ...options, pid: gatewayPid }); instances.push(power); return power; };
-  t.after(async () => { for (const power of instances) power.dispose(); await rm(dir, { recursive: true, force: true }); });
+  t.onTestFinished(async () => { for (const power of instances) power.dispose(); await rm(dir, { recursive: true, force: true }); });
   const read = (name: string) => readFile(join(dir, name), "utf8").then((text) => text.trim(), () => "");
   const prompts = async () => (await read("prompts")).split("\n").filter(Boolean);
   const answer = () => writeFile(join(dir, "go"), "");
@@ -176,7 +176,7 @@ test("switching lid awake off while it is still settling never prompts", async (
 
 test("another live gateway sharing the config dir keeps its lid watcher", async (t) => {
   const gateway = spawn("sleep", ["30"]);
-  t.after(() => gateway.kill());
+  t.onTestFinished(() => { gateway.kill(); });
   const { make, read } = await fixture(t);
   await make(gateway.pid).setLidAwake(true);
   const other = make();

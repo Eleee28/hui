@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { readFileSync } from "node:fs";
+import { fallbackBranchName } from "./backlog-start.ts";
+import { test } from "vitest";
 
 import { backlogBranchOptions, backlogStartRequest, backlogStartStep, canStartBacklog, type BacklogStartState } from "./backlog-start.ts";
 
@@ -61,4 +63,10 @@ test("switching modes keeps the chosen ref and only Worktree submits the suffix"
   assert.deepEqual(backlogStartRequest({ ...selected, mode: "worktree" }),
     { cwd: "/repo", worktree: true, baseRef: "release/1", branchName: "my-fix" });
   assert.deepEqual(backlogStartRequest(state({ baseRef: "" })), { cwd: "/repo", worktree: false, baseRef: "main" });
+});
+
+const fixture: { title: string; jiraKey?: string; expected: string }[] = JSON.parse(readFileSync(new URL("./backlog-start.fixture.json", import.meta.url), "utf8"));
+
+test("backlog-start preserves the shared runtime fixtures", () => {
+  for (const { title, jiraKey, expected } of fixture) assert.equal(fallbackBranchName(title, jiraKey), expected);
 });

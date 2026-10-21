@@ -11,8 +11,6 @@
 import vm from "node:vm";
 import { Worker } from "node:worker_threads";
 
-// Mirrors shared/widgets.ts (widget-code.test.mjs checks they agree); this
-// file imports nothing that the PI CLI could not load.
 export const WIDGET_CODE_MAX_BYTES = 256 * 1024;
 export const WIDGET_TITLE_MAX_LENGTH = 120;
 

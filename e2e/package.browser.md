@@ -40,6 +40,8 @@ proxy or fake gateway. It verifies:
   version; activation failure restores the old process/selection and registry.
 - Explicit rollback works even if the selected release's CLI cannot import.
   Updating or rolling back a stopped gateway does not start it.
+- After the last update only the pointer's current and previous releases stay
+  on disk; older releases and the failed activation's stage are gone.
 - CLI/state tests separately reject arbitrary control endpoints, PID-only
   signals, invalid commands and release-pointer path traversal.
 

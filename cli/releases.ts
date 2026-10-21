@@ -8,7 +8,10 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assertUpdatable, packageVersion, type Installation } from "./installation.ts";
-import type { ReleaseInfo, UpdateCheck } from "../src/lib/update-types.ts";
+import type { ReleaseInfo, UpdateCheck } from "../server/api/updates.ts";
+
+export type { ReleaseInfo, UpdateCheck, UpdateJob, UpdateSnapshot } from "../server/api/updates.ts";
+export const UPDATE_CHECK_INTERVAL_MS = 60 * 60_000;
 
 export const RELEASE_REPOSITORY = "DaniFdz/hui";
 /** Rolling prerelease the Nightly workflow replaces with each validated main commit. */

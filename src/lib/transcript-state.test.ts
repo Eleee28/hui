@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { appendPendingUser, normalizeTranscript, reduceTranscript, settlePendingUser } from "./transcript-state.ts";
+import { test } from "vitest";
+import { appendPendingUser, keepSentPreviews, normalizeTranscript, reduceTranscript, settlePendingUser } from "./transcript-state.ts";
+
+test("a snapshot of the prompt this screen just sent keeps its image previews until PI's history has them", () => {
+  const sent = appendPendingUser([], "local", "look", [{ name: "a.png", kind: "image", url: "blob:a" }]);
+  const gateway = normalizeTranscript([{ kind: "message", role: "user", text: "look", attachments: [{ name: "a.png", kind: "image" }] }]);
+  const kept = keepSentPreviews(gateway, sent)[0];
+  assert.deepEqual(kept?.kind === "message" && kept.attachments, [{ name: "a.png", kind: "image", url: "blob:a" }]);
+  const history = normalizeTranscript([{ kind: "message", role: "user", text: "look", attachments: [{ name: "a.png", kind: "image", url: "/__hui/a" }] }]);
+  assert.equal(keepSentPreviews(history, sent), history, "history's own preview wins");
+  const other = normalizeTranscript([{ kind: "message", role: "user", text: "other", attachments: [{ name: "a.png", kind: "image" }] }]);
+  assert.equal(keepSentPreviews(other, sent), other, "another prompt keeps its own attachments");
+});
 
 test("tool calls correlate by id even when names match and output is empty", () => {
   let items = reduceTranscript([], { type: "tool_start", id: "a", name: "bash", args: { command: "a" } });

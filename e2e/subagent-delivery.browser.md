@@ -7,7 +7,7 @@ provider, using disposable state under `/tmp/hui-durable-browser`. Gateway:
 ## Reproduction and observations
 
 1. Use the isolated PI configuration from `chat-composer.browser.md` and launch
-   `e2e/pi-provider-fixture.mjs`. Start Vite with the disposable XDG config,
+   `e2e/fixtures/pi-provider-fixture.mjs`. Start Vite with the disposable XDG config,
    PI agent directory and PI session directory (not the operator's state).
 2. In the Browser tool, fill Project directory with the disposable workspace
    and start `E2E_SUBAGENTS_STEERING` through the visible form.

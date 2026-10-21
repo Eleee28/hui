@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 import { progressCardHeadsUp } from "./session-progress-card.ts";
 import { huiHovercardRow } from "./hui-hovercard-adapter.ts";
 import { toSanitizedMarkdownHtml } from "./progress-markdown.ts";
@@ -20,7 +20,7 @@ test("upstream heads-up distinguishes running, paused, terminal and completed pl
 });
 
 test("HUI supplies real session facts without manufacturing identity or task completion", () => {
-  const row = huiHovercardRow({ id: "one", title: "Build", cwd: "/work/project", group: "", tool: "pi", status: "idle", createdAt: "2026-09-25T00:00:00Z", updatedAt: "2026-09-25T00:00:00Z" });
+  const row = huiHovercardRow({ id: "one", title: "Build", cwd: "/work/project", group: "", tool: "pi", status: "idle", displayCwd: "", stage: "investigation", stageOrigin: "default", createdAt: "2026-09-25T00:00:00Z", updatedAt: "2026-09-25T00:00:00Z" });
   assert.equal(row.label, "Build");
   assert.equal(row.status, undefined);
   assert.equal(row.hasActiveRun, false);

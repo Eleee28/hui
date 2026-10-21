@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
+import { test } from "vitest";
 import { OWNER_MARKER } from './install.mjs';
 import { launchDesktop } from './launch.mjs';
 
@@ -21,7 +21,7 @@ function recorder({ fail = false } = {}) {
 
 async function applications(t, owner) {
   const dir = await mkdtemp(join(tmpdir(), 'hui-launch-'));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }));
   if (owner !== undefined) {
     await mkdir(join(dir, 'HUI.app/Contents/Resources'), { recursive: true });
     await writeFile(join(dir, 'HUI.app/Contents/Resources/hui-owner'), owner);

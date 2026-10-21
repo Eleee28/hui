@@ -1,0 +1,257 @@
+[
+  {
+    "input": {
+      "text": "$review inspect ./src",
+      "catalog": [
+        {
+          "name": "skill:review",
+          "source": "skill"
+        },
+        {
+          "name": "status",
+          "source": "extension"
+        },
+        {
+          "name": "summary",
+          "source": "prompt"
+        },
+        {
+          "name": "update",
+          "source": "hui"
+        }
+      ]
+    },
+    "expected": "/skill:review inspect ./src"
+  },
+  {
+    "input": {
+      "text": "$status\nnext line",
+      "catalog": [
+        {
+          "name": "skill:review",
+          "source": "skill"
+        },
+        {
+          "name": "status",
+          "source": "extension"
+        },
+        {
+          "name": "summary",
+          "source": "prompt"
+        },
+        {
+          "name": "update",
+          "source": "hui"
+        }
+      ]
+    },
+    "expected": "/status\nnext line"
+  },
+  {
+    "input": {
+      "text": "$summary",
+      "catalog": [
+        {
+          "name": "skill:review",
+          "source": "skill"
+        },
+        {
+          "name": "status",
+          "source": "extension"
+        },
+        {
+          "name": "summary",
+          "source": "prompt"
+        },
+        {
+          "name": "update",
+          "source": "hui"
+        }
+      ]
+    },
+    "expected": "$summary"
+  },
+  {
+    "input": {
+      "text": "$update",
+      "catalog": [
+        {
+          "name": "skill:review",
+          "source": "skill"
+        },
+        {
+          "name": "status",
+          "source": "extension"
+        },
+        {
+          "name": "summary",
+          "source": "prompt"
+        },
+        {
+          "name": "update",
+          "source": "hui"
+        }
+      ]
+    },
+    "expected": "$update"
+  },
+  {
+    "input": {
+      "text": "$skill:review args",
+      "catalog": [
+        {
+          "name": "skill:review",
+          "source": "skill"
+        },
+        {
+          "name": "status",
+          "source": "extension"
+        },
+        {
+          "name": "summary",
+          "source": "prompt"
+        },
+        {
+          "name": "update",
+          "source": "hui"
+        }
+      ]
+    },
+    "expected": "/skill:review args"
+  },
+  {
+    "input": {
+      "text": "$unknown",
+      "catalog": [
+        {
+          "name": "skill:review",
+          "source": "skill"
+        },
+        {
+          "name": "status",
+          "source": "extension"
+        },
+        {
+          "name": "summary",
+          "source": "prompt"
+        },
+        {
+          "name": "update",
+          "source": "hui"
+        }
+      ]
+    },
+    "expected": "$unknown"
+  },
+  {
+    "input": {
+      "text": " /review",
+      "catalog": [
+        {
+          "name": "skill:review",
+          "source": "skill"
+        },
+        {
+          "name": "status",
+          "source": "extension"
+        },
+        {
+          "name": "summary",
+          "source": "prompt"
+        },
+        {
+          "name": "update",
+          "source": "hui"
+        }
+      ]
+    },
+    "expected": " /review"
+  },
+  {
+    "input": {
+      "text": "$reviewer",
+      "catalog": [
+        {
+          "name": "skill:review",
+          "source": "skill"
+        },
+        {
+          "name": "status",
+          "source": "extension"
+        },
+        {
+          "name": "summary",
+          "source": "prompt"
+        },
+        {
+          "name": "update",
+          "source": "hui"
+        }
+      ]
+    },
+    "expected": "$reviewer"
+  },
+  {
+    "input": {
+      "text": "/review",
+      "catalog": [
+        {
+          "name": "skill:review",
+          "source": "skill"
+        },
+        {
+          "name": "status",
+          "source": "extension"
+        },
+        {
+          "name": "summary",
+          "source": "prompt"
+        },
+        {
+          "name": "update",
+          "source": "hui"
+        }
+      ]
+    },
+    "expected": "/review"
+  },
+  {
+    "input": {
+      "text": "$review args",
+      "catalog": [
+        {
+          "name": "skill:review",
+          "source": "skill"
+        },
+        {
+          "name": "review",
+          "source": "extension"
+        }
+      ]
+    },
+    "expected": "/review args"
+  },
+  {
+    "input": {
+      "text": "$skill:review args",
+      "catalog": [
+        {
+          "name": "skill:review",
+          "source": "skill"
+        },
+        {
+          "name": "review",
+          "source": "extension"
+        }
+      ]
+    },
+    "expected": "/skill:review args"
+  },
+  {
+    "input": {
+      "text": "$review",
+      "catalog": []
+    },
+    "expected": "$review"
+  }
+]

@@ -4,30 +4,31 @@
  * (providers, integrations, tools, browser, workers, calls) are their own elements.
  */
 import { html, nothing, type TemplateResult } from "lit";
-import { TERMINAL_FONTS, normalizeTerminalFont, terminalFontStack } from "../lib/terminal-font.ts";
-import { TEXT_SCALE_STOPS, TYPEFACES, type TextScaleStop } from "../lib/appearance.ts";
-import { modeIsSelectable, THEME_MODES, type ThemeMode, type ThemeVariant } from "../lib/theme.ts";
-import { botsEnabled, type Settings } from "../lib/settings.ts";
-import type { PowerState, PowerStatus } from "../../shared/power.ts";
-import type { ThemePreview } from "../lib/theme-store.ts";
-import type { ThemeSwatches } from "../lib/shadcn-theme.ts";
+import { TERMINAL_FONTS, normalizeTerminalFont, terminalFontStack } from "../lib/terminal/font.ts";
+import { TEXT_SCALE_STOPS, TYPEFACES, type TextScaleStop } from "../lib/theme/appearance.ts";
+import { modeIsSelectable, THEME_MODES, type ThemeMode, type ThemeVariant } from "../lib/theme/theme.ts";
+import { QUESTION_TIMEOUTS, type Settings } from "../lib/settings/settings.ts";
+import type { PowerState, PowerStatus } from "../api/schema/power.ts";
+import type { ThemePreview } from "../lib/theme/theme-store.ts";
+import type { ThemeSwatches } from "../lib/theme/shadcn-theme.ts";
 import { skillIsEnabled, type PiMutationState, type PiSnapshot } from "../lib/pi.ts";
-import type { GatewayHealth, WorkspaceInspection } from "../lib/control-surfaces.ts";
+import type { GatewayHealth, WorkspaceInspection } from "../api/control-surfaces.ts";
 import { formatGatewayUptime } from "../lib/gateway-presentation.ts";
-import type { ObservabilitySnapshot } from "../lib/observability.ts";
+import type { ObservabilitySnapshot } from "../api/observability.ts";
 import { icons } from "../lib/icons.ts";
 import { hasOpenWebAwesomePopup } from "../lib/web-awesome.ts";
 import { renderPicker, renderSettingsPicker } from "./settings-picker.ts";
-import { renderListFilter } from "./list-filter.ts";
+import { renderListFilter } from "../components/list-filter.ts";
 import { renderSettingsToggle } from "./settings-toggle.ts";
-import "./settings-tools.ts";
-import "./settings-browser.ts";
-import "./settings-vscode.ts";
-import "./settings-jira.ts";
-import "./settings-calls.ts";
-import "./settings-github.ts";
-import "./settings-providers.ts";
-import "./settings-workers.ts";
+import "../components/settings/tools.ts";
+import "../components/settings/browser.ts";
+import "../components/settings/vscode.ts";
+import "../components/settings/jira.ts";
+import "../components/settings/calls.ts";
+import "../components/settings/github.ts";
+import "../components/settings/datadog.ts";
+import "../components/settings/providers.ts";
+import "../components/settings/workers.ts";
 import { renderAutomationPage, type AutomationProps } from "./settings-automation.ts";
 import { renderWorktreesPage, type WorktreesPageProps } from "./worktrees.ts";
 import {
@@ -66,7 +67,6 @@ export const SETTINGS_PAGES = [
   { id: "memory", label: "Memory", group: "Agents & Tools", icon: "book" },
   { id: "automation", label: "Automation", group: "Agents & Tools", icon: "terminal" },
   { id: "security", label: "Privacy & Security", group: "Privacy & Security", icon: "shieldCheck" },
-  { id: "sessions", label: "Sessions", group: "System", icon: "fileText" },
   { id: "worktrees", label: "Worktrees", group: "System", icon: "gitBranch" },
   { id: "diagnostics", label: "Diagnostics", group: "System", icon: "bug" },
 ] as const;
@@ -121,6 +121,7 @@ export type SettingsProps = AutomationProps & {
   /** Resolves once the settings write lands, so the VS Code section can re-read status. */
   onChangeVscode: (next: Settings["vscode"]) => Promise<unknown> | void;
   onChangeCodemode: (next: Settings["codemode"]) => void;
+  onChangeQuestions: (next: Settings["questions"]) => void;
   onChangeModels: (next: Settings["models"]) => void;
   onChangeCalls: (next: Settings["calls"]) => void;
   onChangePower: (next: Settings["power"]) => void;
@@ -165,9 +166,9 @@ function renderThemeCard(
 }
 
 /** Heading and description sit outside the card, so rows own their inset. */
-function renderSection(heading: string, description: string, body: TemplateResult) {
+function renderSection(heading: string, description: string, body: TemplateResult, section?: string) {
   return html`
-    <section class="settings-section">
+    <section class="settings-section" data-settings-section=${section ?? nothing}>
       <div class="settings-section__header">
         <div class="settings-section__copy">
           <h2 class="settings-section__heading">${heading}</h2>
@@ -519,6 +520,12 @@ function renderChatSection(props: SettingsProps) {
         renderSettingsToggle("GitHub link previews", chat.githubEmbeds,
           (checked) => props.onChangeChat({ ...chat, githubEmbeds: checked })),
       )}
+      ${renderRow(
+        "Datadog link previews",
+        "Show up to three cards for Datadog share links and dashboard widgets after a message, through the orgs in Integrations. Drawing a widget makes Datadog keep a snapshot image at an unguessable link, as its own sharing does.",
+        renderSettingsToggle("Datadog link previews", chat.datadogEmbeds,
+          (checked) => props.onChangeChat({ ...chat, datadogEmbeds: checked })),
+      )}
     `,
   );
 }
@@ -651,12 +658,13 @@ function renderSkillsPage(props: SettingsProps) {
   `;
 }
 
-/** One section per external service: Jira, then GitHub. */
+/** One section per external service: Jira, GitHub, then Datadog. */
 function renderIntegrationsPage() {
   return html`
     <p class="settings-page__intro">Connect HUI to external services. Credentials stay on this machine and are never sent to the browser.</p>
     <hui-jira-settings></hui-jira-settings>
     <hui-github-settings></hui-github-settings>
+    <hui-datadog-settings></hui-datadog-settings>
   `;
 }
 
@@ -677,15 +685,20 @@ function renderToolsPage(props: SettingsProps) {
         <div class="settings-row__control">${renderSettingsToggle("Codemode tool", props.settings.codemode.enabled, (enabled) => props.onChangeCodemode({ enabled }))}</div>
       </div></div>
     </section>
+    ${renderSection("Questions", "When an agent asks you questions in a card and you are away, it can go on without your answer.", renderRow(
+      "Question timeout",
+      "How long a question card waits for you. Then the agent continues without your answer, told to take its recommended option and list the decisions still open for you in its final reply. Applies to questions asked from now on.",
+      renderSettingsPicker("Question timeout", String(props.settings.questions.timeoutMinutes),
+        QUESTION_TIMEOUTS.map((minutes) => ({ value: String(minutes), label: minutes ? `${minutes} minutes` : "Off" })),
+        (value) => props.onChangeQuestions({ timeoutMinutes: Number(value) })),
+    ))}
     <hui-vscode-settings .settings=${props.settings.vscode} .onChange=${props.onChangeVscode}></hui-vscode-settings>
     ${renderListFilter("Search tools")}
     <hui-tools-settings .sessions=${props.sessions.filter((session) => !session.bot)}></hui-tools-settings>`;
 }
 
-/** Settings → Models → Calls: GPT-Live through the ChatGPT login above (HUI-18). Calls are with bots only, so the
- * section goes with them while Settings → Labs → Bots is off. */
+/** Settings → Models → Calls: GPT-Live through the ChatGPT login above (HUI-18). */
 function renderCallsSection(props: SettingsProps) {
-  if (!botsEnabled(props.settings)) return nothing;
   return html`<hui-call-settings .calls=${props.settings.calls} .onChange=${props.onChangeCalls}></hui-call-settings>`;
 }
 
@@ -703,13 +716,9 @@ function renderModelsPage(props: SettingsProps) {
     renderSettingsPicker(label, props.settings.models[key], modelOptions, (value) => {
       props.onChangeModels({ ...props.settings.models, [key]: value });
     });
-  // Bots and their calls are named only while Settings → Labs → Bots is on.
-  const bots = botsEnabled(props.settings);
   return html`
     <p class="settings-page__intro">
-      ${bots
-        ? "Connect providers and choose models without changing PI's configuration. Three roles: the primary model does the real work, the utility model the quick work, and GPT-Live (Calls, below) talks on calls."
-        : "Connect providers and choose models without changing PI's configuration. Two roles: the primary model does the real work and the utility model the quick work."}
+      Connect providers and choose models without changing PI's configuration. Three roles: the primary model does the real work, the utility model the quick work, and GPT-Live (Calls, below) talks on calls.
     </p>
     <hui-provider-settings @providers-changed=${props.onRetryPi}></hui-provider-settings>
     ${renderSection(
@@ -718,7 +727,7 @@ function renderModelsPage(props: SettingsProps) {
       html`
         ${renderRow(
           "Primary model",
-          `The smartest model you have. Speed doesn't matter: it does the real work of new sessions${bots ? " and bots" : ""}.`,
+          `The smartest model you have. Speed doesn't matter: it does the real work of new sessions and bots.`,
           routePicker("Primary model", "primary"),
         )}
         ${renderRow(
@@ -728,7 +737,7 @@ function renderModelsPage(props: SettingsProps) {
         )}
         ${renderRow(
           "Utility model",
-          `The fastest model you have, ideally a cheap one. It names sessions and branches, drafts Jira items and answers /btw${bots ? "; for bots without their own, it writes memory summaries, answers quick questions on calls and writes call summaries" : ""}.`,
+          `The fastest model you have, ideally a cheap one. It names sessions and branches, drafts Jira items and answers /btw; for bots without their own, it writes memory summaries, answers quick questions on calls and writes call summaries.`,
           routePicker("Utility model", "utility"),
         )}
       `,
@@ -955,33 +964,6 @@ function renderDiagnosticsPage(props: SettingsProps) {
     ${props.observabilityError ? html`<div class="settings-page__note settings-page__intro" role="alert">${props.observabilityError}</div>` : nothing}`;
 }
 
-function renderSessionsSettingsPage(props: SettingsProps) {
-  const sessions = props.sessions;
-  const groups = new Set(sessions.map((session) => session.group || "ungrouped"));
-  const running = sessions.filter(
-    (session) => session.status === "running" || session.status === "waiting",
-  ).length;
-  const runtimes = new Map<string, number>();
-  for (const session of sessions) runtimes.set(session.tool, (runtimes.get(session.tool) ?? 0) + 1);
-  return html`<p class="settings-page__intro">Session registry ownership, history and runtime defaults.</p>
-    ${renderSection("Registry", "HUI owns session metadata; PI owns every conversation transcript.", html`
-      ${renderRow("Registered sessions", "Rows in ~/.config/hui/sessions.json.", html`<strong>${sessions.length}</strong>`)}
-      ${renderRow("Groups", "Flat HUI groups, including ungrouped sessions.", html`<strong>${groups.size}</strong>`)}
-      ${renderRow("Running now", "Live status is process state and is never persisted.", html`<strong>${running}</strong>`)}
-    `)}
-    ${renderSection("Runtimes", "The runtime is fixed when a session is registered.", html`${[...runtimes.entries()].map(([runtime, count]) => renderRow(runtime === "pi" ? "PI" : runtime, "Registered sessions using this adapter.", html`<span class="settings-row__value">${count}</span>`))}${runtimes.size ? nothing : renderRow("No sessions", "Create a session from Home to register a runtime.", html`<span class="settings-row__muted">—</span>`)}`)}
-    ${renderSection("Retention", "Deleting HUI metadata never deletes PI conversation files.", html`
-      ${renderRow("Transcript authority", "History is resumed directly from the runtime-owned session file.", html`<span class="settings-row__value">PI</span>`)}
-      ${renderRow("Remove from HUI", "Stops tracking the row and runtime without deleting the transcript.", html`<span class="settings-row__value">Metadata only</span>`)}
-    `)}
-    ${botsEnabled(props.settings) ? renderSection("Bots", "Named agents with one permanent chat, their own model and a memory that summarizes older messages by itself. Settings → Labs → Bots turns them on and off.", html`
-      ${renderRow("Command line", "Everything the Bots tab does is also available from a terminal on this machine.", html`<code>hui bot list</code>`)}
-    `) : nothing}
-    <p class="settings-page__note settings-page__intro">
-      ${props.saveFailed ? "Could not write settings.json — changes apply now but will not be remembered." : "Saved to ~/.config/hui/settings.json"}
-    </p>`;
-}
-
 function renderWorktreesSettingsPage(props: SettingsProps) {
   return html`${renderWorktreesPage(props.worktrees)}
     ${renderSection("Git worktrees", "New Session can create an isolated checkout from the selected repository.", html`
@@ -997,7 +979,7 @@ function renderWorktreesSettingsPage(props: SettingsProps) {
           <button type="submit" class="btn">Save</button>
         </form>
       `)}
-    `)}`;
+    `, "branch-prefix")}`;
 }
 
 function renderSecurityPage(props: SettingsProps) {
@@ -1019,7 +1001,7 @@ function renderSecurityPage(props: SettingsProps) {
     ${props.piError || props.healthError ? html`<div class="settings-page__note settings-page__intro" role="alert">${[props.piError, props.healthError].filter(Boolean).join(" ")}<button type="button" class="btn" @click=${props.onRetryPi}>Retry</button></div>` : nothing}`;
 }
 
-const SETTINGS_SUMMARIES: Record<Exclude<SettingsPage, "appearance" | "skills" | "tools" | "models" | "automation" | "sessions" | "security" | "worktrees" | "workers">, string> = {
+const SETTINGS_SUMMARIES: Record<Exclude<SettingsPage, "appearance" | "skills" | "tools" | "models" | "automation" | "security" | "worktrees" | "workers">, string> = {
   connection: "HUI server, local PI runtime, reconnect behaviour and health.",
   integrations: "Connections to external services such as Jira and GitHub.",
   plugins: "Packages, extensions, permissions and provider adapters.",
@@ -1146,7 +1128,7 @@ export function renderSettingsPage(props: SettingsProps) {
         </div>
       </header>
       <div class="settings-workspace"><div class="settings-workspace__body">
-        <div class="settings-page ${["plugins", "skills", "automation", "sessions", "worktrees", "workers"].includes(props.page) ? "settings-page--wide" : ""}">
+        <div class="settings-page ${["plugins", "skills", "automation", "worktrees", "workers"].includes(props.page) ? "settings-page--wide" : ""}">
           ${props.page === "appearance"
             ? renderAppearancePage(props)
             : props.page === "skills"
@@ -1169,9 +1151,7 @@ export function renderSettingsPage(props: SettingsProps) {
                           ? renderAutomationPage(props, renderSection)
                           : props.page === "diagnostics"
                             ? renderDiagnosticsPage(props)
-                            : props.page === "sessions"
-                              ? renderSessionsSettingsPage(props)
-                              : props.page === "security"
+                            : props.page === "security"
                                 ? renderSecurityPage(props)
                               : props.page === "worktrees"
                                 ? renderWorktreesSettingsPage(props)

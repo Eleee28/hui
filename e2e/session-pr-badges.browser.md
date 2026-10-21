@@ -7,7 +7,7 @@ packaged PI 0.87.1, with `gh` authenticated as the operator for read-only
 ## Reproduce
 
 1. Create a fresh `/tmp/hui-pr-badges-*` root and run
-   `node e2e/session-pr-badges-fixture.mjs <ROOT> node_modules/@earendil-works/pi-coding-agent/dist/core/session-manager.js`.
+   `node e2e/fixtures/session-pr-badges-fixture.mjs <ROOT> node_modules/@earendil-works/pi-coding-agent/dist/core/session-manager.js`.
    It writes three disposable PI transcripts plus an exclusive HUI registry:
    *Release train* (five `gh pr create` results covering merged, closed, draft
    and open PRs), *README intro* (one merged PR) and *No pull requests*. Every

@@ -3,14 +3,14 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, test } from "node:test";
+import { afterAll, test } from "vitest";
 
 // HUI's directory resolves at import time: never the operator's own.
 const root = await mkdtemp(join(tmpdir(), "hui-doctor-triggers-"));
 const config = join(root, "config", "hui");
 process.env["HOME"] = root;
 process.env["XDG_CONFIG_HOME"] = join(root, "config");
-after(() => rm(root, { recursive: true, force: true }));
+afterAll(() => rm(root, { recursive: true, force: true }));
 const { formatDoctorReport, runDoctor } = await import("./doctor.ts");
 const { triggersCheck } = await import("./doctor-triggers.ts");
 

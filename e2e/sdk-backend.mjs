@@ -17,9 +17,9 @@ await mkdir(join(agentDir, "skills", "sdk-fixture"), { recursive: true });
 await writeFile(join(agentDir, "skills", "sdk-fixture", "SKILL.md"), "---\nname: sdk-fixture\ndescription: SDK browser skill enablement fixture.\n---\nUse only for fixture skill checks.\n");
 await mkdir(workspace);
 await writeFile(join(workspace, "fixture.txt"), "Real SDK browser fixture\n");
-await copyFile(join(repo, "e2e/question-extension.ts"), join(agentDir, "extensions/question.ts"));
-await copyFile(join(repo, "e2e/slash-commands-extension.ts"), join(agentDir, "extensions/commands.ts"));
-const provider = spawn(process.execPath, [join(repo, "e2e/pi-provider-fixture.mjs")], {
+await copyFile(join(repo, "e2e/fixtures/question-extension.ts"), join(agentDir, "extensions/question.ts"));
+await copyFile(join(repo, "e2e/fixtures/slash-commands-extension.ts"), join(agentDir, "extensions/commands.ts"));
+const provider = spawn(process.execPath, [join(repo, "e2e/fixtures/pi-provider-fixture.mjs")], {
   env: { ...process.env, HUI_E2E_PROVIDER_PORT: "0", HUI_E2E_WORKSPACE: workspace, HUI_E2E_PROVIDER_LOG: join(dir, "provider.jsonl") },
   stdio: ["ignore", "pipe", "inherit"],
 });

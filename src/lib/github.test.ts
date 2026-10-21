@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 
-import type { GitHubConnection } from "../../shared/github.ts";
+import type { GitHubConnection } from "../api/schema/github.ts";
 import { gitHubStatusLabel } from "./github.ts";
 
 const base: GitHubConnection = { cli: { installed: true, version: "2.101.0" }, status: "disconnected", login: { phase: "idle" } };

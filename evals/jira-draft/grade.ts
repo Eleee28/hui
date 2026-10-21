@@ -1,4 +1,4 @@
-import type { JiraDraft } from "../../shared/jira.ts";
+import type { JiraDraft } from "../../server/api/jira.ts";
 import type { DraftCase } from "./cases.ts";
 
 export type Grade = { pass: boolean; failures: string[] };

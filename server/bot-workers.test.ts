@@ -1,6 +1,6 @@
 /**
  * Bots on a remote worker end to end on one machine (HUI-18). The gateway runs
- * in this process with its routes, as in bot-routes.test.ts; the "remote" is a
+ * in this process with its routes, as in routes/bots.test.ts; the "remote" is a
  * separate home reached through `env … sh -s`, as in workers.test.ts, with this
  * checkout pre-installed as its release, so nothing is shared with the gateway
  * except what the worker protocol carries. A deterministic Anthropic-compatible
@@ -14,9 +14,9 @@ import { createServer } from "node:http";
 import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { after, before, test, type TestContext } from "node:test";
+import { afterAll, beforeAll, test, type TestContext } from "vitest";
 import { fileURLToPath } from "node:url";
-import { botKickoffName, type BotCatalog, type BotMemoryStatus, type BotView } from "../shared/bots.ts";
+import { botKickoffName, type BotCatalog, type BotMemoryStatus, type BotView } from "./bots-format.ts";
 import type { TranscriptEntry } from "./runtimes/types.ts";
 import { GATEWAY_ONLY_TOOLS } from "./worker/gateway-tools.ts";
 
@@ -46,7 +46,7 @@ await writeFile(join(agentDir, "extensions", "ask.ts"), `export default function
 `);
 
 const log = join(root, "provider.jsonl");
-const provider = spawn(process.execPath, [join(repo, "e2e", "pi-provider-fixture.mjs")], {
+const provider = spawn(process.execPath, [join(repo, "e2e", "fixtures", "pi-provider-fixture.mjs")], {
   env: { ...process.env, HUI_E2E_PROVIDER_PORT: "0", HUI_E2E_WORKSPACE: join(remoteHome, "project"), HUI_E2E_PROVIDER_LOG: log, HUI_E2E_PROVIDER_KEY: KEY },
   stdio: ["ignore", "pipe", "inherit"],
 });
@@ -58,21 +58,20 @@ await writeFile(join(agentDir, "models.json"), JSON.stringify({ providers: { fx:
 // The key exists only in the gateway's PI login: the worker's runs and its compactor get it brokered.
 await writeFile(join(agentDir, "auth.json"), JSON.stringify({ fx: { type: "api_key", key: KEY } }));
 await writeFile(join(agentDir, "settings.json"), JSON.stringify({ defaultProvider: "fx", defaultModel: "fixture" }));
-// Bots are a preview, off until Settings → Labs → Bots turns them on (the gateway's setting; workers need none).
 await mkdir(join(root, "gateway", "config", "hui"), { recursive: true });
-await writeFile(join(root, "gateway", "config", "hui", "settings.json"), JSON.stringify({ labs: { bots: true } }));
 
-const { middleware, startBackend, stopBackend } = await import("./hui.ts");
+const { middleware } = await import("./hui.ts");
+const { startBackend, stopBackend } = await import("./backend.ts");
 const { workers } = await import("./workers.ts");
-const { liveSessions } = await import("./live-sessions.ts");
-const { readRegistry } = await import("./sessions.ts");
+const { liveSessions } = await import("./sessions/live-sessions.ts");
+const { readRegistry } = await import("./sessions/sessions.ts");
 const { workerRelease } = await import("./worker/release.ts");
-const { remoteBots } = await import("./bot-remote.ts");
+const { remoteBots } = await import("./bots/remote.ts");
 const server = createServer((request, response) => middleware(request, response, () => { response.writeHead(404).end(); }));
 let origin = "";
 let workerId = "";
 
-before(async () => {
+beforeAll(async () => {
   // Pre-install this checkout as the remote release (the container E2E covers the real npm install): no network.
   const release = await workerRelease();
   const dir = join(remoteData, "releases", release.id);
@@ -95,7 +94,7 @@ before(async () => {
   await workers.connect(workerId);
 });
 
-after(async () => {
+afterAll(async () => {
   // The backend first: its triggers' last writes settle before their directory goes.
   await stopBackend();
   server.closeAllConnections();
@@ -198,7 +197,7 @@ async function roverListener(name: string, prompt: string): Promise<(summary?: s
 async function standingRoutine(t: TestContext, sessionId: string, ...names: string[]): Promise<void> {
   const made = await call("/__hui/automation/tasks", "POST", { name: "Standing", sessionId, prompt: "E2E_STANDING look", schedule: { kind: "every", everyMs: 3_600_000 } });
   assert.equal(made.status, 201, JSON.stringify(made.body));
-  t.after(async () => {
+  t.onTestFinished(async () => {
     const { tasks } = (await call("/__hui/automation")).body as { tasks: Array<{ id: string; name: string; sessionId: string }> };
     for (const task of tasks.filter((each) => each.sessionId === sessionId && ["Standing", ...names].includes(each.name))) {
       await call(`/__hui/automation/tasks/${task.id}`, "DELETE");
@@ -210,7 +209,7 @@ const routineOf = async (sessionId: string, name: string) => ((await call("/__hu
 async function restoreRoverAfter(t: TestContext, ...triggers: string[]): Promise<void> {
   const [, , title] = await roverProfile();
   const soul = (await call("/__hui/bots/rover/soul")).body["soul"];
-  t.after(async () => {
+  t.onTestFinished(async () => {
     for (const name of triggers) await call(`/__hui/bots/rover/triggers/${encodeURIComponent(name)}`, "DELETE");
     await call("/__hui/bots/rover", "PATCH", { title: title ?? "" });
     await call("/__hui/bots/rover/soul", "PUT", { soul });
@@ -273,7 +272,7 @@ test("a bot made on the worker keeps its conversation and memory there, answers 
 
 test("a bot on the worker without a utility model of its own summarizes with the Settings' one, mirrored there", { timeout: 180_000 }, async () => {
   // Settings' utility model reaches the worker with the mirrored settings.
-  await writeFile(join(root, "gateway", "config", "hui", "settings.json"), JSON.stringify({ models: { utility: "fx/utility" }, labs: { bots: true } }));
+  await writeFile(join(root, "gateway", "config", "hui", "settings.json"), JSON.stringify({ models: { utility: "fx/utility" } }));
   await workers.sync(workerId);
   const sparrow = botOf(await call("/__hui/bots", "POST", { name: "Sparrow", worker: "devbox", soul: "# Who I am\nSparrow." }));
   assert.equal(sparrow.memoryModel, undefined, "no utility model of its own");
@@ -302,7 +301,42 @@ test("message_bot crosses both ways between a bot here and the bot on the worker
   assert.deepEqual(back.body, { status: "answered", reply: "message_bot answered: Queued for @rover." });
   await settledWith(rover.sessionId, (entries) => says("user", "[from @home] hello from the fixture")(entries), "Rover to get Home's message");
   await waitFor(async () => await chatRequest("[from @home] hello from the fixture"), "Rover's run on the worker");
-  assert.match(systemOf(await chatRequest("[from @home] hello from the fixture")), /- @home: Home/u, "its roster on the worker lists the bot here");
+  assert.match(systemOf(await chatRequest("[from @home] hello from the fixture")), /- @home \(Home\)/u, "its roster on the worker lists the bot here");
+});
+
+test("sessions and bots exchange attributed handoffs and agent replies across the worker connection", { timeout: 180_000 }, async () => {
+  const home = botOf(await call("/__hui/bots/home"));
+  const created = await call("/__hui/sessions", "POST", { cwd: join(remoteHome, "project"), worker: workerId, tool: "durable", title: "Survey the ridge" });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const session = created.body["session"] as { id: string };
+  // Its runtime starts on the worker before it takes a prompt.
+  await waitFor(() => liveSessions.status(session.id) === "idle", "the session on the worker to start");
+  const prompted = await call(`/__hui/sessions/${session.id}/prompt`, "POST", { text: "E2E_MESSAGE_BOT @home SURVEY_TAG" });
+  assert.equal(prompted.status, 200, JSON.stringify(prompted.body));
+  await settledWith(session.id, says("assistant", "message_bot answered: Queued for @home."), "the session's tag to be accepted");
+  await settledWith(home.sessionId, says("user", `[from agent: Survey the ridge · reply-to agent:${session.id}] hello from the fixture`), "Home to get the session's tag");
+  // Its host asked this gateway for the list, as a bot there does, and offered message_bot alone.
+  const request = await chatRequest("SURVEY_TAG");
+  assert.match(systemOf(request), /This HUI has bots: persistent assistants/u);
+  assert.match(systemOf(request), /- @home \(Home\)/u);
+  assert.doesNotMatch(systemOf(request), /You are @/u, "not a bot's chat");
+  assert.deepEqual(request?.tools?.filter((tool) => ["message_bot", "write_soul", "set_profile"].includes(tool.name ?? "")).map((tool) => tool.name), ["message_bot"]);
+  const reply = (id: string, message: string) => callsOf({ name: "message_bot", input: { to: `agent:${id}`, message } });
+  await call("/__hui/bots/home/messages", "POST", { text: reply(session.id, "Decide how to address the ridge review."), wait: true, timeoutSeconds: 120 });
+  await settledWith(session.id, says("user", "[from @home] Decide how to address the ridge review."), "the originating agent on the worker to receive Home's decision request");
+
+  // The reverse direction also needs the worker bot's received-message history available at the gateway.
+  const rover = botOf(await call("/__hui/bots/rover"));
+  const local = await call("/__hui/sessions", "POST", { cwd: root, tool: "durable", title: "Survey the valley" });
+  assert.equal(local.status, 200, JSON.stringify(local.body));
+  const localId = (local.body["session"] as { id: string }).id;
+  await waitFor(() => liveSessions.status(localId) === "idle", "the local agent to start");
+  await call(`/__hui/sessions/${localId}/prompt`, "POST", { text: "E2E_MESSAGE_BOT @rover VALLEY_TAG" });
+  await settledWith(rover.sessionId, says("user", `[from agent: Survey the valley · reply-to agent:${localId}] hello from the fixture`), "Rover on the worker to receive the local agent's handoff");
+  await call("/__hui/bots/rover/messages", "POST", { text: reply(localId, "Decide how to address the valley review."), wait: true, timeoutSeconds: 120 });
+  await settledWith(localId, says("user", "[from @rover] Decide how to address the valley review."), "the originating local agent to receive Rover's decision request");
+  await call(`/__hui/sessions/${localId}`, "DELETE");
+  await call(`/__hui/sessions/${session.id}`, "DELETE");
 });
 
 test("a bot on the worker schedules its own temporary routine: its routines tool crosses to this gateway as the bot's session, and that routine's turn there removes it", { timeout: 180_000 }, async () => {
@@ -350,10 +384,10 @@ test("a bot made on the worker without a soul speaks first there, writes SOUL.md
 
   // write_soul runs on the worker: SOUL.md lands in the bot's home there, and nothing of it on this machine.
   const wrote = await call("/__hui/bots/echo/messages", "POST", { text: "E2E_WRITE_SOUL keep the trail notes", wait: true, timeoutSeconds: 120 });
-  assert.deepEqual(wrote.body, { status: "answered", reply: "I wrote my SOUL.md. Change it in the Soul tab, or just tell me." });
+  assert.deepEqual(wrote.body, { status: "answered", reply: "I wrote my SOUL.md. To change it, just tell me." });
   assert.equal(await readFile(soulPath, "utf8"), "# Who I am\nE2E_SOUL_TEXT: a terse fixture bot.\n");
   assert.ok(!existsSync(join(root, "gateway", "config", "hui", "bots", fresh.id)));
-  assert.deepEqual((await call("/__hui/bots/echo/soul")).body, { soul: "# Who I am\nE2E_SOUL_TEXT: a terse fixture bot." }, "the Soul tab reads it from the worker");
+  assert.deepEqual((await call("/__hui/bots/echo/soul")).body, { soul: "# Who I am\nE2E_SOUL_TEXT: a terse fixture bot." }, "the soul route reads it from the worker");
   await waitFor(async () => botOf(await call("/__hui/bots/echo")).soul || undefined, "the list to see it, read on the worker in the background");
   // The operator's edit is written there too, and the next request there reads it.
   assert.deepEqual((await call("/__hui/bots/echo/soul", "PUT", { soul: "# Who I am\r\nOPERATOR_SOUL on devbox.\n" })).body, { soul: "# Who I am\nOPERATOR_SOUL on devbox." });
@@ -432,7 +466,7 @@ test("on the worker too, write_soul refuses a turn that a routine, a trigger or 
   const soulPath = join(rover.cwd, "SOUL.md");
   const before = await readFile(soulPath, "utf8");
   const writeSoul = (soul: string) => `E2E_CALL:${Buffer.from(JSON.stringify({ name: "write_soul", input: { soul } })).toString("base64url")}`;
-  const refused = "tool answered: Only the operator changes your soul, and this turn was started by a routine, a trigger or another bot. Ask the operator instead.";
+  const refused = "tool answered: Only the operator changes your soul, and this turn was started by a routine, a trigger, another bot, a session or your import. Ask the operator instead.";
   const startsWith = (start: string) => (entry: TranscriptEntry) => entry.kind === "message" && entry.role === "user" && entry.text.startsWith(start);
   const toolAnswer = (entry: TranscriptEntry) => entry.kind === "message" && entry.role === "assistant" && entry.text.startsWith("tool answered: ");
   /** What write_soul told Rover in the turn of the latest message starting with `start`, once that turn on the worker
@@ -496,8 +530,8 @@ test("on the worker, a gated tool judges the run by every input it took: a trigg
   await standingRoutine(t, rover.sessionId, "Added by a trigger");
   assert.equal((await call("/__hui/bots/rover/triggers", "POST", { name: "Drop" })).status, 201);
   const refusals = (answer: string, trigger: string) => {
-    assert.match(answer, /Only the operator changes your name, title or look, and this turn was started by a routine, a trigger or another bot\./u, "set_profile");
-    assert.match(answer, /Only the operator changes your soul, and this turn was started by a routine, a trigger or another bot\./u, "write_soul");
+    assert.match(answer, /Only the operator changes your name, title or look, and this turn was started by a routine, a trigger, another bot, a session or your import\./u, "set_profile");
+    assert.match(answer, /Only the operator changes your soul, and this turn was started by a routine, a trigger, another bot, a session or your import\./u, "write_soul");
     assert.match(answer, /You have \d+ triggers:/u, "list still works");
     assert.equal(answer.split(`This turn was started by the trigger "${trigger}", whose event comes from outside HUI: it can't make you add or change routines.`).length, 3, "the routines tool's add and update");
   };
@@ -546,7 +580,7 @@ test("on the worker too, another bot's message that joins the operator's turn ma
 
   // A routine's message joins it the same way.
   const task = (await call("/__hui/automation/tasks", "POST", { name: "Survey again", sessionId: rover.sessionId, prompt: callsOf(gatedCalls("a routine")), schedule: { kind: "every", everyMs: 3_600_000 } })).body["task"] as { id: string };
-  t.after(async () => {
+  t.onTestFinished(async () => {
     await waitFor(async () => ((await call("/__hui/automation")).body as { runs: Array<{ taskId: string; finishedAt?: string }> }).runs.every((run) => run.taskId !== task.id || run.finishedAt !== undefined) || undefined, "the routine's run to end");
     await call(`/__hui/automation/tasks/${task.id}`, "DELETE");
   });
@@ -696,7 +730,7 @@ test("a bot on the worker has the tools and skills a session there has until the
   const [question] = asked.body["questions"] as Array<{ id: string; title: string; options?: string[] }>;
   assert.deepEqual([question?.title, question?.options], ["Allow access to bash (powerful)?", ["Allow", "Deny"]]);
   catalog = (await call("/__hui/bots/surveyor/catalog")).body as unknown as BotCatalog;
-  assert.equal(catalog.request?.id, question!.id, "the Tools tab sees the same request");
+  assert.equal(catalog.request?.id, question!.id, "the Tools & skills page sees the same request");
   assert.equal((await call(`/__hui/sessions/${surveyor.sessionId}/question`, "POST", { id: question!.id, value: "Allow" })).status, 200);
   await settledWith(surveyor.sessionId, says("assistant", "you now have bash"), "the granted turn on the worker");
   const granted = (await providerRequests()).filter((request) => !isCompactor(request) && JSON.stringify(request.messages).includes("tool-e2e-request-access")).at(-1);
@@ -734,12 +768,12 @@ test("a disconnected worker: creating there, its bot's memory and messages fail 
   const message = await call("/__hui/bots/crow/messages", "POST", { text: "are you there?" });
   assert.equal(message.status, 503);
   assert.match(String(message.body["error"]), /runs on devbox, which HUI is disconnected from/u);
-  // Its Soul tab cannot read or write SOUL.md, which is on the worker.
+  // Its soul route cannot read or write SOUL.md, which is on the worker.
   for (const reply of [await call("/__hui/bots/crow/soul"), await call("/__hui/bots/crow/soul", "PUT", { soul: "# Who I am\nElsewhere." })]) {
     assert.equal(reply.status, 503);
     assert.match(String(reply.body["error"]), /^devbox, where this bot runs, is offline/u);
   }
-  // Nor its Tools tab its lists, which are in its document there.
+  // Nor its Tools & skills page its lists, which are in its document there.
   const catalog = await call("/__hui/bots/crow/catalog");
   assert.equal(catalog.status, 503);
   assert.match(String(catalog.body["error"]), /^devbox, where this bot runs, is offline/u);
@@ -775,4 +809,30 @@ test("a disconnected worker: creating there, its bot's memory and messages fail 
   await workers.connect(workerId);
   await waitFor(() => !existsSync(crow.cwd) || undefined, "the worker to remove its home");
   await waitFor(async () => (JSON.parse(await readFile(queueFile, "utf8")) as { cleanups: unknown[] }).cleanups.length === 0 || undefined, "the note to go");
+});
+
+test("explicit memories stay on the worker and its next request reads edits and deletes", { timeout: 180_000 }, async () => {
+  const created = await call("/__hui/bots", "POST", { name: "FactsWorker", worker: "devbox", soul: "I keep explicit knowledge." });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const bot = botOf(created);
+  const path = `/__hui/bots/${bot.id}/facts`;
+  const added = await call(path, "POST", { kind: "decision", text: "WORKER_EXPLICIT_ORIGINAL" });
+  assert.equal(added.status, 201, JSON.stringify(added.body));
+  const fact = (added.body["facts"] as Array<{ id: string; revision: number }>)[0]!;
+  assert.match(await readFile(join(bot.cwd, "facts.json"), "utf8"), /WORKER_EXPLICIT_ORIGINAL/u);
+  assert.ok(!existsSync(join(root, "gateway", "config", "hui", "bots", bot.id, "facts.json")));
+  const edited = await call(`${path}/${fact.id}`, "PATCH", { revision: 1, text: "WORKER_EXPLICIT_CORRECTED", pinned: true });
+  assert.equal(edited.status, 200, JSON.stringify(edited.body));
+  assert.equal((await call(`${path}/${fact.id}`, "PATCH", { revision: 1, text: "STALE" })).status, 409);
+  await call(`/__hui/bots/${bot.id}/messages`, "POST", { text: "WORKER_FACTS_REQUEST", wait: true });
+  const request = await chatRequest("WORKER_FACTS_REQUEST");
+  assert.match(JSON.stringify(request?.system), /WORKER_EXPLICIT_CORRECTED/u);
+  assert.doesNotMatch(JSON.stringify(request?.system), /WORKER_EXPLICIT_ORIGINAL/u);
+  assert.equal((await call(`${path}/${fact.id}?revision=2`, "DELETE")).status, 200);
+  assert.deepEqual((await call(path)).body["facts"], []);
+  const saves = Array.from({ length: 10 }, (_, index) => call(path, "POST", { kind: "fact", text: `Pending worker deletion ${index}` }));
+  assert.equal((await call(`/__hui/bots/${bot.id}?permanent=1`, "DELETE")).status, 200);
+  const results = await Promise.all(saves);
+  assert.ok(results.every((reply) => reply.status === 201 || reply.status === 404), JSON.stringify(results.map((reply) => reply.status)));
+  assert.ok(!existsSync(join(remoteData, "bots", bot.id)), "late writes never recreate a deleted worker bot's home");
 });

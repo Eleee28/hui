@@ -3,7 +3,7 @@
  * running gateway's `/__hui/workers` routes, so connections and their state
  * stay with the gateway that owns them.
  */
-import type { WorkerInput, WorkerView } from "../shared/workers.ts";
+import type { WorkerInput, WorkerView } from "../server/worker/workers.ts";
 
 export type WorkerFlags = { name?: string; command?: string; "extra-path"?: string[] };
 

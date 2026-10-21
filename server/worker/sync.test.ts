@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import { test } from "vitest";
 import { configuredResourceId } from "../runtimes/resource-policy.ts";
 import { brokeredModels, buildSyncPlan, credentialHeader, mirrorPath } from "./sync.ts";
 
 test("the mirror holds the user's PI resources with remote paths and no secrets", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "hui-sync-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(root, { recursive: true, force: true }));
   const home = join(root, "home");
   const agentDir = join(home, ".pi", "agent");
   const pkg = join(home, "src", "my-package");
@@ -66,7 +66,7 @@ test("the mirror holds the user's PI resources with remote paths and no secrets"
 
 test("literal keys and header values in models.json are left out of the mirror for the gateway to serve", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "hui-sync-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(root, { recursive: true, force: true }));
   const home = join(root, "home");
   const agentDir = join(home, ".pi", "agent");
   await mkdir(agentDir, { recursive: true });
@@ -113,7 +113,7 @@ test("literal keys and header values in models.json are left out of the mirror f
 
 test("an invalid models.json is not mirrored", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "hui-sync-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(root, { recursive: true, force: true }));
   const agentDir = join(root, ".pi", "agent");
   await mkdir(agentDir, { recursive: true });
   await writeFile(join(agentDir, "models.json"), "{ \"providers\": { \"p\": { \"apiKey\": \"sk-unparsed\" ");

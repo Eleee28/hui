@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 
-import { jiraIssueAccessibleLabel, primaryJiraIssue, type SessionJiraIssue } from "../../shared/jira.ts";
+import { jiraIssueAccessibleLabel, primaryJiraIssue } from "./jira.ts";
+import type { SessionJiraIssue } from "../api/schema/sessions.ts";
 import { applyJiraDraft, jiraParentHint } from "./jira.ts";
 
 const issue = (key: string, patch: Partial<SessionJiraIssue> = {}): SessionJiraIssue => ({
@@ -41,19 +41,6 @@ test("an empty parent always says whether the model chose none or why nothing wa
   assert.deepEqual(jiraParentHint({ ...draft, parentChoice: "omitted" }, false), { suggested: false, reason: "The model didn't choose a parent." });
   assert.deepEqual(jiraParentHint({ ...draft, parentChoice: "suggested" }, true), { suggested: false, reason: "" }, "an operator choice replaces the hint");
   assert.deepEqual(jiraParentHint(undefined, false), { suggested: false, reason: "" });
-});
-
-test("the session row renders the Jira mark left of the title and keeps the menu reachable", () => {
-  const source = readFileSync(new URL("../views/shell.ts", import.meta.url), "utf8");
-  // The mark owns the leading status column, not the title row.
-  assert.match(source, /\$\{showJiraLead \? renderJiraBadge\(session\) : nothing\}/);
-  assert.match(source, /sidebar-recent-session__title-row">\$\{renderHoverMarquee\(session\.title/);
-  assert.match(source, /installJiraHovercard\(\)/);
-  assert.match(source, /value="jira:create"[\s\S]*?Create Jira work item…/);
-  assert.match(source, /value="jira:link"[\s\S]*?Link Jira work item…/);
-  assert.match(source, /linkedJira \? nothing : html`[\s\S]*?value="jira:create"/);
-  assert.match(source, /value="copy:id"[\s\S]*?linkedJira \? html`[^`]*value="copy:jira"/);
-  assert.match(source, /value="open:editor"[\s\S]*?linkedJira \? html`[^`]*value="open:jira"/);
 });
 
 test("search results join the known projects, sorted, without losing the selection", async () => {

@@ -4,7 +4,7 @@
 import { html, nothing } from "lit";
 import { icons } from "../../lib/icons.ts";
 import { openMessageContextMenu } from "../../lib/message-context-menu.ts";
-import type { TranscriptItem } from "../../lib/sessions-store.ts";
+import type { TranscriptItem } from "../../api/sessions.ts";
 
 type Tool = Extract<TranscriptItem, { kind: "tool" }>;
 

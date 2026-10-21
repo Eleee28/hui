@@ -6,13 +6,13 @@
  * result links it to the session; nothing is created in Jira.
  */
 import { LitElement, html, nothing } from "lit";
-import type { JiraConnection, JiraIssueMatch } from "../../shared/jira.ts";
+import type { JiraConnection, JiraIssueMatch } from "../api/schema/jira.ts";
 import { brandIcons } from "../lib/brand-icons.ts";
-import { linkJiraWorkItem, loadJiraConnection, searchJiraIssues } from "../lib/jira.ts";
+import { linkJiraWorkItem, loadJiraConnection, searchJiraIssues } from "../api/jira.ts";
 import { ensureModal } from "../lib/modal-dialog.ts";
-import type { SessionView } from "../lib/sessions-store.ts";
+import type { SessionView } from "../api/sessions.ts";
 import type { JiraCreatedDetail } from "./jira-create-dialog.ts";
-import { linkBacklogJira, type BacklogItem } from "../lib/backlog.ts";
+import { linkBacklogJira, type BacklogItem } from "../api/backlog.ts";
 
 const SEARCH_DELAY_MS = 250;
 

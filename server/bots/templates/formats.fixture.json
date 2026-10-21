@@ -1,0 +1,30 @@
+{
+  "formats": {
+    "grok": "Grok Bot",
+    "openclaw": "OpenClaw workspace",
+    "claude-code": "Claude Code subagent",
+    "letta": "Letta agent file",
+    "character-card": "Character card",
+    "crewai": "CrewAI agents.yaml",
+    "hui": "HUI bot export",
+    "text": "Plain text"
+  },
+  "limits": {
+    "fileBytes": 8388608,
+    "totalBytes": 16777216,
+    "files": 1000,
+    "text": 2000000,
+    "pageBytes": 4194304,
+    "skills": 50,
+    "skill": 100000,
+    "routines": 50,
+    "memories": 500,
+    "integrations": 100,
+    "skillFiles": 50,
+    "skillFileBytes": 262144,
+    "skillFilesBytes": 2097152,
+    "open": 100,
+    "needs": 30,
+    "triggers": 20
+  }
+}

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { browserCandidates, expandExecutablePath, resolveBrowserExecutable, type ExecutableProbe } from "./executable.ts";
 
 function probe(platform: NodeJS.Platform, executables: string[], env: NodeJS.ProcessEnv = {}): ExecutableProbe {

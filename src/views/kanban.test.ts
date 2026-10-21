@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 
 test("every checkbox menu item hides the native checkmark so only one tick shows", () => {
   const source = readFileSync(new URL("./kanban.ts", import.meta.url), "utf8");

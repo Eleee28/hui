@@ -7,7 +7,7 @@
 import { html, nothing } from "lit";
 import { brandIcons } from "../../lib/brand-icons.ts";
 import { icons } from "../../lib/icons.ts";
-import { renderMarkdown } from "../../lib/markdown.ts";
+import { renderMarkdown } from "../../lib/markdown/markdown.ts";
 import { clampSuggestionIndex, taskSuggestionLocation, taskSuggestionPreview, type TaskSuggestion, type TaskSuggestionStartMode } from "../../lib/task-suggestions.ts";
 
 export type TaskSuggestionCardProps = {

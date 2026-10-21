@@ -6,9 +6,9 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test } from "vitest";
 import { fileURLToPath } from "node:url";
-import type { SessionSnapshot } from "./live-sessions.ts";
+import type { SessionSnapshot } from "./sessions/live-sessions.ts";
 
 // HUI's configuration directory (and the Durable store in it) and PI's agent
 // directory are resolved at import time; never read the operator's own.
@@ -25,9 +25,10 @@ process.env["PI_CODING_AGENT_DIR"] = agentDir;
 process.env["HUI_GITHUB_CLI"] = join(dir, "no-gh");
 for (const name of ["HUI_CONFIG_DIR", "HUI_DURABLE_DIR", "HUI_SESSION_RUNTIME"]) delete process.env[name];
 
-const { middleware, startBackend, stopBackend } = await import("./hui.ts");
-const { liveSessions } = await import("./live-sessions.ts");
-const { readRegistry } = await import("./sessions.ts");
+const { middleware } = await import("./hui.ts");
+const { startBackend, stopBackend } = await import("./backend.ts");
+const { liveSessions } = await import("./sessions/live-sessions.ts");
+const { readRegistry } = await import("./sessions/sessions.ts");
 const { DURABLE_DIR } = await import("./runtimes/durable-host.ts");
 
 /** Resolves once the live session satisfies `ready`; a session that fails instead rejects with its error. */
@@ -62,7 +63,7 @@ function runRecorded(id: string): Promise<void> {
 }
 
 test("the backend stops and restarts in-process, and its Durable sessions open again", { timeout: 60_000 }, async (t) => {
-  const provider = spawn(process.execPath, [fileURLToPath(new URL("../e2e/pi-provider-fixture.mjs", import.meta.url))], {
+  const provider = spawn(process.execPath, [fileURLToPath(new URL("../e2e/fixtures/pi-provider-fixture.mjs", import.meta.url))], {
     stdio: ["ignore", "pipe", "inherit"],
     env: { ...process.env, HUI_E2E_PROVIDER_PORT: "0", HUI_E2E_WORKSPACE: workspace, HUI_E2E_PROVIDER_LOG: join(dir, "requests.jsonl") },
   });
@@ -83,7 +84,7 @@ test("the backend stops and restarts in-process, and its Durable sessions open a
   await once(server, "listening");
   const address = server.address();
   assert(address && typeof address !== "string");
-  t.after(async () => {
+  t.onTestFinished(async () => {
     await stopBackend();
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));

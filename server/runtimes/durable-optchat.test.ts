@@ -6,12 +6,12 @@ import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { after, test, type TestContext } from "node:test";
+import { afterAll, test, type TestContext } from "vitest";
 import type { Message, Models, UserMessage } from "@earendil-works/pi-ai";
 import { AgentDoc, createRegistry, Harness, UserEntry, type ConversationId, type EntryRecord } from "@earendil-works/pi-durable";
 import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
 import type { OptChatStatus } from "../optchat/memory.ts";
-import type { CallRecord } from "../../shared/calls.ts";
+import type { CallRecord } from "../calls-format.ts";
 import type { OptChatTuning } from "./durable-optchat.ts";
 import type { DurableSession } from "./durable.ts";
 import type { RuntimeEvent, TranscriptEntry } from "./types.ts";
@@ -21,15 +21,16 @@ import { completeLines } from "../test-support/json-lines.ts";
 const root = await mkdtemp(join(tmpdir(), "hui-optchat-home-"));
 process.env["HOME"] = root;
 process.env["XDG_CONFIG_HOME"] = join(root, "config");
-after(() => rm(root, { recursive: true, force: true }));
+afterAll(() => rm(root, { recursive: true, force: true }));
 const { DurableHost, durableContext, modelCallable } = await import("./durable-host.ts");
+const { createDurableBots } = await import("../bots/durable-access.ts");
 const { durableReference, startDurable } = await import("./durable.ts");
 const {
   configureOptChat, enableOptChat, freshTurn, freshTurnRequest, OPTCHAT_EXTENSION, OPTCHAT_TOOLS_EXTENSION, OptChatDoc, projectEntry,
 } = await import("./durable-optchat.ts");
 const { readObservability } = await import("../observability.ts");
-const { durableBotConversations } = await import("../bot-conversations.ts");
-const { optChatBotMemory } = await import("../bot-memory.ts");
+const { durableBotConversations } = await import("../bots/conversations.ts");
+const { optChatBotMemory } = await import("../bots/memory.ts");
 type DurableHost = import("./durable-host.ts").DurableHost;
 
 // ── Pure parts ───────────────────────────────────────────────────────────────
@@ -143,12 +144,12 @@ async function fixture(t: TestContext, options: { contextWindow?: number; settin
   await mkdir(agentDir); await mkdir(cwd);
   await writeFile(join(cwd, "fixture.txt"), "Durable fixture content\n");
   const log = join(dir, "requests.jsonl");
-  const provider = spawn(process.execPath, [fileURLToPath(new URL("../../e2e/pi-provider-fixture.mjs", import.meta.url))], {
+  const provider = spawn(process.execPath, [fileURLToPath(new URL("../../e2e/fixtures/pi-provider-fixture.mjs", import.meta.url))], {
     stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, HUI_E2E_PROVIDER_PORT: "0", HUI_E2E_WORKSPACE: cwd, HUI_E2E_PROVIDER_LOG: log },
   });
   const hosts: DurableHost[] = [];
-  t.after(async () => {
+  t.onTestFinished(async () => {
     for (const host of hosts) await host.close().catch(() => {});
     const exit = once(provider, "exit"); provider.kill(); await exit;
     await rm(dir, { recursive: true, force: true });
@@ -168,6 +169,7 @@ async function fixture(t: TestContext, options: { contextWindow?: number; settin
       dir: store, agentDir, invokeTool: async () => ({ ok: true }), lookupCaller: async () => undefined,
       ...(tuning ? { optchat: tuning } : {}),
     });
+    created.configureDurableBots(createDurableBots(created, {}));
     hosts.push(created);
     return created;
   };
@@ -257,12 +259,12 @@ test("a conversation without OptChat sends Durable's requests unchanged and is n
   assert.deepEqual(second.messages.map((message) => message.role), ["user", "assistant", "user"], "the history goes as it is");
   assert.equal(blocks(second.messages[0]!)[0]!.text, "PLAIN_ONE first");
   assert.doesNotMatch(JSON.stringify(requests), /<chat>|You keep no memory between turns/u);
-  const offered = [...host.codingTools, ...host.huiTools, ...modelCallable(host.codemode)].map((tool) => tool.name);
-  assert.deepEqual([toolNames(first), toolNames(second)], [offered, offered], "the coding and HUI tools and codemode, as before OptChat");
+  const offered = [...[...host.codingTools, ...host.huiTools, ...modelCallable(host.codemode)].map((tool) => tool.name), "message_bot"];
+  assert.deepEqual([toolNames(first), toolNames(second)], [offered, offered], "the coding and HUI tools, codemode and message_bot, as before OptChat");
   assert.deepEqual((await session.inspect()).tools.map((tool) => tool.name), offered);
   const id = Number(session.sessionId) as ConversationId;
   const harness = await host.open();
-  assert.equal((await harness.snapshot(AgentDoc, id, durableContext))?.extensions, undefined, "the stored agent is untouched");
+  assert.deepEqual((await harness.snapshot(AgentDoc, id, durableContext))?.extensions, { add: ["hui-bot-tag"] }, "the stored agent only adds the bot tag");
   assert.equal(await harness.snapshot(OptChatDoc, id, durableContext), undefined);
   assert.equal(await host.optchat.status(id), undefined);
   assert.equal(existsSync(join(f.store, "optchat")), false, "no memory is kept");

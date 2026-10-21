@@ -1,0 +1,327 @@
+{
+  "limits": {
+    "sdp": 65536,
+    "concurrent": 2,
+    "idleMs": 90000,
+    "line": 4000,
+    "lines": 40,
+    "request": 4000,
+    "result": 1800,
+    "appendBytes": 500,
+    "memoryBytes": 8000,
+    "personaBytes": 6000,
+    "taskSeconds": 600,
+    "helperSeconds": 25,
+    "helperQuestions": 6,
+    "handoffs": 4,
+    "maxMinutes": 15,
+    "recordLines": 400,
+    "helperMemoryBytes": 16000
+  },
+  "voices": [
+    "cove",
+    "arbor",
+    "breeze",
+    "ember",
+    "juniper",
+    "maple",
+    "sol",
+    "spruce",
+    "vale"
+  ],
+  "defaultVoice": "cove",
+  "voiceChecks": [
+    {
+      "input": "cove",
+      "expected": "cove"
+    },
+    {
+      "input": " SOL ",
+      "expected": "sol"
+    },
+    {
+      "input": "alloy",
+      "expected": null
+    },
+    {
+      "input": 3,
+      "expected": null
+    }
+  ],
+  "voiceLabels": [
+    {
+      "input": "cove",
+      "expected": "Cove"
+    },
+    {
+      "input": "arbor",
+      "expected": "Arbor"
+    },
+    {
+      "input": "breeze",
+      "expected": "Breeze"
+    },
+    {
+      "input": "ember",
+      "expected": "Ember"
+    },
+    {
+      "input": "juniper",
+      "expected": "Juniper"
+    },
+    {
+      "input": "maple",
+      "expected": "Maple"
+    },
+    {
+      "input": "sol",
+      "expected": "Sol"
+    },
+    {
+      "input": "spruce",
+      "expected": "Spruce"
+    },
+    {
+      "input": "vale",
+      "expected": "Vale"
+    }
+  ],
+  "callVoices": [
+    {
+      "input": [
+        "sol",
+        "vale"
+      ],
+      "expected": "sol"
+    },
+    {
+      "input": [
+        null,
+        "vale"
+      ],
+      "expected": "vale"
+    },
+    {
+      "input": [
+        null,
+        null
+      ],
+      "expected": "cove"
+    }
+  ],
+  "records": [
+    {
+      "input": {
+        "call": "c1",
+        "bot": "Juno",
+        "startedAt": 1000,
+        "endedAt": 200000,
+        "summary": "Talked.",
+        "lines": [
+          {
+            "role": "user",
+            "text": "Hi",
+            "at": 1000
+          },
+          {
+            "role": "assistant",
+            "text": "Hello",
+            "at": 2000
+          },
+          {
+            "role": "helper",
+            "text": "Pancho",
+            "at": 3000,
+            "request": "dog's name?"
+          },
+          {
+            "role": "handoff",
+            "text": "Book it",
+            "at": 4000
+          }
+        ]
+      },
+      "expected": {
+        "call": "c1",
+        "bot": "Juno",
+        "startedAt": 1000,
+        "endedAt": 200000,
+        "summary": "Talked.",
+        "lines": [
+          {
+            "role": "user",
+            "text": "Hi",
+            "at": 1000
+          },
+          {
+            "role": "assistant",
+            "text": "Hello",
+            "at": 2000
+          },
+          {
+            "role": "helper",
+            "text": "Pancho",
+            "at": 3000,
+            "request": "dog's name?"
+          },
+          {
+            "role": "handoff",
+            "text": "Book it",
+            "at": 4000
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "call": "c2",
+        "startedAt": 5,
+        "endedAt": 6,
+        "summary": " ",
+        "summaryUnavailable": true,
+        "bot": "",
+        "lines": [
+          {
+            "role": "robot",
+            "text": "x"
+          },
+          {
+            "role": "user",
+            "text": "y"
+          },
+          null
+        ]
+      },
+      "expected": {
+        "call": "c2",
+        "startedAt": 5,
+        "endedAt": 6,
+        "summaryUnavailable": true,
+        "lines": [
+          {
+            "role": "user",
+            "text": "y",
+            "at": 5
+          }
+        ]
+      }
+    },
+    {
+      "input": null,
+      "expected": null
+    },
+    {
+      "input": [],
+      "expected": null
+    },
+    {
+      "input": {
+        "call": "c3",
+        "startedAt": "1",
+        "endedAt": 2,
+        "lines": []
+      },
+      "expected": null
+    }
+  ],
+  "transcripts": [
+    {
+      "input": {
+        "lines": [
+          {
+            "role": "user",
+            "text": "Hi",
+            "at": 1000
+          },
+          {
+            "role": "assistant",
+            "text": "Hello",
+            "at": 2000
+          },
+          {
+            "role": "helper",
+            "text": "Pancho",
+            "at": 3000,
+            "request": "dog's name?"
+          },
+          {
+            "role": "handoff",
+            "text": "Book it",
+            "at": 4000
+          }
+        ],
+        "bot": "Juno"
+      },
+      "expected": "User: Hi\nJuno: Hello\nJuno's helper (asked \"dog's name?\"): Pancho\nHanded to Juno's chat: Book it"
+    },
+    {
+      "input": {
+        "lines": [
+          {
+            "role": "user",
+            "text": "Hi",
+            "at": 1000
+          },
+          {
+            "role": "assistant",
+            "text": "Hello",
+            "at": 2000
+          },
+          {
+            "role": "helper",
+            "text": "Pancho",
+            "at": 3000,
+            "request": "dog's name?"
+          },
+          {
+            "role": "handoff",
+            "text": "Book it",
+            "at": 4000
+          }
+        ],
+        "bot": "Juno",
+        "operator": "Dani"
+      },
+      "expected": "Dani: Hi\nJuno: Hello\nJuno's helper (asked \"dog's name?\"): Pancho\nHanded to Juno's chat: Book it"
+    }
+  ],
+  "minutes": [
+    {
+      "input": {
+        "startedAt": 0,
+        "endedAt": 1000
+      },
+      "expected": 1
+    },
+    {
+      "input": {
+        "startedAt": 0,
+        "endedAt": 150000
+      },
+      "expected": 3
+    }
+  ],
+  "bounds": [
+    {
+      "input": {
+        "text": "  short  ",
+        "max": 10
+      },
+      "expected": "short"
+    },
+    {
+      "input": {
+        "text": "one two three four five six",
+        "max": 20
+      },
+      "expected": "one two three four…"
+    },
+    {
+      "input": {
+        "text": "abcdefghijklmnopqrstuvwxyz",
+        "max": 10
+      },
+      "expected": "abcdefghi…"
+    }
+  ]
+}

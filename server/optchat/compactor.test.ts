@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test, type TestContext } from "node:test";
+import { test, type TestContext } from "vitest";
 import { createLimiter, type Summarize, type SummaryRequest, type Timers } from "./compactor.ts";
 import { OptChatMemory, type OptChatOptions } from "./memory.ts";
 import { compactPrompt } from "./prompts.ts";
@@ -14,9 +14,9 @@ const opened = new WeakMap<TestContext, OptChatMemory[]>();
 
 async function directory(t: TestContext): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "hui-optchat-compactor-"));
-  // node:test runs after hooks in registration order, so this one, registered first, closes the test's memories
-  // itself: a memory still saving its view while the directory is removed fails the rm with ENOTEMPTY.
-  t.after(async () => {
+  // Closes the test's memories itself before removing the directory, whatever order cleanups run in: a memory
+  // still saving its view while the directory is removed fails the rm with ENOTEMPTY.
+  t.onTestFinished(async () => {
     for (const memory of opened.get(t) ?? []) await memory.close();
     await rm(dir, { recursive: true, force: true });
   });
@@ -26,7 +26,7 @@ async function directory(t: TestContext): Promise<string> {
 async function open(t: TestContext, options: Partial<OptChatOptions> & Pick<OptChatOptions, "summarize">, dir?: string): Promise<OptChatMemory> {
   const memory = await OptChatMemory.open(dir ?? await directory(t), { name: "Grok", ...options });
   opened.set(t, [...(opened.get(t) ?? []), memory]);
-  t.after(() => memory.close());
+  t.onTestFinished(() => memory.close());
   return memory;
 }
 

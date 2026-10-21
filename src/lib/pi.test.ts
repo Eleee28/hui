@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { skillIsEnabled, skillPreferencePath, type PiSkill } from "./pi.ts";
 
 test("bundled skill opt-out survives install moves without disabling user overrides", () => {

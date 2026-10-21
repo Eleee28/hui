@@ -1,22 +1,23 @@
 /**
- * The Triggers section of a bot's Routines tab (HUI-18): its triggers with what they let through, when they last fired,
- * their cooldown, what their listener last reported, an on/off switch, Test, New URL and Delete; the latest runs; and
- * the add form. A trigger's URL shows once, right after it was made or replaced. Rendering only:
- * `BotTriggersController` (`src/lib/bot-triggers.ts`) owns the state and every request.
+ * The Triggers page of a bot's panel (HUI-18): its triggers with what they let through, when they last fired, their
+ * cooldown, what their listener last reported, an on/off switch, Test, New URL and Delete; the latest runs; and the add
+ * form. A trigger's URL shows once, right after it was made or replaced. Rendering only: `BotTriggersController`
+ * (`src/controllers/bot-triggers-controller.ts`) owns the state and every request.
  */
 import { html, nothing } from "lit";
-import { BOT_TRIGGER_LIMITS, botTriggerFilterSummary, cooldownLabel, type BotTrigger, type BotTriggerRun } from "../../shared/bot-triggers.ts";
-import type { BotView } from "../../shared/bots.ts";
+import type { BotTrigger, BotTriggerRun } from "../api/schema/bot-triggers.ts";
+import type { BotView } from "../api/schema/bots.ts";
 import { icons } from "../lib/icons.ts";
-import { TriggerFormError, triggerFormInput, type BotTriggersActions, type BotTriggersState, type RevealedHook } from "../lib/bot-triggers.ts";
+import { BOT_TRIGGER_LIMITS, botTriggerFilterSummary, cooldownLabel, TriggerFormError, triggerFormInput, type BotTriggersActions, type BotTriggersState, type RevealedHook } from "../lib/bots/triggers.ts";
 import { renderSettingsToggle } from "./settings-toggle.ts";
 import { loadViewAssets } from "../lib/view-assets.ts";
 
 loadViewAssets(() => import("../styles/bot-triggers.css"));
 
-export type BotTriggersProps = { bot: BotView; now: number; state: BotTriggersState } & BotTriggersActions;
+/** `adding`: the page opened on its add form (the overview's +). */
+export type BotTriggersProps = { bot: BotView; now: number; state: BotTriggersState; adding?: boolean } & BotTriggersActions;
 
-const RUN_LABELS: Record<BotTriggerRun["status"], string> = { fired: "Fired", coalesced: "Coalesced", skipped: "Skipped", failed: "Failed" };
+export const TRIGGER_RUN_LABELS: Record<BotTriggerRun["status"], string> = { fired: "Fired", coalesced: "Coalesced", skipped: "Skipped", failed: "Failed" };
 /** The cooldowns the form offers, in seconds. */
 export const COOLDOWN_CHOICES: readonly number[] = [0, 60, 300, 900, 3_600];
 
@@ -50,7 +51,7 @@ function renderTrigger(trigger: BotTrigger, props: BotTriggersProps) {
       ${renderSettingsToggle(`Enable ${trigger.name}`, trigger.enabled, (checked) => props.onToggle(trigger, checked), state.pending)}
     </div>
     <p class="bot-trigger__filter" title=${botTriggerFilterSummary(trigger)}>${botTriggerFilterSummary(trigger)}</p>
-    <p class="bot-trigger__meta">${fired} · cooldown ${cooldownLabel(trigger.cooldownSeconds)}${trigger.createdBy === "bot" ? ` · added by ${props.bot.name}` : ""}</p>
+    <p class="bot-trigger__meta">${fired} · cooldown ${cooldownLabel(trigger.cooldownSeconds)}${trigger.delivery === "steer" ? " · steers with summaries and links" : ""}${trigger.createdBy === "bot" ? ` · added by ${props.bot.name}` : ""}</p>
     ${trigger.pending ? html`<p class="bot-trigger__meta bot-trigger__meta--pending">${trigger.pending.events} event${trigger.pending.events === 1 ? "" : "s"} wait${trigger.pending.events === 1 ? "s" : ""}, sent together at ${whenLabel(trigger.pending.until, props.now)}</p>` : nothing}
     ${renderWatch(trigger, props.now)}
     <p class="bot-trigger__meta">URL …/hooks/${trigger.tokenHint ?? ""}… · shown when it was made</p>
@@ -85,7 +86,7 @@ function renderRevealed(revealed: RevealedHook, props: BotTriggersProps) {
 function renderRun(run: BotTriggerRun, now: number) {
   const tags = [...(run.test ? ["test"] : []), ...(run.catchUp ? ["catch-up"] : []), ...(run.events > 1 ? [`${run.events} events`] : [])];
   return html`<li class="bot-run bot-trigger-run" data-run=${run.id} data-status=${run.status}>
-    <div class="bot-run__head"><span class="bot-run__name">${run.triggerName}</span><span class="bot-run__status">${RUN_LABELS[run.status]}</span></div>
+    <div class="bot-run__head"><span class="bot-run__name">${run.triggerName}</span><span class="bot-run__status">${TRIGGER_RUN_LABELS[run.status]}</span></div>
     <p class="bot-run__facts">${agoLabel(run.at, now)}${tags.length ? ` · ${tags.join(" · ")}` : ""}</p>
     ${run.summary ? html`<p class="bot-run__body">${run.summary}</p>` : nothing}
     ${run.reason ? html`<p class="bot-run__body ${run.status === "failed" ? "bot-run__body--error" : ""}" role=${run.status === "failed" ? "alert" : nothing}>${run.reason}</p>` : nothing}
@@ -112,6 +113,7 @@ function submitTrigger(event: SubmitEvent, props: BotTriggersProps) {
       prLinks: data.get("prLinks") !== null,
       external: data.get("external") !== null,
       bots: data.get("bots") !== null,
+      steer: data.get("steer") !== null,
     });
     // Only an accepted trigger clears the form; a refusal keeps what was typed.
     void props.onCreate(input).then((created) => {
@@ -142,6 +144,8 @@ function renderForm(props: BotTriggersProps, open: boolean) {
       <label class="bot-trigger-form__check"><input type="checkbox" name="prLinks" /><span>Only events that link a GitHub pull request</span></label>
       <label class="bot-trigger-form__check"><input type="checkbox" name="external" /><span>Also events it marks as from outside your organization</span></label>
       <label class="bot-trigger-form__check"><input type="checkbox" name="bots" /><span>Also events it marks as from bots and apps</span></label>
+      <label class="bot-trigger-form__check"><input type="checkbox" name="steer" /><span>Steer the current turn with summaries and PR links only</span></label>
+      <p class="bot-field__hint">When selected, a busy bot receives the update before its next model call, without event details or fetched PR diffs. An idle bot starts a turn. Otherwise updates wait as full-context follow-ups.</p>
       <label class="bot-field"><span class="bot-field__label">Prompt</span>
         <textarea class="settings-input" name="prompt" rows="2" maxlength=${BOT_TRIGGER_LIMITS.prompt} placeholder=${`What should ${name} do when it fires?`}></textarea></label>
       <label class="bot-field bot-trigger-form__cooldown"><span class="bot-field__label">Cooldown</span>
@@ -155,11 +159,10 @@ function renderForm(props: BotTriggersProps, open: boolean) {
   </details>`;
 }
 
-/** The Triggers section, below the routines. */
+/** The Triggers page; the panel's header names it. */
 export function renderBotTriggers(props: BotTriggersProps) {
   const { state } = props;
   const list = state.list;
-  const headingId = `bot-triggers-${props.bot.id}`;
   let body;
   if (!list) {
     body = state.error
@@ -173,13 +176,10 @@ export function renderBotTriggers(props: BotTriggersProps) {
       ${list.triggers.length
         ? html`<ul class="bot-triggers__list" aria-label="Triggers">${list.triggers.map((trigger) => renderTrigger(trigger, props))}</ul>`
         : html`<p class="bot-panel__hint">No triggers yet. A trigger wakes ${props.bot.name} when a listener you run reports something: a program that watches what HUI doesn't read itself, such as a Slack or a Jira board, and sends what it finds to the trigger's URL.</p>`}
-      ${renderForm(props, list.triggers.length === 0)}
+      ${renderForm(props, list.triggers.length === 0 || Boolean(props.adding))}
       ${list.runs.length ? html`<h4 class="bot-triggers__subheading">Latest trigger runs</h4><ul class="bot-runs">${list.runs.slice(0, 10).map((run) => renderRun(run, props.now))}</ul>` : nothing}
       <p class="bot-panel__hint">${list.deliveries.lastHour} of ${list.deliveries.perHour} trigger deliveries in the last hour.</p>
       ${state.error ? html`<p class="bot-field__error" role="alert">Refresh failed: ${state.error}</p>` : nothing}`;
   }
-  return html`<section class="bot-panel__section bot-triggers" aria-labelledby=${headingId}>
-    <h3 class="bot-panel__heading" id=${headingId}>Triggers</h3>
-    ${body}
-  </section>`;
+  return html`<section class="bot-panel__section bot-triggers">${body}</section>`;
 }

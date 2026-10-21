@@ -5,7 +5,7 @@
  */
 import { html, nothing, type TemplateResult } from "lit";
 
-import { pullRequestAccessibleLabel } from "../../shared/pull-requests.ts";
+import { pullRequestAccessibleLabel } from "../lib/pull-requests.ts";
 import { pullRequestStateIcon } from "../components/pull-request-hovercard.ts";
 import { icons } from "../lib/icons.ts";
 import { navigationPath } from "../lib/navigation.ts";

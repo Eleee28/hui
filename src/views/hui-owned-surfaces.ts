@@ -5,9 +5,9 @@
 import { html, type TemplateResult } from "lit";
 import { renderSettingsToggle } from "./settings-toggle.ts";
 
-import type { GatewayHealth } from "../lib/control-surfaces.ts";
+import type { GatewayHealth } from "../api/control-surfaces.ts";
 import type { HuiPage } from "../lib/pages.ts";
-import type { Settings } from "../lib/settings.ts";
+import type { Settings } from "../lib/settings/settings.ts";
 
 export type OwnedSurfaceProps = {
   page: HuiPage;
@@ -21,9 +21,6 @@ export function isOwnedSurface(page: HuiPage): boolean { return IDS.has(page.id)
 
 function header(title: string, subtitle: string) { return html`<header class="content-header content-header--settings"><div><div class="page-title">${title}</div><div class="page-subtitle">${subtitle}</div></div></header>`; }
 
-/** Settings → Labs → Bots, the one switch for bots: a preview, off until the operator turns it on here. */
-export const BOTS_LABS_HINT = "Work in progress: named bots with their own chat, memory, SOUL.md, routines and calls. Off hides them, stops their turns and pauses their routines; nothing is deleted.";
-
 function renderLabs(props: OwnedSurfaceProps) {
   const toggle = (key: keyof Settings["labs"], title: string, description: string) => html`
     <div class="settings-row settings-row--toggle" @click=${(event: Event) => {
@@ -34,7 +31,7 @@ function renderLabs(props: OwnedSurfaceProps) {
       <span class="settings-row__text"><span class="settings-row__title">${title}</span><span class="settings-row__desc">${description}</span></span>
       <span class="settings-row__control">${renderSettingsToggle(title, props.settings.labs[key], (checked) => props.onSettings({ labs: { ...props.settings.labs, [key]: checked } }))}</span>
     </div>`;
-  return html`${header("Labs", "Experimental and opt-in features.")}<main class="settings-page owned-page"><p class="settings-page__intro">Labs never changes PI configuration or runtime permissions.</p><section class="settings-section"><header class="settings-section__header"><div class="settings-section__copy"><h2 class="settings-section__heading">Experiments</h2><p class="settings-section__desc">Stored locally in HUI settings and reversible at any time.</p></div></header><div class="settings-group">${toggle("bots", "Bots", BOTS_LABS_HINT)}${toggle("denseObservability", "Dense observability", "Show more Activity and Logs rows at once.")}${toggle("detailedDebug", "Detailed debug", "Expose additional non-sensitive runtime metadata in Debug.")}</div></section></main>`;
+  return html`${header("Labs", "Experimental and opt-in features.")}<main class="settings-page owned-page"><p class="settings-page__intro">Labs never changes PI configuration or runtime permissions.</p><section class="settings-section"><header class="settings-section__header"><div class="settings-section__copy"><h2 class="settings-section__heading">Experiments</h2><p class="settings-section__desc">Stored locally in HUI settings and reversible at any time.</p></div></header><div class="settings-group">${toggle("denseObservability", "Dense observability", "Show more Activity and Logs rows at once.")}${toggle("detailedDebug", "Detailed debug", "Expose additional non-sensitive runtime metadata in Debug.")}</div></section></main>`;
 }
 
 function renderProfile(props: OwnedSurfaceProps) {

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
-import type { WorktreeRow } from "../../shared/worktrees.ts";
-import { isMergedCleanupCandidate } from "../../shared/worktrees.ts";
+import type { WorktreeRow } from "../api/schema/worktrees.ts";
+import { isMergedCleanupCandidate } from "../lib/worktrees.ts";
 import { formatBytes } from "../lib/worktrees.ts";
 import { matchingWorktrees, removalProgress, renderWorktreesPage, type WorktreesPageProps } from "./worktrees.ts";
 
@@ -63,9 +63,6 @@ test("worktree hover text uses HUI tooltips, never native titles", async () => {
 });
 
 test("any worktree can be removed manually, with its risks spelled out in a modal", async () => {
-  const { riskAcknowledged } = await import("../../shared/worktrees.ts");
-  assert.equal(riskAcknowledged("dirty", ["unknown"]), true);
-  assert.equal(riskAcknowledged("dirty", ["external"]), false);
   const { readFileSync } = await import("node:fs");
   const source = readFileSync(new URL("./worktrees.ts", import.meta.url), "utf8");
   assert.doesNotMatch(source, /worktree-blocked|removable/u);

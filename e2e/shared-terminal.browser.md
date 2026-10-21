@@ -91,13 +91,13 @@ physical mobile keyboard were not exercised.
 
 ## Rendering benchmark
 
-`e2e/terminal-benchmark.mjs` measures the terminal's streaming path in a real
+`e2e/probes/terminal-benchmark.mjs` measures the terminal's streaming path in a real
 app. It takes any visual-verification receipt, so the same script measures a
 baseline checkout (for example a detached `origin/main` worktree) and a branch:
 
 ```sh
 node e2e/visual-verification.mjs launch --branch "$(git branch --show-current)"   # keep it running
-node e2e/terminal-benchmark.mjs --receipt <receipt.json> --runs 5 --label branch --out /tmp/branch.json
+node e2e/probes/terminal-benchmark.mjs --receipt <receipt.json> --runs 5 --label branch --out /tmp/branch.json
 ```
 
 It starts its own headless Chromium-family browser (`--browser <path>`, default

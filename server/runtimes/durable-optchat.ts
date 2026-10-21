@@ -28,8 +28,8 @@ import { OptChatMemory, OPTCHAT_DEFAULTS, type OptChatStatus } from "../optchat/
 import { masterPrompt, viewDoc } from "../optchat/prompts.ts";
 import { LineFile, readLines, syncDirectory, type Kind } from "../optchat/store.ts";
 import { recordDiagnosticEvent } from "../observability.ts";
-import { callRecordLines, parseCallRecord } from "../../shared/calls.ts";
-import { CallEntry } from "./durable-bots.ts";
+import { callRecordLines, parseCallRecord } from "../calls-format.ts";
+import { CallEntry } from "./turn-origins.ts";
 
 /** A conversation's OptChat choice. `name` is the agent's display name in the prompts; `model` ("provider/id") and
  * `thinking` pick the compactor's model, by default the conversation's own model at medium thinking. */

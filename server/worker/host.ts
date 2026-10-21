@@ -23,20 +23,23 @@ import { createServer, type Server, type Socket } from "node:net";
 import { chmod, lstat, mkdir, readdir, readFile, realpath, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { hostname } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
-import type { BotTurnOrigin } from "../../shared/bots.ts";
-import { registerAgentToolHandler, stopAgentToolBridge } from "../agent-tools-bridge.ts";
-import { operatorName } from "../bot-souls.ts";
+import type { ConversationId } from "@earendil-works/pi-durable";
+import type { BotTurnOrigin } from "../runtimes/turn-origins.ts";
+import { registerAgentToolHandler, stopAgentToolBridge } from "../agent-tools/bridge.ts";
+import { operatorName } from "../bots/souls.ts";
 import { readHuiSettings } from "../hui-settings.ts";
-import { SECRET_REQUEST_TIMEOUT_MS, SecretFiles, type SecretAnswer } from "../secret-requests.ts";
-import { QUESTIONNAIRE_WAIT_MS } from "../questionnaires.ts";
+import { SECRET_REQUEST_TIMEOUT_MS, SecretFiles, type SecretAnswer } from "../agent-tools/secret-requests.ts";
+import { QUESTIONNAIRE_WAIT_MS } from "../agent-tools/questionnaires.ts";
+import { agentsWaitTransportMs } from "../runtimes/agent-tools-extension.mjs";
 import { DurableHost } from "../runtimes/durable-host.ts";
 import { durableConversationId, startDurable } from "../runtimes/durable.ts";
 import { piRuntime } from "../runtimes/pi.ts";
-import type { RuntimeModel, RuntimeQueue, RuntimeQuestion, RuntimeSession, RuntimeUsage, TranscriptEntry } from "../runtimes/types.ts";
+import { searchTranscripts } from "../runtimes/transcript-search.ts";
+import type { RuntimeSession, TranscriptEntry } from "../runtimes/types.ts";
 import { installBrokeredCredentials, OfflineError, setCredentialTransport, setSecretEnv } from "./credentials.ts";
-import { completeWorkingDirectories, resolveWorkingDirectory } from "../working-directories.ts";
-import { attachPeer, isRecord, PROTOCOL_VERSION, type Peer } from "./protocol.ts";
-import { BOT_ACCESS_FEATURE, BOT_ACCESS_FRAME, BOT_SKILLS_FEATURE, BOTS_FEATURE, hostBots } from "./host-bots.ts";
+import { completeWorkingDirectories, resolveWorkingDirectory } from "../git/working-directories.ts";
+import { attachPeer, isRecord, PROTOCOL_VERSION, type HostInfo, type Peer, type RemoteLaunch, type RemoteState } from "./protocol.ts";
+import { BOT_FACTS_FEATURE, BOT_ACCESS_FEATURE, BOT_ACCESS_FRAME, BOT_SKILL_FILES_FEATURE, BOT_SKILLS_FEATURE, BOTS_FEATURE, hostBots } from "./host-bots.ts";
 import { GATEWAY_ONLY_TOOLS } from "./gateway-tools.ts";
 import { PACKAGE_ROOT } from "./release.ts";
 import { applySync, planSync, putSyncFiles, writeAtomic, type SyncCommit } from "./sync-apply.ts";
@@ -56,54 +59,15 @@ const TRANSCRIPT_PAGE_BYTES = 8 * 1024 * 1024;
 /** How long a bot chat's model request waits for its `bots` section from the gateway before going without it. */
 const BOT_SECTION_TIMEOUT_MS = 10_000;
 
-export type HostInfo = {
-  version: number;
-  release: string;
-  /** What this host offers beyond sessions (`bots`); absent from an older host. */
-  features?: string[];
-  pid: number;
-  hostname: string;
-  platform: string;
-  arch: string;
-  node: string;
-  home: string;
-  dataDir: string;
-  mirrorDir: string;
-  agentDir: string;
-  providersDir: string;
-  releaseDir: string;
-};
-
-/** What a gateway hands over to start a PI worker; paths are already remote. */
-export type RemoteLaunch = Record<string, unknown> & {
-  cwd: string;
-  sessionFile?: string;
-  disabledSkills?: { name: string; path: string }[];
-};
-
 /** The runtime methods a gateway may call; anything else is refused. */
-const CALLS = new Set(["prompt", "steer", "followUp", "abort", "setModel", "setThinking", "respondQuestion", "cancelQuestion",
-  "clear", "reload", "compact", "cancelCompaction", "rewind", "fork", "continueRun", "listModels", "listCommands", "inspect", "attachmentImage"]);
+const CALLS = new Set(["prompt", "steer", "followUp", "abort", "setModel", "setThinking", "setFast", "respondQuestion", "cancelQuestion",
+  "clear", "reload", "compact", "cancelCompaction", "rewind", "fork", "continueRun", "listModels", "listCommands", "inspect", "attachmentImage", "waitForTrackedPrompt", "cancelTrackedPrompt"]);
 /** PI calls that start a run, recorded before they reach the runtime. */
 const RUN_CALLS = new Set(["prompt", "continueRun"]);
 /** Calls after which the gateway re-reads the whole transcript. */
 const TRANSCRIPT_CALLS = new Set(["clear", "rewind", "reload", "abort", "continueRun"]);
 /** Events after which the gateway re-reads the whole transcript. */
 const TRANSCRIPT_EVENTS = new Set(["settled", "compaction_end"]);
-
-/** Everything a gateway reads synchronously from a runtime, sent with each
- * reply and event, so its copy is never behind the event it is handling. */
-export type RemoteState = {
-  sessionId: string;
-  sessionFile?: string;
-  isStreaming: boolean;
-  resumesInterruptedRuns: boolean;
-  model?: RuntimeModel;
-  usage?: RuntimeUsage;
-  thinking?: string;
-  queue?: RuntimeQueue;
-  questions?: readonly RuntimeQuestion[];
-};
 
 type Hosted = {
   key: string;
@@ -173,30 +137,25 @@ export class WorkerHost {
       // The gateway's bridge refuses these for every session here; a bot's chat isn't offered them.
       gatewayOnlyTools: GATEWAY_ONLY_TOOLS,
     });
-    // A bot's chat here lists the other bots as the gateway that owns them says.
-    this.#durable.botSection = (botId) => this.#botSection(botId);
     this.#bots = hostBots({
       durable: this.#durable, home: paths.home, botsDir: join(paths.dataDir, "bots"),
       // A bot without a model of its own starts on Settings' primary model, as on the gateway.
       primaryModel: async () => (await readHuiSettings()).models.primary || undefined,
-    });
-    // Its SOUL.md (or its first conversation) from its home here, and write_soul writes it there. The operator's name
-    // comes from the Settings the gateway mirrors here, as the gateway reads its own.
-    this.#durable.botSouls = {
-      home: (botId) => this.#bots.home(botId),
+      // A bot's chat here lists the other bots as the gateway that owns them says, and a session the bots it may tag.
+      section: (botId, conversationId) => this.#botSection(botId, conversationId),
+      // The operator's name comes from the Settings the gateway mirrors here, as the gateway reads its own.
       operator: async () => operatorName((await readHuiSettings()).profileName),
-      name: (botId) => this.#bots.nameOf(botId),
-    };
-    // The operator allowed a bot's request here: its lists are already in its document, which this host enforces; every
-    // connected gateway hears of them, and the one whose bot it is updates its roster.
-    this.#durable.botAccessRecorded = async (botId, access) => {
-      for (const peer of [...this.#peers]) if (!peer.closed) peer.send({ t: BOT_ACCESS_FRAME, botId, access });
-    };
+      // The operator allowed a bot's request here: its lists are already in its document, which this host enforces;
+      // every connected gateway hears of them, and the one whose bot it is updates its roster.
+      recorded: async (botId, access) => {
+        for (const peer of [...this.#peers]) if (!peer.closed) peer.send({ t: BOT_ACCESS_FRAME, botId, access });
+      },
+    });
   }
 
   info(): HostInfo {
     return {
-      version: PROTOCOL_VERSION, release: this.#release, features: [BOTS_FEATURE, BOT_ACCESS_FEATURE, BOT_SKILLS_FEATURE], pid: process.pid, hostname: hostname(),
+      version: PROTOCOL_VERSION, release: this.#release, features: [BOT_FACTS_FEATURE, BOTS_FEATURE, BOT_ACCESS_FEATURE, BOT_SKILLS_FEATURE, BOT_SKILL_FILES_FEATURE], pid: process.pid, hostname: hostname(),
       platform: process.platform, arch: process.arch, node: process.version, home: this.paths.home,
       dataDir: this.paths.dataDir, mirrorDir: this.paths.mirrorDir, agentDir: this.paths.agentDir,
       providersDir: this.paths.providersDir, releaseDir: this.releaseDir,
@@ -285,6 +244,9 @@ export class WorkerHost {
       if (hosted && hosted.peer === peer) this.#stop(hosted);
       return { ok: true };
     });
+    peer.handle("sessions.search", (params, signal) => searchTranscripts(this.#durable,
+      Array.isArray(params["sessionFiles"]) ? params["sessionFiles"].filter((file): file is string => typeof file === "string") : [],
+      String(params["q"] ?? ""), signal).then((hits) => ({ hits })));
     peer.handle("directories", async (params) => ({ directories: await completeWorkingDirectories(String(params["q"] ?? "~/")) }));
     // Bots whose chats run here: their conversations and memories in this host's store.
     for (const [op, handler] of Object.entries(this.#bots.handlers(peer))) peer.handle(op, handler);
@@ -437,6 +399,7 @@ export class WorkerHost {
       ...(model ? { model } : {}),
       ...(usage ? { usage } : {}),
       ...(thinking ? { thinking } : {}),
+      ...(runtime.currentFast?.() ? { fast: true as const } : {}),
       ...(runtime.pendingQueue ? { queue: runtime.pendingQueue() } : {}),
       ...(runtime.pendingQuestions ? { questions: runtime.pendingQuestions() } : {}),
     };
@@ -513,10 +476,16 @@ export class WorkerHost {
     return undefined;
   }
 
-  /** A bot chat's `bots` section, from a connected gateway (the one that owns the bot answers); with none attached the
-   * section is left out, as message_bot cannot reach another bot then either. Asked before each of the chat's model
-   * requests, so a gateway that has gone quiet (before the keep-alive drops it) delays a request by seconds at most. */
-  async #botSection(botId: string): Promise<string | undefined> {
+  /** A chat's `bots` section, from a connected gateway: a bot's from the one that owns the bot, a session's (the bots it
+   * may tag) from its own. With none attached the section is
+   * left out, as message_bot cannot reach a bot then either. Asked before each of the chat's model requests, so a
+   * gateway that has gone quiet (before the keep-alive drops it) delays a request by seconds at most. */
+  async #botSection(botId: string | undefined, conversationId: ConversationId): Promise<string | undefined> {
+    if (botId === undefined) {
+      const peer = this.#gateway(this.#callers.get(String(conversationId)));
+      const reply = await peer?.request<{ section?: unknown }>("bot.section", {}, BOT_SECTION_TIMEOUT_MS).catch(() => undefined);
+      return typeof reply?.section === "string" ? reply.section : undefined;
+    }
     for (const peer of [...this.#peers]) {
       if (peer.closed) continue;
       const reply = await peer.request<{ section?: unknown; name?: unknown }>("bot.section", { botId }, BOT_SECTION_TIMEOUT_MS).catch(() => undefined);
@@ -532,8 +501,9 @@ export class WorkerHost {
   async #gatewayTool(key: string, action: string, params: Record<string, unknown>, signal?: AbortSignal, runOrigins?: readonly BotTurnOrigin[]): Promise<unknown> {
     const peer = this.#gateway(key);
     if (!peer) throw new Error("HUI is not connected to this worker right now; its tools are unavailable until it reconnects.");
-    // A questionnaire waits for the operator, possibly for hours.
-    if (action !== "secret_request") return peer.request("bridge", { key, action, params, ...(runOrigins ? { runOrigins } : {}) }, action === "ask_user_question" ? QUESTIONNAIRE_WAIT_MS : 170_000, signal);
+    // A questionnaire waits for the operator, possibly for hours, and `agents_wait` for its subagents.
+    const timeoutMs = action === "ask_user_question" ? QUESTIONNAIRE_WAIT_MS : action === "agents_wait" ? agentsWaitTransportMs(params) : 170_000;
+    if (action !== "secret_request") return peer.request("bridge", { key, action, params, ...(runOrigins ? { runOrigins } : {}) }, timeoutMs, signal);
     // The operator answers on the gateway; the file belongs here, where the
     // session's commands run, and only its path goes on to the agent.
     const answer = await peer.request<SecretAnswer>("secret-request", { key, params }, SECRET_REQUEST_TIMEOUT_MS + 60_000, signal);

@@ -1,7 +1,7 @@
 /**
  * Keeps skills the user disabled in HUI out of PI sessions: it strips their entries from the system prompt and
- * refuses their `/skill:` commands. The disabled list arrives in HUI_DISABLED_SKILLS; PI's skill files and
- * other context stay untouched.
+ * refuses their `/skill:name` and `$name` commands. The disabled list arrives in HUI_DISABLED_SKILLS; PI's skill files and
+ * other context stay untouched. Durable sessions refuse those commands with the same notice.
  */
 const disabledEntries = disabledSkillsFrom(process.env.HUI_DISABLED_SKILLS);
 
@@ -47,9 +47,13 @@ export function filterDisabledSkills(systemPrompt, entries) {
   return filtered;
 }
 
+export function disabledSkillNotice(text, entries) {
+  const name = text.match(/^(?:\/skill:|\$)([^\s]+)(?:\s|$)/u)?.[1];
+  return name && entries.some((skill) => skill.name === name) ? `Skill “${name}” is disabled for HUI sessions.` : undefined;
+}
+
 export function registerSkillPolicy(pi, entries) {
   if (!entries.length) return;
-  const names = new Set(entries.map((skill) => skill.name));
 
   pi.on("before_agent_start", (event) => {
     const systemPrompt = filterDisabledSkills(event.systemPrompt, entries);
@@ -57,9 +61,9 @@ export function registerSkillPolicy(pi, entries) {
   });
 
   pi.on("input", (event, ctx) => {
-    const name = event.text.match(/^\/skill:([^\s]+)(?:\s|$)/u)?.[1];
-    if (!name || !names.has(name)) return { action: "continue" };
-    ctx.ui.notify(`Skill “${name}” is disabled for HUI sessions.`, "warning");
+    const notice = disabledSkillNotice(event.text, entries);
+    if (!notice) return { action: "continue" };
+    ctx.ui.notify(notice, "warning");
     return { action: "handled" };
   });
 }

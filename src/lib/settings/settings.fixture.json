@@ -1,0 +1,6272 @@
+[
+  {
+    "input": null,
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": "nope",
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": [],
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {},
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "theme": "catppuccin",
+      "themeMode": "dark",
+      "fontUi": "geist",
+      "fontChat": "lora",
+      "textScale": 125
+    },
+    "expected": {
+      "theme": "catppuccin",
+      "themeMode": "dark",
+      "accent": "",
+      "fontUi": "geist",
+      "fontChat": "lora",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 125,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "typeface": "serif"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "themeMode": "light"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "light",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "profileName": "  Alex  ",
+      "profileHandle": " @alex ",
+      "labs": {
+        "denseObservability": true,
+        "detailedDebug": "yes"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "Alex",
+      "profileHandle": "@alex",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": true,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "labs": null
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "labs": "yes"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "labs": []
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "labs": {}
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "labs": {
+        "bots": false,
+        "detailedDebug": true
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": true
+      }
+    }
+  },
+  {
+    "input": {
+      "labs": {
+        "bots": true
+      },
+      "bots": {
+        "showTab": true
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "codemode": "off"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "codemode": {
+        "enabled": "no"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "codemode": {
+        "enabled": false
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": false
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "questions": null
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "questions": 10
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "questions": []
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "questions": {
+        "timeoutMinutes": "10"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "questions": {
+        "timeoutMinutes": 7
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "questions": {
+        "timeoutMinutes": -5
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "questions": {
+        "timeoutMinutes": 120
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "questions": {
+        "timeoutMinutes": 0
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "questions": {
+        "timeoutMinutes": 5
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 5
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "questions": {
+        "timeoutMinutes": 10
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 10
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "questions": {
+        "timeoutMinutes": 15
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 15
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "questions": {
+        "timeoutMinutes": 30
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 30
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "questions": {
+        "timeoutMinutes": 60
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 60
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "browser": {
+        "enabled": "no",
+        "headless": 0,
+        "executablePath": 7
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "browser": {
+        "enabled": false,
+        "headless": false,
+        "executablePath": "  /Applications/Brave Browser.app  "
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": false,
+        "headless": false,
+        "executablePath": "/Applications/Brave Browser.app"
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "browser": {
+        "executablePath": "/usr/bin/chrome\n--flag"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "browser": {
+        "executablePath": "/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "vscode": {
+        "enabled": "yes",
+        "executable": 7,
+        "provider": "vim",
+        "licenseAcceptedAt": "yesterday"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "vscode": {
+        "provider": "auto"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "vscode": {
+        "provider": "configured"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "configured",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "vscode": {
+        "provider": "desktop"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "desktop",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "vscode": {
+        "provider": "managed"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "managed",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "vscode": {
+        "provider": "path"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "path",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "vscode": {
+        "executable": "/usr/bin/openvscode-server\n--flag"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "vscode": {
+        "executable": "/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "vscode": {
+        "enabled": true,
+        "executable": "  /x  ",
+        "provider": "desktop",
+        "licenseAcceptedAt": "2026-10-09T08:00:00.000Z"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": true,
+        "executable": "/x",
+        "provider": "desktop",
+        "licenseAcceptedAt": "2026-10-09T08:00:00.000Z"
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "power": {
+        "keepAwake": "no"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "power": {
+        "keepAwake": false,
+        "lidAwake": true
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": false
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "chat": {
+        "messageWidth": "wide",
+        "collapseTaskProgress": true,
+        "sendShortcut": "modifierEnter",
+        "githubEmbeds": false,
+        "datadogEmbeds": false
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "wide",
+        "collapseTaskProgress": true,
+        "sendShortcut": "modifierEnter",
+        "githubEmbeds": false,
+        "datadogEmbeds": false
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "chat": {
+        "messageWidth": "huge",
+        "collapseTaskProgress": "yes",
+        "sendShortcut": "space",
+        "githubEmbeds": "no",
+        "datadogEmbeds": 0
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "dashboardWidgets": [
+        "gateway",
+        "usage"
+      ]
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "theme": 42,
+      "themeMode": "chartreuse",
+      "fontUi": {},
+      "fontChat": [],
+      "textScale": "big"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "theme": "not-installed"
+    },
+    "expected": {
+      "theme": "not-installed",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "theme": "  spaced  "
+    },
+    "expected": {
+      "theme": "spaced",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "accent": " #A78BFA "
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "#a78bfa",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "accent": "red"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "accent": "#fff"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "accent": "#gg55cc"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "accent": "var(--accent)"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "accent": 42
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "disabledSkills": [
+        {
+          "name": "pdf",
+          "path": "/skills/pdf/SKILL.md"
+        },
+        {
+          "name": "duplicate",
+          "path": "/skills/pdf/SKILL.md"
+        },
+        {
+          "name": "",
+          "path": "/skills/empty/SKILL.md"
+        },
+        {
+          "name": "bad",
+          "path": "/skills/bad\npath"
+        },
+        "not-an-entry"
+      ]
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [
+        {
+          "name": "pdf",
+          "path": "/skills/pdf/SKILL.md"
+        }
+      ],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "disabledPlugins": [
+        {
+          "id": "0123456789abcdef01234567",
+          "name": "review-tools",
+          "kind": "package"
+        },
+        {
+          "id": "0123456789abcdef01234567",
+          "name": "duplicate",
+          "kind": "extension"
+        },
+        {
+          "id": "not-an-id",
+          "name": "bad",
+          "kind": "package"
+        },
+        {
+          "id": "fedcba9876543210fedcba98",
+          "name": "",
+          "kind": "extension"
+        }
+      ]
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [
+        {
+          "id": "0123456789abcdef01234567",
+          "name": "review-tools",
+          "kind": "package"
+        }
+      ],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "branchPrefix": "developer"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "developer/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "branchPrefix": " team/feature/ "
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "team/feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "branchPrefix": ""
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "branchPrefix": "/feature"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "branchPrefix": "feature//nested"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "branchPrefix": "../escape"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "branchPrefix": "bad prefix"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "branchPrefix": "topic.lock/"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "profileName": "Alex",
+      "voice": {
+        "enabled": false
+      },
+      "calls": {
+        "engine": "voice-studio",
+        "voice": "Juniper"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "Alex",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "juniper"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "calls": {
+        "voice": "cove"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "calls": {
+        "voice": "arbor"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "arbor"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "calls": {
+        "voice": "breeze"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "breeze"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "calls": {
+        "voice": "ember"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "ember"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "calls": {
+        "voice": "juniper"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "juniper"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "calls": {
+        "voice": "maple"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "maple"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "calls": {
+        "voice": "sol"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "sol"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "calls": {
+        "voice": "spruce"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "spruce"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "calls": {
+        "voice": "vale"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "vale"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "calls": {
+        "voice": "Juniper"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "juniper"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "calls": {
+        "voice": "alloy"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "calls": {
+        "voice": 3
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "calls": {
+        "voice": "marin"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "models": {
+        "primary": " openai/model ",
+        "fallback": "anthropic/model",
+        "utility": "not-a-model"
+      }
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "openai/model",
+        "fallback": "anthropic/model",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontUi": "instrument-sans"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontUi": "geist"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "geist",
+      "fontChat": "geist",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontUi": "dm-sans"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "dm-sans",
+      "fontChat": "dm-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontUi": "ibm-plex-sans"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "ibm-plex-sans",
+      "fontChat": "ibm-plex-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontUi": "space-grotesk"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "space-grotesk",
+      "fontChat": "space-grotesk",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontUi": "atkinson-hyperlegible"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "atkinson-hyperlegible",
+      "fontChat": "atkinson-hyperlegible",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontUi": "fraunces"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "fraunces",
+      "fontChat": "fraunces",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontUi": "lora"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "lora",
+      "fontChat": "lora",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontUi": "jetbrains-mono"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "jetbrains-mono",
+      "fontChat": "jetbrains-mono",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontUi": "system"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "system",
+      "fontChat": "system",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontUi": "bad"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "textScale": 90
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 90,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "textScale": 100
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "textScale": 110
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 110,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "textScale": 125
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 125,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "textScale": 140
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 140,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "textScale": "125"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 125,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "textScale": 1
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontTerminal": " MesloLGS NF "
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "MesloLGS NF",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontTerminal": "bad;name"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontTerminal": "bad\nname"
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontTerminal": ""
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  },
+  {
+    "input": {
+      "fontTerminal": 3
+    },
+    "expected": {
+      "theme": "claw",
+      "themeMode": "system",
+      "accent": "",
+      "fontUi": "instrument-sans",
+      "fontChat": "instrument-sans",
+      "fontTerminal": "JetBrains Mono",
+      "textScale": 100,
+      "chat": {
+        "messageWidth": "comfortable",
+        "collapseTaskProgress": false,
+        "sendShortcut": "enter",
+        "githubEmbeds": true,
+        "datadogEmbeds": true
+      },
+      "profileName": "HUI Operator",
+      "profileHandle": "",
+      "branchPrefix": "feature/",
+      "browser": {
+        "enabled": true,
+        "headless": true,
+        "executablePath": ""
+      },
+      "codemode": {
+        "enabled": true
+      },
+      "questions": {
+        "timeoutMinutes": 0
+      },
+      "vscode": {
+        "enabled": false,
+        "executable": "",
+        "provider": "auto",
+        "licenseAcceptedAt": ""
+      },
+      "power": {
+        "keepAwake": true
+      },
+      "models": {
+        "primary": "",
+        "fallback": "",
+        "utility": ""
+      },
+      "calls": {
+        "voice": "cove"
+      },
+      "disabledSkills": [],
+      "disabledPlugins": [],
+      "labs": {
+        "denseObservability": false,
+        "detailedDebug": false
+      }
+    }
+  }
+]

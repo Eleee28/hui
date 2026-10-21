@@ -7,7 +7,10 @@ export type SubagentTiming = {
   updatedAt?: string;
 };
 
-const ACTIVE = new Set(["starting", "running"]);
+const ACTIVE = new Set(["queued", "starting", "running"]);
+
+/** How long a finished batch stays on screen: OpenClaw's retention for finished subagents. */
+export const FINISHED_BATCH_VISIBLE_MS = 60 * 60_000;
 
 export function isSubagentActive(status: string): boolean {
   return ACTIVE.has(status);
@@ -35,11 +38,27 @@ export function subagentElapsed(task: SubagentTiming, now = Date.now()): string 
   return formatElapsed(end - start);
 }
 
-export type SubagentVisualState = "running" | "completed" | "failed" | "cancelled";
+export type SubagentVisualState = "queued" | "running" | "completed" | "failed" | "cancelled";
 
 export function subagentVisualState(status: string): SubagentVisualState {
+  if (status === "queued") return "queued";
   if (isSubagentActive(status)) return "running";
   if (status === "completed") return "completed";
   if (status === "cancelled") return "cancelled";
   return "failed";
+}
+
+/**
+ * The latest batch of a session's subagents, in spawn order: a child spawned while an earlier one is still active
+ * joins that one's batch. Empty once the batch has been finished for `FINISHED_BATCH_VISIBLE_MS`.
+ */
+export function latestSubagentBatch<T extends SubagentTiming>(tasks: readonly T[], now = Date.now()): T[] {
+  let batch: T[] = [];
+  let end = -Infinity;
+  for (const task of tasks.toSorted((a, b) => a.startedAt.localeCompare(b.startedAt))) {
+    if (Date.parse(task.startedAt) > end) batch = [];
+    batch.push(task);
+    end = Math.max(end, isSubagentActive(task.status) ? Infinity : Date.parse(task.endedAt ?? task.updatedAt ?? task.startedAt));
+  }
+  return end + FINISHED_BATCH_VISIBLE_MS > now ? batch : [];
 }

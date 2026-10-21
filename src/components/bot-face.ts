@@ -14,7 +14,8 @@
  */
 import { html, nothing, svg, type PropertyValues } from "lit";
 import { HuiElement } from "../lit/hui-element.ts";
-import { isBotFaceEars, isBotFaceShape, type BotFaceEars, type BotFaceShape } from "../../shared/bots.ts";
+import { isBotFaceEars, isBotFaceShape } from "../lib/bots/bots.ts";
+import type { BotFaceEars, BotFaceShape } from "../api/schema/bots.ts";
 import {
   FACE_EYES,
   FACE_EYE_POSITION,
@@ -35,7 +36,7 @@ import {
   settlesWithDone,
   type BotFaceSize,
   type BotFaceState,
-} from "../lib/bot-face.ts";
+} from "../lib/bots/face.ts";
 import { loadViewAssets } from "../lib/view-assets.ts";
 
 loadViewAssets(() => import("../styles/bot-face.css"));
@@ -168,8 +169,7 @@ export class HuiBotFace extends HuiElement {
     unwatchEnvironment(this.#onEnvironment);
     unobserve(this);
     this.#detachStage();
-    clearTimeout(this.#doneTimer);
-    this.#doneTimer = undefined;
+    if (this.#doneTimer) this.#endHop();
     this.#sync();
     super.disconnectedCallback();
   }
@@ -183,14 +183,17 @@ export class HuiBotFace extends HuiElement {
       // A turn that just ended (or an explicit "done") hops once, then rests; the first render never does.
       if (next === "done" || (previous !== undefined && this.hasUpdated && settlesWithDone(previous, next))) {
         this.shown = "done";
-        this.#doneTimer = setTimeout(() => {
-          this.#doneTimer = undefined;
-          this.shown = this.state === "done" ? "idle" : isBotFaceState(this.state) ? this.state : "idle";
-        }, DONE_MS);
+        this.#doneTimer = setTimeout(() => this.#endHop(), DONE_MS);
       } else {
         this.shown = next;
       }
     }
+  }
+
+  #endHop() {
+    clearTimeout(this.#doneTimer);
+    this.#doneTimer = undefined;
+    this.shown = this.state === "done" ? "idle" : isBotFaceState(this.state) ? this.state : "idle";
   }
 
   protected override updated(changed: PropertyValues<this>) {

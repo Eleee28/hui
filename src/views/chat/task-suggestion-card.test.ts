@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { renderTaskSuggestionCard, type TaskSuggestionCardProps } from "./task-suggestion-card.ts";
 
 function text(value: unknown): string {

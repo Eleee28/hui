@@ -8,7 +8,7 @@ at the commit that adds this record (documentation only since `d3cecb3`). Both
 runs were launched with `e2e/visual-verification.mjs` and driven with the
 Browser tool (OpenClaw's managed profile on a headless Brave that another
 agent's labeled tab shared; that tab was left alone). Only the model provider is
-mocked (`e2e/pi-provider-fixture.mjs`): every turn answers "Fixture response.",
+mocked (`e2e/fixtures/pi-provider-fixture.mjs`): every turn answers "Fixture response.",
 and OptChat's compactor gets one short line per summary, `<kind>:
 FIXTURE_MEMORY <first E2E_/OPT_ marker>`, held while the message carries
 `E2E_HOLD_MEMORY` until `POST /control/release-replay` on the fixture. HUI, the
@@ -30,10 +30,10 @@ a bot at once and **Edit bot…** opens the bot's Settings tab
    work). On a host whose environment sends HTTP through a proxy
    (`HTTP_PROXY` with `NODE_USE_ENV_PROXY=1`), unset those variables for the
    launcher: its ownership check talks to its own loopback instance.
-2. Open the receipt's `browserUrl` at 1440×900. The fresh instance has the
-   Bots tab off. Since 2026-10-07 bots are a preview, off until Settings →
-   Labs → **Bots** turns them on; that one switch replaced the Settings →
-   Sessions → *Show the Bots tab* steps below.
+2. Open the receipt's `browserUrl` at 1440×900. The fresh instance had the
+   Bots tab off then. Since 2026-10-20 bots are always on, so the Settings →
+   Sessions → *Show the Bots tab* steps below are history: the Agents | Bots
+   switch is there from the start.
 3. Messages over 512 bytes are summarized by a compactor call; shorter ones are
    their own summary lines. The long message below (667 characters) is
    "OPT_NOTES Notes for later, keep them word for word: ", then "the blue door
@@ -230,7 +230,7 @@ outside the repository and are not committed.
 - A view keeps one line per message until it outgrows its 128 KB budget, so the
   browser zoomed a message line straight to its message. Opening a summary of
   several messages into its two halves is covered by
-  `src/lib/bot-memory.test.ts` (parsing) and `server/bot-routes.test.ts` (the
+  `src/lib/bot-memory.test.ts` (parsing) and `server/routes/bots.test.ts` (the
   route), not by this journey.
 - The fixture reports one token each way and no cost, so the cost the panel
   shows once a provider reports one is unit-tested only.
@@ -302,3 +302,51 @@ cleanup closed every port), with two bots created through `POST /__hui/bots`
    the drawer's top padding (fixed in `4da7cb3` and checked on a fresh launcher
    at that commit). The document stays 390 px wide.
 6. Browser page errors: none. Console errors: none.
+
+## The panel as a profile (2026-10-16)
+
+The owner asked for a panel that can grow and drops what he called useless
+(the Soul and Memory tabs), after looking at how Grok Bot, OpenAI's Dots,
+OpenDots and Hermes lay theirs out (SPEC.md, "The bot panel is a profile you can
+resize and expand"). He chose the profile overview with pages from three
+clickable mockups.
+
+Checked on the launcher (default fixture: deterministic provider, real gateway
+bot routes, Durable chat, OptChat and Automation), one bot made with the empty roster's New bot. Only the provider is
+mocked.
+
+1. The bot's chat opens beside the overview at 344 px: its face (88 px), name
+   and *Idle*, Edit; ROUTINES and TRIGGERS with + and their empty lines;
+   ACTIVITY's empty line; SETUP with Model *Gateway default*, Tools & skills
+   *Everything on*, Calls *Cove · Auto* and Workspace *Its own folder*. No
+   Memory, no Soul, no tabs.
+2. Routines' + opened the Routines page (Back, *Routines*, Expand, Close) on
+   its open add form with the focus in Name. *Inbox digest* / *Summarize my
+   inbox in three lines.* → Add routine listed it; Run now put `[routine: Inbox
+   digest] …` and *Fixture response.* in the chat. Back: the overview listed
+   the routine (*Daily at 08:00 · next …*, its switch) and ACTIVITY *Inbox digest
+   · Completed · just now · Fixture response.*
+3. Calls opened Settings; Back returned the focus to the Calls row. Model
+   opened Settings with the focus on its MODEL heading. Tools & skills opened
+   its page; turning Shell off changed the row to *1 tool off*. Triggers' +
+   opened the Triggers page on its open form, the focus in Name.
+4. The edge, focused: Shift+← four times widened the panel to 664 px, End to
+   762 px (the chat kept 420 px), where the overview split into two columns
+   (profile and setup left; routines, triggers and activity right). A reload
+   kept 762 px. Home went back to 320 px. A drag through CDP with real mouse
+   events (headless Chrome, its own profile) moved it from 344 to 494 px, saved
+   `{"open":true,"width":494}` and set `aria-valuenow` to 494; dragging past
+   the minimum stopped at 320.
+5. Expand filled the bot's view with the overview in two columns; Escape (and
+   Show the chat beside the panel) brought the chat back as it was, the focus on
+   Expand. With the sidebar collapsed, the expanded header's Back sits clear of
+   the restore control.
+6. ⇧⌘, on Settings closed the panel; again, it opened on Settings.
+7. Leaving for Automations and opening the bot again from the roster showed
+   its overview, docked.
+8. 390×844: the panel opens as the sheet, without Expand or the edge, on the
+   page it showed; Back led to the overview. 844×390: the sheet's body scrolls.
+9. Console: Lit's development-mode warnings only.
+
+Not covered: calls (no ChatGPT login in the fixture), so Call in the profile
+and Expand's absence during a call were read in code, not seen.

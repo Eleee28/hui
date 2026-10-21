@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { cp, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { createServer, get } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -11,7 +11,7 @@ import { promisify } from "node:util";
 import { test } from "node:test";
 import { watch } from "node:fs";
 import { WebSocket } from "ws";
-import { releaseFixture } from "./release-fixture.mjs";
+import { releaseFixture } from "./fixtures/release-fixture.mjs";
 
 const exec = promisify(execFile);
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -36,7 +36,7 @@ test("installed package lifecycle, real SDK resume, verified update and rollback
   const installed = dirname(dirname(cli));
   const command = async (...args: string[]) => (await exec(process.execPath, [cli, ...args], { cwd: temporary, env, timeout: 60_000, maxBuffer: 1024 * 1024 })).stdout.trim();
   const npm = async (args: string[], cwd = repo) => (await exec("npm", args, { cwd, env, timeout: 120_000, maxBuffer: 1024 * 1024 })).stdout;
-  const provider = spawn(process.execPath, [join(repo, "e2e/pi-provider-fixture.mjs")], {
+  const provider = spawn(process.execPath, [join(repo, "e2e/fixtures/pi-provider-fixture.mjs")], {
     env: { ...env, HUI_E2E_PROVIDER_PORT: "0", HUI_E2E_WORKSPACE: workspace, HUI_E2E_PROVIDER_LOG: join(temporary, "provider.jsonl") }, stdio: ["ignore", "pipe", "pipe"],
   });
   let providerError = "";
@@ -370,6 +370,10 @@ require('node:fs').writeFileSync(process.env.HUI_DESKTOP_PROOF, JSON.stringify({
   await command("update", "--rollback");
   const remoteCli = JSON.parse(await command("update", "--json"));
   assert.equal(remoteCli.version, nextVersion);
+  await command("update", "--from", release);
+  const kept = JSON.parse(await readFile(join(updates, "current.json"), "utf8"));
+  assert.deepEqual((await readdir(updates)).filter((entry) => entry.startsWith("release-")).sort(), [kept.current, kept.previous].sort(),
+    "an update deletes every staged release but the current and previous ones, including the failed activation's");
 
   // hui doctor finds the PI session made above and, once the gateway is stopped, moves it to Pi Durable without
   // touching PI's transcript. The moved session reopens with its history and runs a turn on Durable.

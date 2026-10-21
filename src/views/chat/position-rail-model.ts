@@ -3,7 +3,7 @@
  * position, and how keys move between markers. It reads projected rows and measured positions only; the view does
  * the measuring and scrolling.
  */
-import type { ChatProjectionRow } from "./projection.ts";
+import { attributedMessage, type ChatProjectionRow, type MessageSender } from "./projection.ts";
 
 export type ConversationMarker = {
   id: string;
@@ -11,15 +11,20 @@ export type ConversationMarker = {
   preview: string;
 };
 
+/** A message HUI delivered from someone else, by who sent it. */
+const senderLabel = (sender: MessageSender) => `From ${sender.kind === "bot" ? `@${sender.handle}` : sender.kind === "session" ? sender.title
+  : sender.kind === "parent" ? "the parent session" : sender.name}`;
+
 /** Index the rendered messages, never the tools/reasoning inside disclosures. */
 export function conversationMarkers(rows: readonly ChatProjectionRow[]): ConversationMarker[] {
   return rows.flatMap((row) => row.kind === "messages" ? row.messages.map((message) => {
-    const text = (message.text.trim() || message.attachments?.join(", ") || "Empty message").replace(/\s+/g, " ");
+    const shown = row.sender ? attributedMessage(message.text)?.body ?? message.text : message.text;
+    const text = (shown.trim() || message.attachments?.join(", ") || "Empty message").replace(/\s+/g, " ");
     // Bound by code points so previews cannot split an emoji's surrogate pair.
     const preview = Array.from(text).slice(0, 140).join("");
     return {
       id: message.id,
-      label: message.role === "user" ? "User message" : "Assistant message",
+      label: row.sender ? senderLabel(row.sender) : message.role === "user" ? "User message" : "Assistant message",
       preview: preview.length < text.length ? `${preview}…` : preview,
     };
   }) : []);

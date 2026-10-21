@@ -1,5 +1,5 @@
-/* The Triggers section of a bot's Routines tab (src/views/bot-triggers.ts). Built from the panel's own tokens and
- * the routine cards' look, so the two lists read as one tab. */
+/* The Triggers page of a bot's panel (src/views/bot-triggers.ts). Built from the panel's own tokens and the routine
+ * cards' look, so routines and triggers read alike. */
 .bot-triggers__list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .bot-trigger {
   display: flex;

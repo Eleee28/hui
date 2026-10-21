@@ -1,8 +1,6 @@
 name: Test
 # Typecheck and the full test suite on every pull request and on main, so a
 # failure shows on its pull request instead of first holding back the Nightly.
-# Node 22 is the oldest major package.json supports and what the Nightly runs;
-# Node 24 is the current one.
 on:
   pull_request:
   push:
@@ -15,22 +13,25 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test:
-    name: test (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
     # The suite takes about three minutes; a hang fails here, not at GitHub's six hours.
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        node: ["22", "24"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ matrix.node }}
+          node-version: "24"
           cache: npm
       # Match the npm major used to generate the committed lockfile.
       - run: npm install -g npm@11
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
+      # Reports each run to Datadog Test Optimization. The tracer is preloaded for this step only: npm ci must not
+      # load it, and vitest.setup.ts keeps it out of the processes the tests spawn.
       - run: npm test
+        env:
+          NODE_OPTIONS: --import dd-trace/register.js -r dd-trace/ci/init
+          DD_CIVISIBILITY_AGENTLESS_ENABLED: "true"
+          DD_API_KEY: ${{ secrets.DD_API_KEY }}
+          DD_ENV: ci
+          DD_TEST_SESSION_NAME: test

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 import { HUI_PAGES } from "../lib/pages.ts";
-import type { SessionGroup } from "../lib/sessions-store.ts";
+import type { SessionGroup } from "../api/sessions.ts";
 import {
   commandPaletteItems,
   isCommandPaletteShortcut,
@@ -18,6 +18,9 @@ const groups: SessionGroup[] = [{
     cwd: "/repo/web",
     tool: "pi",
     status: "idle",
+    displayCwd: "",
+    stage: "investigation",
+    stageOrigin: "default",
     createdAt: "2026-09-23T00:00:00.000Z",
     updatedAt: "2026-09-23T00:00:00.000Z",
   }],

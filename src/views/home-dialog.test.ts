@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 
 test("the delete confirmation aligns its actions like an OpenClaw modal footer", () => {
   const css = readFileSync(new URL("../styles/app.css", import.meta.url), "utf8");

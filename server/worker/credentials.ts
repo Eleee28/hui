@@ -10,7 +10,7 @@
 import type { ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join, relative } from "node:path";
-import { fileCredentialStore, setCredentialStoreFactory, type CredentialStore } from "../provider-accounts.ts";
+import { fileCredentialStore, setCredentialStoreFactory, type CredentialStore } from "../pi/provider-accounts.ts";
 
 type Credential = Awaited<ReturnType<CredentialStore["read"]>>;
 type Modifier = (current: Credential) => Promise<Credential>;

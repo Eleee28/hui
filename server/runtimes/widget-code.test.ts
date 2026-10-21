@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { findWidgetScriptSyntaxError, validateWidget, WIDGET_CODE_MAX_BYTES, WIDGET_TITLE_MAX_LENGTH, WidgetInputError } from "./widget-code.mjs";
 import showWidgetExtension from "./show-widget-extension.mjs";
 import { huiToolDefinitions } from "./hui-tools.ts";
-import * as shared from "../../shared/widgets.ts";
+import fixture from "../agent-tools/widget-sandbox.fixture.json";
 
 const rejects = (params: unknown, pattern: RegExp) => assert.rejects(validateWidget(params), (error: unknown) => {
   assert(error instanceof WidgetInputError);
@@ -12,9 +12,9 @@ const rejects = (params: unknown, pattern: RegExp) => assert.rejects(validateWid
   return true;
 });
 
-test("the PI-loadable validator keeps the shared limits", () => {
-  assert.equal(WIDGET_CODE_MAX_BYTES, shared.WIDGET_CODE_MAX_BYTES);
-  assert.equal(WIDGET_TITLE_MAX_LENGTH, shared.WIDGET_TITLE_MAX_LENGTH);
+test("the PI-loadable validator keeps the portable widget limits", () => {
+  assert.equal(WIDGET_CODE_MAX_BYTES, fixture.codeMaxBytes);
+  assert.equal(WIDGET_TITLE_MAX_LENGTH, fixture.titleMaxLength);
 });
 
 test("a fragment with a valid script is accepted and normalized", async () => {

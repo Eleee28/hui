@@ -1,18 +1,18 @@
 /**
  * `<hui-file-ref>`: a file reference the agent wrote in the chat (an inline code span or a Markdown link that looks
- * like a path; see `lib/file-references.ts`, emitted by the agent Markdown renderer and the read/edit/write tool
+ * like a path; see `lib/files/references.ts`, emitted by the agent Markdown renderer and the read/edit/write tool
  * cards). It renders as its plain content until the gateway confirms the path exists inside the conversation's working
- * directory (`lib/file-link-store.ts`); then only its colour and cursor change, so nothing reflows, and it becomes a
+ * directory (`lib/files/file-link-store.ts`); then only its colour and cursor change, so nothing reflows, and it becomes a
  * keyboard-operable link that dispatches `OPEN_FILE_EVENT` for the app to open in the Work pane's Files view.
  *
  * The conversation comes from the nearest `[data-hui-files-session]` ancestor (the chat thread); without one (a
  * hovercard, the Files view's own Markdown preview) a reference stays plain. A plain custom element, not Lit: it
  * lives inside Markdown HTML and holds no template of its own.
  */
-import { resolveFilePaths, FilesRequestError } from "../lib/files-store.ts";
-import { createFileLinkResolver, OPEN_FILE_EVENT, type OpenFileDetail } from "../lib/file-link-store.ts";
-import { TURN_END_EVENT, type TurnEndDetail } from "../lib/session-turn-end.ts";
-import type { FileLocation } from "../../shared/files.ts";
+import { resolveFilePaths, FilesRequestError } from "../api/files.ts";
+import { createFileLinkResolver, OPEN_FILE_EVENT, type OpenFileDetail } from "../lib/files/file-link-store.ts";
+import { TURN_END_EVENT, type TurnEndDetail } from "../lib/session/turn-end.ts";
+import type { FileLocation } from "../api/schema/files.ts";
 
 export const fileLinkResolver = createFileLinkResolver(async (sessionId, paths) => {
   try {

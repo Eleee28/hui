@@ -11,8 +11,8 @@ import { packageVersion, type Installation } from "../cli/installation.ts";
 import { checkRelease } from "../cli/releases.ts";
 import { LOG_FILE } from "../cli/state.ts";
 import { readUpdateJob } from "../cli/update-job.ts";
-import { liveSessions } from "./live-sessions.ts";
-import { UPDATE_CHECK_INTERVAL_MS, type UpdateCheck, type UpdateSnapshot } from "../src/lib/update-types.ts";
+import { liveSessions } from "./sessions/live-sessions.ts";
+import { UPDATE_CHECK_INTERVAL_MS, type UpdateCheck, type UpdateSnapshot } from "../cli/releases.ts";
 
 export class UpdateConflict extends Error {}
 

@@ -6,22 +6,10 @@
  * does not rotate.
  */
 import { diagnosticPath, recordDiagnosticEvent, type DiagnosticEvent } from "./observability.ts";
+import type { UiErrorBatch, UiErrorKind, UiErrorReport } from "./api/diagnostics.ts";
+export type { UiErrorBatch, UiErrorKind, UiErrorReport } from "./api/diagnostics.ts";
 
 export const UI_ERROR_KINDS = ["uncaught_error", "unhandled_rejection", "request_failed"] as const;
-export type UiErrorKind = (typeof UI_ERROR_KINDS)[number];
-
-export type UiErrorReport = {
-  kind: UiErrorKind;
-  message: string;
-  count: number;
-  firstAt?: string;
-  lastAt?: string;
-  location?: string;
-  page?: string;
-  request?: { method: string; path: string };
-};
-
-export type UiErrorBatch = { reports: UiErrorReport[]; suppressed: number };
 
 export const UI_ERROR_BODY_LIMIT = 64 * 1024;
 const MAX_REPORTS = 20;

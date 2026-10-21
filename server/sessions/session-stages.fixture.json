@@ -1,0 +1,24 @@
+{
+  "stages": ["investigation", "implementation", "testing", "done"],
+  "defaultStage": "investigation",
+  "labels": {
+    "investigation": "Investigation",
+    "implementation": "Implementation",
+    "testing": "Testing",
+    "done": "Done"
+  },
+  "isSessionStage": [
+    { "input": "investigation", "expected": true },
+    { "input": "done", "expected": true },
+    { "input": "backlog", "expected": false },
+    { "input": "Done", "expected": false },
+    { "input": null, "expected": false },
+    { "input": 2, "expected": false }
+  ],
+  "stageRank": [
+    { "input": "investigation", "expected": 0 },
+    { "input": "implementation", "expected": 1 },
+    { "input": "testing", "expected": 2 },
+    { "input": "done", "expected": 3 }
+  ]
+}

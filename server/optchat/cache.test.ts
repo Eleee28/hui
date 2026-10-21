@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { BLOCK_LINES, blockCuts, blockMarks, markCache, markedPrefix } from "./cache.ts";
 
 const view = (count: number, from = 0) => `<chat>\n${Array.from({ length: count }, (_, k) => `${from + k}+1|line ${from + k}`).join("\n")}\n</chat>`;

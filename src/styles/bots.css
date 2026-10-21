@@ -1,6 +1,6 @@
 /* Bots tab (PR "Bots tab UI"): the sidebar's Agents | Bots switch, the
- * roster and the bot view with its panel (Routines | Memory | Soul | Tools | Settings; Tools' own rules are in
- * bot-tools.css).
+ * roster and the bot view with its panel (the overview and its Routines, Triggers, Tools and Settings pages; Tools'
+ * and Triggers' own rules are in bot-tools.css and bot-triggers.css).
  * Rows, menus, inputs and dialogs reuse the shell/session/settings classes;
  * only what bots add lives here, on the shared tokens. */
 
@@ -111,6 +111,10 @@
 /* A face brings its own size (src/styles/bot-face.css) and needs no tile. */
 .bot-avatar.bot-avatar--face { width: auto; height: auto; border-radius: 0; background: none; }
 .bot-avatar__glyph { line-height: 1; }
+/* A bot in the composer's @ menu: its small face or tile, scaled into the 22px column the menu gives icons (outside
+ * .slash-menu-icon, whose icon rules would shrink the face's own SVG). */
+.mention-menu .mention-menu__face { display: grid; place-items: center; width: 22px; height: 22px; }
+.mention-menu .mention-menu__face > .bot-avatar { transform: scale(.7); }
 .bot-avatar__badge {
   position: absolute;
   right: -2px;
@@ -120,26 +124,19 @@
   border-radius: var(--radius-full);
   box-shadow: 0 0 0 2px var(--sidebar-bg, var(--bg));
 }
-.bot-avatar__badge--running { background: var(--ok); animation: bot-activity-pulse 1.6s ease-in-out infinite; }
-.bot-avatar__badge--summarizing { background: var(--warn); animation: bot-activity-pulse 1.6s ease-in-out infinite; }
-.bot-avatar__badge:is(.bot-avatar__badge--waiting, .bot-avatar__badge--error, .bot-avatar__badge--away) {
+.bot-avatar__badge--done { background: var(--ok); }
+.bot-avatar__badge:is(.bot-avatar__badge--sleeping, .bot-avatar__badge--waiting, .bot-avatar__badge--error, .bot-avatar__badge--away) {
   display: grid;
   place-items: center;
   width: 14px;
   height: 14px;
   background: var(--bg-elevated);
 }
+.bot-avatar__badge--sleeping { color: var(--muted); font-size: 10px; font-weight: 700; }
 .bot-avatar__badge--waiting { color: var(--warn); }
 .bot-avatar__badge--error { color: var(--danger); }
 .bot-avatar__badge--away { color: var(--muted); }
 .bot-avatar__badge svg { width: 10px; height: 10px; stroke-width: 2.2px; }
-@keyframes bot-activity-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .4; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .bot-avatar__badge { animation: none !important; }
-}
 
 /* ── roster rows (session row anatomy, two lines) ── */
 /* The Bots tab has no navigation above its list, so the list starts right under
@@ -202,7 +199,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.app-shell .bot-row__unread { flex: none; }
 .app-shell .bot-row__warning { display: inline-flex; flex: none; color: var(--warn); }
 .app-shell .bot-row__warning svg { width: 12px; height: 12px; }
 .app-shell .bot-row__tag {
@@ -318,6 +314,7 @@
 /* ── bot view: the chat with its docked panel ── */
 .app-shell > .content--chat:has(> .bot-workspace) { gap: 0; padding: 0; }
 .bot-workspace {
+  position: relative;
   display: flex;
   width: 100%;
   height: 100%;
@@ -365,29 +362,52 @@
 .agent-chat__empty .bot-avatar--lg .bot-avatar__glyph { font-size: 22px; }
 .agent-chat__empty .bot-avatar--lg.bot-avatar--emoji .bot-avatar__glyph { font-size: 28px; }
 
-/* ── side panel ── */
+/* ── side panel: the bot's overview and the pages its rows open ── */
 .bot-panel {
+  position: relative;
   display: flex;
-  flex: 0 0 344px;
+  flex: 0 0 auto;
   flex-direction: column;
-  width: 344px;
+  /* The width the operator left it at (inline), never so wide the chat loses its 420px when the window narrows. */
+  width: var(--bot-panel-width, 344px);
+  min-width: 320px;
+  max-width: max(320px, calc(100% - 420px));
   min-height: 0;
   border-inline-start: 1px solid var(--border);
   background: var(--bg);
+  /* Its pages lay out by its own width, which the operator drags. */
+  container-type: inline-size;
 }
-/* The header names the bot beside Close, one chat header tall; the tabs get a
- * full-width row of their own under it, like the sidebar's Agents | Bots, so
- * five fit in 344px where a segmented control beside Close held two. */
+/* Expanded (wide screens): the panel fills the bot's view. The chat stays mounted, laid out underneath and hidden, so
+ * a reply streaming in, a draft and the scroll position are there when it comes back. */
+.bot-workspace--expanded > .bot-workspace__chat { position: absolute; inset: 0; visibility: hidden; pointer-events: none; }
+.bot-workspace--expanded > .bot-panel { flex: 1 1 auto; width: auto; max-width: none; border-inline-start: 0; }
+/* Expanded, its header starts where the chat's did: clear of a collapsed sidebar's restore control, as that one is. */
+.app-shell:not(.shell--mobile-nav).shell--nav-collapsed .bot-workspace--expanded .bot-panel__header,
+.app-shell:not(.shell--mobile-nav)[data-nav-collapsed="true"] .bot-workspace--expanded .bot-panel__header {
+  padding-left: var(--shell-chrome-safe-area-left);
+}
+/* The left edge, as the Work pane's: an 8px grip over the border, its line lit while hovered, dragged or focused. */
+.bot-panel__resizer { position: absolute; z-index: 2; top: 0; bottom: 0; left: -4px; width: 8px; cursor: col-resize; touch-action: none; }
+.bot-panel__resizer::after { position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: transparent; content: ""; transition: background 150ms ease-out; }
+.bot-panel__resizer:hover::after,
+.bot-panel--resizing .bot-panel__resizer::after,
+.bot-panel__resizer:focus-visible::after { background: var(--accent); }
+.bot-panel__resizer:focus-visible { outline: none; }
+/* The overview's header holds Expand and Close; a page's adds the way back and its title. One chat header tall. */
 .bot-panel__header {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 4px;
   min-height: 48px;
-  padding: 0 6px 0 16px;
+  padding: 0 6px;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--border) 74%, transparent);
 }
+.bot-panel[data-view="overview"] .bot-panel__header { box-shadow: none; }
+.bot-panel__spacer { flex: 1; }
 .bot-panel__title {
+  flex: 1;
   min-width: 0;
   margin: 0;
   overflow: hidden;
@@ -397,77 +417,19 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Five tabs and a routine count fit 344px with room to spare; a larger text
- * scale scrolls the row sideways rather than clipping a label. */
-.bot-panel__tabs {
-  display: flex;
-  flex: 0 0 auto;
-  min-width: 0;
-  padding: 0 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  /* The divider is drawn inside the row, so the scrolling row cannot clip the underline on it. */
-  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--border) 74%, transparent);
-}
-.bot-panel__tabs::-webkit-scrollbar { display: none; }
-/* Tabs share the row by their labels; none wraps or clips its label. */
-.bot-panel__tab {
-  position: relative;
-  display: inline-flex;
-  flex: 1 0 auto;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 6px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: var(--control-ui-text-sm);
-  font-weight: 550;
-  white-space: nowrap;
-  cursor: var(--cursor-action, pointer);
-}
-@media (hover: hover) {
-  .bot-panel__tab:hover { color: var(--text); }
-}
-.bot-panel__tab[aria-selected="true"] { color: var(--text-strong); }
-/* The selected tab's underline sits on the row's divider. */
-.bot-panel__tab[aria-selected="true"]::after {
-  position: absolute;
-  inset-inline: 6px;
-  bottom: 0;
-  height: 2px;
-  border-radius: var(--radius-full);
-  background: var(--accent);
-  content: "";
-}
-.bot-panel__tab:focus-visible { outline: none; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ring) 80%, transparent); }
-.bot-panel__count {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 650;
-  line-height: 18px;
-  text-align: center;
-}
 .bot-panel__body {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 12px;
   min-height: 0;
   padding: 12px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 .bot-panel__body:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Wide, a page keeps a readable measure in the middle; the overview takes two columns of it. */
+.bot-panel__content { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 760px; margin-inline: auto; }
+.bot-panel[data-view="overview"] .bot-panel__content { max-width: 1040px; }
 .bot-panel__state,
 .bot-panel__hint { margin: 0; color: var(--muted); font-size: var(--control-ui-text-sm); line-height: 1.45; }
 .bot-panel__section { display: flex; flex-direction: column; gap: 8px; }
@@ -486,6 +448,8 @@
   z-index: 60;
   flex: none;
   width: min(380px, 100vw);
+  min-width: 0;
+  max-width: none;
   box-shadow: -12px 0 32px color-mix(in oklab, black 28%, transparent);
 }
 .bot-panel__backdrop {
@@ -497,15 +461,112 @@
   background: color-mix(in oklab, black 34%, transparent);
 }
 @media (pointer: coarse) {
-  .bot-panel__close { width: 44px; height: 44px; }
-  .bot-panel__tab { height: 44px; }
+  .bot-panel__header .btn--icon { width: 44px; height: 44px; }
 }
+
+/* ── the overview: profile, routines, triggers, activity and setup ── */
+.bot-overview,
+.bot-overview__does { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+/* Wide: the profile and setup on the left, what the bot does on the right (its rows take what the profile leaves, so
+ * neither column waits on the other); narrow, in the order it reads. */
+@container (min-width: 680px) {
+  .bot-overview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr; align-items: start; gap: 18px 24px; }
+  .bot-overview > .bot-overview__does { grid-column: 2; grid-row: 1 / span 2; }
+}
+.bot-profile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0 4px 2px; text-align: center; }
+.bot-profile hui-bot-face[size="lg"] { --bot-face-size: 88px; }
+.bot-profile .bot-avatar--lg { margin-block: 12px 8px; }
+.bot-profile__name {
+  max-width: 100%;
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: var(--control-ui-text-lg);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bot-profile__meta { margin: 0; color: var(--muted); font-size: var(--control-ui-text-sm); line-height: 1.4; overflow-wrap: anywhere; }
+.bot-profile__actions { display: flex; gap: 8px; margin-top: 10px; }
+/* Round outlined buttons, as a Dots profile's; specific enough to win over the ghost buttons' theme rules. */
+.bot-profile .bot-profile__actions .btn.btn--icon {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--card);
+  color: var(--text);
+}
+.bot-profile .bot-profile__actions .btn.btn--icon:hover { background: var(--bg-hover); }
+.bot-profile .bot-profile__actions .btn.bot-call-toggle--active { color: var(--ok); }
+.bot-profile .bot-profile__actions .btn.btn--icon svg { width: 16px; height: 16px; }
+.bot-overview__section { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.bot-overview__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
+.bot-overview__head .bot-panel__heading { margin: 0; }
+.bot-overview__add svg { width: 15px; height: 15px; }
+/* One card per section, its rows divided like Settings rows. */
+.bot-overview__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  list-style: none;
+}
+.bot-overview__list > * + * { border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+.bot-overview__row { display: flex; align-items: center; gap: 8px; padding-inline-end: 12px; }
+.bot-overview__row > .settings-toggle { flex: none; }
+/* A row that opens a page: its name, and a line about it. */
+.bot-overview__link,
+.bot-overview__setup {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: var(--cursor-action, pointer);
+}
+.bot-overview__link { flex-direction: column; gap: 1px; }
+.bot-overview__setup { align-items: center; gap: 10px; width: 100%; }
+.bot-overview__link:focus-visible,
+.bot-overview__setup:focus-visible { outline: none; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ring) 80%, transparent); }
+@media (hover: hover) {
+  .bot-overview__link:hover,
+  .bot-overview__setup:hover { background: color-mix(in srgb, var(--bg-hover) 70%, transparent); }
+}
+.bot-overview__name { min-width: 0; overflow: hidden; color: var(--text-strong); font-size: var(--control-ui-text-sm); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.bot-overview__row--off .bot-overview__name { color: var(--muted); }
+.bot-overview__meta {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--control-ui-text-xs);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.bot-overview__meta--error { color: var(--danger); }
+.bot-overview__row[data-status="completed"] .bot-overview__status { color: var(--ok); }
+.bot-overview__row[data-status="failed"] .bot-overview__status { color: var(--danger); }
+.bot-overview__row:is([data-status="running"], [data-status="queued"]) .bot-overview__status { color: var(--warn); }
+.bot-overview__setup .bot-overview__name { flex: none; }
+.bot-overview__value { flex: 1; min-width: 0; overflow: hidden; color: var(--muted); font-size: var(--control-ui-text-xs); text-align: end; text-overflow: ellipsis; white-space: nowrap; }
+.bot-overview__setup > svg { flex: none; width: 14px; height: 14px; color: var(--muted); }
 
 /* ── routines ── */
 .bot-routines,
-.bot-runs,
-.bot-memory__view,
-.bot-memory__children { margin: 0; padding: 0; list-style: none; }
+.bot-runs { margin: 0; padding: 0; list-style: none; }
 .bot-routines,
 .bot-runs { display: flex; flex-direction: column; gap: 8px; }
 .bot-routine {
@@ -541,10 +602,8 @@
   -webkit-line-clamp: 2;
 }
 .bot-routine__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-.bot-routine__actions .btn,
-.bot-memory__actions .btn { display: inline-flex; align-items: center; gap: 6px; }
-.bot-routine__actions svg,
-.bot-memory__actions svg { width: 13px; height: 13px; }
+.bot-routine__actions .btn { display: inline-flex; align-items: center; gap: 6px; }
+.bot-routine__actions svg { width: 13px; height: 13px; }
 .bot-run {
   display: flex;
   flex-direction: column;
@@ -615,110 +674,7 @@
 .bot-routine-form__when input[type="number"].settings-input { width: 76px; }
 .bot-routine-form__actions { display: flex; justify-content: flex-end; }
 
-/* ── memory ── */
-.bot-memory__stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin: 0;
-}
-.bot-memory__stats > div {
-  padding: 8px 10px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--text) 4%, transparent);
-}
-.bot-memory__stats .bot-memory__usage { grid-column: 1 / -1; }
-.bot-memory__stats dt { color: var(--muted); font-size: var(--control-ui-text-xs); }
-.bot-memory__stats dd { margin: 2px 0 0; color: var(--text-strong); font-variant-numeric: tabular-nums; font-weight: 600; overflow-wrap: anywhere; }
-.bot-memory__notice {
-  margin: 0;
-  padding: 8px 10px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--warn) 10%, transparent);
-  color: var(--text);
-  font-size: var(--control-ui-text-sm);
-}
-.bot-memory__notice--failing { background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); }
-.bot-memory__actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.bot-memory__view { display: flex; flex-direction: column; gap: 1px; }
-.bot-memory__children { display: flex; flex-direction: column; gap: 1px; margin: 1px 0 4px; }
-.bot-memory__item { padding-inline-start: calc(var(--memory-depth, 0) * 12px); }
-.bot-memory__line {
-  display: grid;
-  grid-template-columns: 12px auto minmax(0, 1fr);
-  align-items: baseline;
-  gap: 6px;
-  width: 100%;
-  padding: 4px 6px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--control-ui-text-xs);
-  line-height: 1.45;
-  text-align: start;
-  cursor: var(--cursor-action, pointer);
-}
-.bot-memory__line:hover { background: color-mix(in srgb, var(--bg-hover) 78%, transparent); }
-.bot-memory__line:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.bot-memory__chevron { display: inline-flex; color: var(--muted); transition: transform var(--duration-fast) ease; }
-.bot-memory__chevron svg { width: 10px; height: 10px; }
-.bot-memory__line[aria-expanded="true"] .bot-memory__chevron { transform: rotate(90deg); }
-.bot-memory__address { color: var(--muted); font-family: var(--font-mono); font-size: 11px; white-space: nowrap; }
-.bot-memory__text { overflow-wrap: anywhere; }
-.bot-memory__zoom-state { margin: 2px 0 2px 24px; color: var(--muted); font-size: var(--control-ui-text-xs); }
-.bot-memory__message {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 2px 0 4px 18px;
-  padding: 8px 10px;
-  border-inline-start: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  background: color-mix(in srgb, var(--text) 4%, transparent);
-}
-.bot-memory__message-text {
-  color: var(--text);
-  font-size: var(--control-ui-text-xs);
-  line-height: 1.5;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-/* ── Soul tab ── */
-.bot-soul__toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.bot-soul__file { color: var(--muted); font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
-.bot-soul__toolbar .btn,
-.bot-soul__empty .btn { display: inline-flex; align-items: center; gap: 6px; }
-.bot-soul__toolbar svg,
-.bot-soul__empty svg { width: 13px; height: 13px; }
-/* SOUL.md through the chat's own markdown renderer, on a card like a routine's. */
-.bot-soul__body {
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  border-radius: var(--radius-md);
-  background: var(--card);
-  font-size: var(--control-ui-text-sm);
-  overflow-wrap: anywhere;
-}
-.bot-soul__body > :first-child { margin-top: 0; }
-.bot-soul__body > :last-child { margin-bottom: 0; }
-.bot-soul__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 12px;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
-}
-.bot-soul__empty-title { margin: 0; color: var(--text-strong); font-weight: 600; line-height: 1.4; }
-.bot-soul__editor { display: flex; flex-direction: column; gap: 8px; }
-.bot-field textarea.bot-soul__textarea { min-height: 280px; line-height: 1.5; }
-.bot-soul__actions { display: flex; justify-content: flex-end; gap: 6px; }
-
-/* ── Settings tab: rows of HUI's Settings pages, compact for the panel ── */
+/* ── Settings page: rows of HUI's Settings pages, compact for the panel ── */
 .bot-settings { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .bot-settings__section { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .bot-settings__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
@@ -745,6 +701,9 @@
 .bot-settings .settings-row__desc { font-size: var(--control-ui-text-xs); line-height: 1.4; }
 .bot-settings .bot-setting__status { color: var(--muted); font-size: var(--control-ui-text-xs); }
 .bot-settings .bot-setting__error { grid-column: 1 / -1; margin: 0; color: var(--danger); font-size: var(--control-ui-text-xs); line-height: 1.4; overflow-wrap: anywhere; }
+/* When to tag it: prose a paragraph long, in the body's type rather than code's, as wide as its row (over the
+ * settings rows' 340px field width). */
+.bot-settings .bot-setting--stacked .settings-row__control > textarea.bot-settings__description { width: 100%; min-height: 64px; font-family: inherit; font-size: var(--control-ui-text-sm); line-height: 1.45; }
 /* Name and title: a field beside the row's title, the handle under it. */
 .bot-settings .bot-setting:not(.bot-setting--stacked) .settings-row__control > .settings-input { width: 184px; min-width: 0; font-size: var(--control-ui-text-sm); }
 .bot-settings .bot-setting .settings-row__desc { overflow-wrap: anywhere; }
@@ -753,6 +712,12 @@
 .bot-settings .new-session-page__directory-menu { position: relative; top: auto; margin-top: 6px; width: 100%; min-width: 0; max-width: 100%; }
 .bot-settings .new-session-page__directory-picker > input { font-size: var(--control-ui-text-sm); }
 .bot-settings .new-session-page__directory-picker > input:disabled { opacity: .6; cursor: not-allowed; }
+/* base.css keeps every text control at 16px or more on touch screens so iOS doesn't zoom into a focused one; the
+ * viewport's maximum-scale=1 already prevents that zoom (as for .pi-install-form's field, app.css), so these compact
+ * fields keep their type on phones too instead of towering over their rows. */
+@media (pointer: coarse) {
+  .bot-settings :is(.settings-row__control > .settings-input, .new-session-page__directory-picker > input) { font-size: var(--control-ui-text-sm) !important; }
+}
 /* Runs on, beside the Workspace heading: the machine a bot stays on, read-only (its worker, or Local), named as the
  * roster's + menu names it. A bot on a worker says why under the section, in the panel's hint type. */
 .bot-settings__note .bot-machine { display: inline-flex; align-items: center; gap: 4px; color: var(--text); font-weight: 500; vertical-align: bottom; }

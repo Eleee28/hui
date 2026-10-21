@@ -53,7 +53,7 @@ Date: 2026-09-24. SDK: `@earendil-works/pi-coding-agent@0.87.1`.
   opened by those tests.
 - Browser screenshot wrapper intermittently timed out while other Browser
   operations worked. The same real page was inspected through
-  `e2e/capture-rendered.mjs`; no archived image is required to repeat this journey.
+  `e2e/probes/capture-rendered.mjs`; no archived image is required to repeat this journey.
 - During development, a Vite restart interrupted CSS/module requests and caused
   a temporary blank page. A fresh navigation recovered. No application runtime
   exceptions were reported; development-mode Lit warnings remain.

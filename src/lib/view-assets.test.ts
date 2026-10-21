@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
-import { test } from "node:test";
+import { test } from "vitest";
 import { loadViewAssets, viewAssetsLoaded } from "./view-assets.ts";
 
 test("registered view assets start together and the entry can wait for all of them", async () => {

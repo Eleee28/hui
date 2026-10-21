@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { PassThrough } from "node:stream";
 import { CdpConnection, CdpError, type CdpEvent } from "./cdp.ts";
 import { waitFor } from "../test-support/wait-for.ts";

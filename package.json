@@ -1,12 +1,12 @@
 {
   "name": "hui",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "license": "MIT",
   "description": "HarnessUI — a Lit-based control surface for coding agent harnesses",
   "type": "module",
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=24.0.0"
   },
   "files": [
     "bin/hui.mjs",
@@ -24,14 +24,15 @@
     "dev": "node bin/hui-dev.mjs gateway",
     "desktop": "npm run build && node bin/hui.mjs desktop",
     "build": "node scripts/build.mjs",
+    "api:schema": "node scripts/api-schema.ts",
     "prepack": "npm run build",
     "preview": "vite preview",
-    "test": "node scripts/test.mjs",
+    "test": "vitest run",
     "test:package": "npm run build && node --test e2e/package.test.ts",
     "e2e:sdk": "node e2e/sdk-backend.mjs",
     "e2e:package": "node e2e/package-browser.mjs",
     "eval:jira-draft": "node evals/jira-draft/run.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.server.json",
     "postinstall": "node desktop/install.mjs --postinstall"
   },
   "dependencies": {
@@ -77,7 +78,9 @@
     "@types/markdown-it": "14.2.0",
     "@types/node": "^26.6.2",
     "@types/ws": "8.18.1",
+    "dd-trace": "6.20.1",
     "typescript": "^7.0.2",
-    "vite": "^8.3.1"
+    "vite": "^8.3.1",
+    "vitest": "4.1.11"
   }
 }

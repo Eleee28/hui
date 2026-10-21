@@ -6,10 +6,12 @@
  */
 import { html, nothing, svg, type TemplateResult } from "lit";
 import { live } from "lit/directives/live.js";
-import { KANBAN_COLUMNS, SESSION_STAGE_LABELS, SESSION_STAGES, type KanbanColumn, type SessionStage } from "../../shared/session-stages.ts";
-import { pullRequestAccessibleLabel } from "../../shared/pull-requests.ts";
-import { jiraIssueAccessibleLabel, jiraStatusLabel, type SessionJiraIssue } from "../../shared/jira.ts";
-import type { BacklogItem, BacklogJiraState } from "../../shared/backlog.ts";
+import { KANBAN_COLUMNS, SESSION_STAGE_LABELS, SESSION_STAGES, type KanbanColumn } from "../lib/kanban.ts";
+import type { SessionStage } from "../api/schema/sessions.ts";
+import { pullRequestAccessibleLabel } from "../lib/pull-requests.ts";
+import { jiraIssueAccessibleLabel, jiraStatusLabel } from "../lib/jira.ts";
+import type { SessionJiraIssue } from "../api/schema/sessions.ts";
+import type { BacklogItem, BacklogJiraState } from "../api/schema/backlog.ts";
 import type { JiraBadgeData } from "../components/jira-hovercard.ts";
 import { brandIcons } from "../lib/brand-icons.ts";
 import { icons } from "../lib/icons.ts";
@@ -33,9 +35,10 @@ import {
   type KanbanMove,
   type KanbanOptions,
 } from "../lib/kanban.ts";
-import { sessionGroupLabel, storedSessionGroup, type SessionGroup, type SessionView } from "../lib/sessions-store.ts";
+import { type SessionGroup, type SessionView } from "../api/sessions.ts";
+import { sessionGroupLabel, storedSessionGroup } from "../lib/session/sessions.ts";
 import { formatUpdated } from "./sessions.ts";
-import { taskSuggestionLocation, taskSuggestionPreview } from "../../shared/task-suggestions.ts";
+import { taskSuggestionLocation, taskSuggestionPreview } from "../lib/task-suggestions.ts";
 import { loadViewAssets } from "../lib/view-assets.ts";
 
 loadViewAssets(

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { browserToolSummary } from "./browser-tool-display.ts";
 
 test("browser tool rows summarize the action without page content", () => {

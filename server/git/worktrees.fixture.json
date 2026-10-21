@@ -1,0 +1,127 @@
+[
+  {
+    "input": {
+      "repository": "/repo",
+      "path": "/wt",
+      "displayPath": "/wt",
+      "branch": "topic",
+      "head": "abc",
+      "detached": false,
+      "managed": true,
+      "merged": true,
+      "dirty": false,
+      "sessions": [],
+      "risks": []
+    },
+    "expected": true
+  },
+  {
+    "input": {
+      "repository": "/repo",
+      "path": "/wt",
+      "displayPath": "/wt",
+      "branch": "topic",
+      "head": "abc",
+      "detached": false,
+      "managed": true,
+      "merged": true,
+      "sessions": [],
+      "risks": []
+    },
+    "expected": false
+  },
+  {
+    "input": {
+      "repository": "/repo",
+      "path": "/wt",
+      "displayPath": "/wt",
+      "branch": "topic",
+      "head": "abc",
+      "detached": false,
+      "managed": false,
+      "merged": true,
+      "dirty": false,
+      "sessions": [],
+      "risks": []
+    },
+    "expected": false
+  },
+  {
+    "input": {
+      "repository": "/repo",
+      "path": "/wt",
+      "displayPath": "/wt",
+      "branch": "topic",
+      "head": "abc",
+      "detached": false,
+      "managed": true,
+      "merged": true,
+      "dirty": false,
+      "sessions": [
+        {
+          "id": "s",
+          "title": "S",
+          "archived": false
+        }
+      ],
+      "risks": []
+    },
+    "expected": false
+  },
+  {
+    "input": {
+      "repository": "/repo",
+      "path": "/wt",
+      "displayPath": "/wt",
+      "branch": "topic",
+      "head": "abc",
+      "detached": false,
+      "managed": true,
+      "merged": true,
+      "dirty": false,
+      "sessions": [
+        {
+          "id": "s",
+          "title": "S",
+          "archived": true
+        }
+      ],
+      "risks": []
+    },
+    "expected": true
+  },
+  {
+    "input": {
+      "repository": "/repo",
+      "path": "/wt",
+      "displayPath": "/wt",
+      "branch": "topic",
+      "head": "abc",
+      "detached": false,
+      "managed": true,
+      "merged": true,
+      "dirty": false,
+      "sessions": [],
+      "risks": [
+        "locked"
+      ]
+    },
+    "expected": false
+  },
+  {
+    "input": {
+      "repository": "/repo",
+      "path": "/wt",
+      "displayPath": "/wt",
+      "branch": "topic",
+      "head": "abc",
+      "detached": false,
+      "managed": true,
+      "merged": false,
+      "dirty": false,
+      "sessions": [],
+      "risks": []
+    },
+    "expected": false
+  }
+]

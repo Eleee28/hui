@@ -6,6 +6,10 @@ E2E tests complement unit tests; they do not replace server boundary tests.
 Use the repository-owned [visual verification skill](../.agents/skills/hui-visual-verification/SKILL.md)
 for checkout identity, isolated launch/doctor/cleanup, Browser actions and PR handoff.
 
+Procedures (`*.browser.md`) and the entry points `package.json` and the skill name stay at the top level.
+Fake providers, CLIs, services, seeds and PI extensions go in `fixtures/`; scripts a procedure loads into the
+running app (probes and oracles) go in `probes/`.
+
 ## Priorities
 
 - Cover the highest-value real journeys first: start/open/resume a PI session,

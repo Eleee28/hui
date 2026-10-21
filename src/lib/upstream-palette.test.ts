@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 
 test("native palettes and accent contrast retain the pinned original source", () => {
   const files = [
     ["../../public/themes/rose.css", "1c14a27abd28b0f590d6f88e7529e49345777a8abbd8ec5b80ce84433edd6e26"],
     ["../../public/themes/miami.css", "46c7e1855d75867affcc1dd45ed427952f6d469302815d7cdb247f47378df4be"],
-    ["./accent-contrast.ts", "9b52f053caa94d578dead4f90f517d33d39823cb79698b9daeb18a8fc10a8dc7"],
+    ["./theme/accent-contrast.ts", "9b52f053caa94d578dead4f90f517d33d39823cb79698b9daeb18a8fc10a8dc7"],
   ] as const;
   for (const [file, hash] of files) {
     const source = readFileSync(new URL(file, import.meta.url), "utf8")

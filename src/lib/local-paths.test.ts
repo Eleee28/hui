@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { completeLocalPath, localPathQuery } from "./local-paths.ts";
+import { test } from "vitest";
+import type { BotView } from "../api/schema/bots.ts";
+import { botMentionSuggestions, completeLocalPath, localPathQuery } from "./local-paths.ts";
 
 test("local path queries follow the caret and also expose leading absolute prefixes", () => {
   assert.deepEqual(localPathQuery("Check @src/ma please", 13), {
@@ -35,4 +36,22 @@ test("completion replaces only the token under the caret", () => {
     }),
     { text: "Read @src/main.ts next", caret: 17 },
   );
+  assert.deepEqual(
+    completeLocalPath("Ask @ad", { input: "ad", start: 4, end: 7, mention: true }, { path: "ada", kind: "bot", bot: { id: "b1", name: "Ada" } }),
+    { text: "Ask @ada ", caret: 9 },
+    "a bot ends the mention, so the message goes on",
+  );
+});
+
+test("a mention suggests the bots the chat may tag, by handle or name, never itself, an archived bot or one nobody may tag", () => {
+  const bot = (id: string, handle: string, name: string, extra: Partial<BotView> = {}) => ({ id, handle, name, ...extra }) as BotView;
+  const bots = [
+    bot("b3", "cy", "Ada's twin"), bot("b1", "ada", "Ada", { title: "Release manager" }), bot("b2", "adam", "Adam", { archived: true }),
+    bot("b4", "dee", "Dee", { tagging: "mention" }), bot("b5", "eve", "Eve", { tagging: "nobody" }),
+  ];
+  assert.deepEqual(botMentionSuggestions(bots, "AD").map((suggestion) => suggestion.path), ["ada", "cy"], "the handle or the name, any case");
+  assert.deepEqual(botMentionSuggestions(bots, "").map((suggestion) => suggestion.path), ["ada", "cy", "dee"], "a bare @ lists every bot it may tag, by handle");
+  assert.deepEqual(botMentionSuggestions(bots, "", "b1").map((suggestion) => suggestion.path), ["cy", "dee"], "never the bot whose chat it is");
+  assert.deepEqual(botMentionSuggestions(bots, "src/"), []);
+  assert.deepEqual(botMentionSuggestions(bots, "ada")[0], { path: "ada", kind: "bot", bot: { id: "b1", name: "Ada", title: "Release manager", avatar: undefined } });
 });

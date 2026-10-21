@@ -12,9 +12,9 @@ import { packageVersion, type Installation } from "./installation.ts";
 import { LOG_FILE, withLifecycleLock } from "./state.ts";
 import { updateRelease } from "./update.ts";
 import { checkNightly, checkRelease } from "./releases.ts";
-import { BOT_FACE_COLORS, BOT_FACE_EARS, BOT_FACE_SHAPES, BOT_THINKING_LEVELS, botFaceColor, botFaceEars, botFaceShape } from "../shared/bots.ts";
-import { VOICE_LANGUAGE_EXAMPLES, voiceLanguage } from "../shared/voice.ts";
-import { GPT_LIVE_VOICES, gptLiveVoice } from "../shared/calls.ts";
+import { BOT_FACE_COLORS, BOT_FACE_EARS, BOT_FACE_SHAPES, BOT_TAGGING, BOT_THINKING_LEVELS, botFaceColor, botFaceEars, botFaceShape, isBotTagging } from "../server/bots-format.ts";
+import { VOICE_LANGUAGE_EXAMPLES, voiceLanguage } from "../server/bots/voice-languages.ts";
+import { GPT_LIVE_VOICES, gptLiveVoice } from "../server/calls-format.ts";
 import { checkTriggerAdd } from "./bot-triggers.ts";
 
 export const HELP = `Usage:
@@ -38,14 +38,15 @@ export const HELP = `Usage:
   hui workers remove <name|id> [--json]
   hui bot list [--archived] [--json]
   hui bot show <bot> [--json]
-  hui bot add [--name <name>] [--title <text>] [--soul-file <path|->] [--cwd <dir>]
+  hui bot add [--name <name>] [--title <text>] [--description <text>] [--tagging <anyone|mention|nobody>]
+              [--soul-file <path|->] [--cwd <dir>]
               [--worker <name|id>] [--model <provider/model>] [--thinking <level>] [--utility-model <provider/model>] [--emoji <e>]
               [--shape <shape>] [--ears <cat|bear|bunny|antenna|sprout|horns>] [--color <name|#rrggbb>]
               [--language <code>] [--call-voice <cove|arbor|breeze|ember|juniper|maple|sol|spruce|vale>]
               [--deny-tools <a,b>] [--deny-skills <a,b>] [--json]
   hui bot edit <bot> [same flags as add but --soul-file, --worker and --deny-*] [--json]
   hui bot import <file|folder|url|-> [--worker <name|id>] [--agent <name>] [--yes] [--json]
-  hui bot export <bot> [--out <file>] [--memory] [--yes] [--json]
+  hui bot export <bot> [--out <file>] [--review <id> --set <change>=<group>...] [--add <group>:<passage>[ => <becomes>]...] [--yes] [--json]
   hui bot soul <bot> [--file <path|->] [--json]
   hui bot tools <bot> [--allow <a,b>] [--deny <a,b>] [--json]
   hui bot skills <bot> [--allow <a,b>] [--deny <a,b>] [--json]
@@ -92,14 +93,16 @@ Workers are the remote machines of Settings → Workers, managed through the
 running gateway. A new worker connects at once; --extra-path is repeatable and
 on edit replaces the list. Edit changes only the fields given; a new command
 applies the next time the worker connects.
-Bots are a preview: off until Settings → Labs → Bots turns them on, and until
-then every hui bot command prints the gateway's refusal. They are named agents
-with one forever chat each, managed through the running gateway like the Bots
-tab; "bots" works as "bot". <bot> is an id, a handle or
+Bots are named agents with one forever chat each, managed through the running
+gateway like the Bots tab; "bots" works as "bot". <bot> is an id, a handle or
 an exact name. A new bot starts by asking what you expect from it (talk with
 hui bot chat <handle>), then writes its persona, SOUL.md, itself; --soul-file
 gives it one instead (- reads stdin) and skips that first conversation. Without
---name it is "New Bot" and first asks what to call it. Soul prints SOUL.md;
+--name it is "New Bot" and first asks what to call it. Agents and bots tag a
+bot (@handle) to hand it work, as they load a skill: --description says what it
+does and when to tag it (its title stands in without one; "" clears it on edit),
+and --tagging who may: anyone, the default, whenever a task fits; mention, only
+when your message names @handle; nobody, never. Soul prints SOUL.md;
 --file replaces it, and an empty file removes it so the bot asks again.
 --worker runs a new bot on a remote worker of Settings → Workers, by name or id,
 which HUI must be connected to: its chat, memory, folder and SOUL.md live there,
@@ -136,10 +139,16 @@ export, or a persona as text (- reads stdin). It prints everything the bot would
 get first (imported text is untrusted) and asks before creating it; --yes skips
 that. --agent picks one agent of a file that holds several. An import turns
 nothing on beyond a new bot's defaults: its routines start disabled and a
-subagent's tools list only turns tools off. Export saves the bot as
-<handle>.hui-bot.zip (profile, SOUL.md, its own skills, routines and what you
-turned off; --memory adds its memory), which import reads back; it never
-replaces a file without --yes.
+subagent's tools list only turns tools off. Export makes the bot a template
+someone else can import: HUI cleans out your name, paths, addresses and keys,
+Settings' utility model sorts the rest into removed, asked (the new owner gives
+theirs), confirmed (they agree to it first) and kept, and it prints that review
+and asks before saving <name>.hui-bot.zip (--yes saves it as reviewed). Its
+memory never leaves. --review <id> --set c1=keep saves a printed review with
+other picks; a script is kept, confirmed or removed whole. --add adds a passage
+the reviewer missed, copied from its text: remove:<passage> => <what it becomes>,
+ask:<passage> => <what the new owner gives>, or confirm:<passage> (a passage
+can't hold " => "). It never replaces a file without --yes.
 Remove archives: the chat transcript and memory are kept and its routines are
 disabled. Delete removes a bot for good, active or archived: its turn stops, its
 chat leaves HUI, and its routines, memory and folder (SOUL.md and every file in
@@ -175,9 +184,7 @@ itself: --until at that time, --runs after that many runs (1-1000; a skipped
 run doesn't count), and HUI deletes it after either; on edit --until "" and
 --runs "" clear them. --timeout is how long one run may take (10-86400
 seconds, default 900). A bot can schedule its own routines too, with its
-routines tool, which shows as made by @bot. While bots are off, anything that
-names a bot or a bot's routine prints the gateway's refusal and list leaves
-bots' routines out; sessions' schedules work regardless.
+routines tool, which shows as made by @bot.
 `;
 
 export function parseCli(args: string[], env: NodeJS.ProcessEnv = process.env) {
@@ -191,12 +198,13 @@ export function parseCli(args: string[], env: NodeJS.ProcessEnv = process.env) {
     archived: { type: "boolean" }, title: { type: "string" }, "soul-file": { type: "string" }, file: { type: "string" }, yes: { type: "boolean", short: "y" },
     cwd: { type: "string" }, worker: { type: "string" }, model: { type: "string" }, thinking: { type: "string" }, "memory-model": { type: "string" }, "utility-model": { type: "string" },
     emoji: { type: "string" }, shape: { type: "string" }, ears: { type: "string" }, color: { type: "string" }, voice: { type: "string" }, "voice-speed": { type: "string" }, language: { type: "string" }, "call-voice": { type: "string" }, wait: { type: "boolean" }, timeout: { type: "string" }, zoom: { type: "string" }, html: { type: "string" },
+    tagging: { type: "string" },
     prompt: { type: "string" }, at: { type: "string" }, every: { type: "string" }, cron: { type: "string" }, timezone: { type: "string" },
     allow: { type: "string" }, deny: { type: "string" }, "deny-tools": { type: "string" }, "deny-skills": { type: "string" },
     bot: { type: "string" }, session: { type: "string" }, description: { type: "string" }, until: { type: "string" }, runs: { type: "string" }, disabled: { type: "boolean" },
     match: { type: "string" }, cooldown: { type: "string" },
     "pr-links": { type: "boolean" }, "allow-bots": { type: "boolean" }, "allow-external": { type: "boolean" },
-    agent: { type: "string" }, out: { type: "string" }, memory: { type: "boolean" },
+    agent: { type: "string" }, out: { type: "string" }, review: { type: "string" }, set: { type: "string", multiple: true }, add: { type: "string", multiple: true }, memory: { type: "boolean" },
   } as const;
   const { values, positionals } = parseArgs({ args, allowPositionals: true, strict: true, options });
   if (values.help || !args.length) return { command: "help", values };
@@ -204,6 +212,8 @@ export function parseCli(args: string[], env: NodeJS.ProcessEnv = process.env) {
   // VoiceStudio is gone (2026-10-06): its flags say what took their place instead of failing as unknown options.
   if (values.voice !== undefined) throw new Error(`--voice is gone: HUI no longer uses VoiceStudio. A bot speaks on calls with one of GPT-Live's voices: --call-voice <${GPT_LIVE_VOICES.join("|")}>.`);
   if (values["voice-speed"] !== undefined) throw new Error("--voice-speed is gone: HUI no longer uses VoiceStudio, and GPT-Live sets the pace of its own voices.");
+  // Exports became templates reviewed for personal information (2026-10-16): a bot's memory never leaves.
+  if (values.memory !== undefined) throw new Error("--memory is gone: hui bot export makes a template someone else can import, reviewed for personal information, and a bot's memory never leaves.");
   const [first, second, ...extra] = positionals;
   const bots = first === "bot" || first === "bots";
   const schedules = first === "schedule" || first === "schedules";
@@ -225,7 +235,7 @@ export function parseCli(args: string[], env: NodeJS.ProcessEnv = process.env) {
     "workers edit": ["name", "command", "extra-path", "json"], "workers remove": ["json"],
     "bot list": ["archived", "json"], "bot show": ["json"], "bot add": [...BOT_FIELDS, "soul-file", "worker", "deny-tools", "deny-skills", "json"], "bot edit": [...BOT_FIELDS, "json"],
     "bot soul": ["file", "json"], "bot tools": ["allow", "deny", "json"], "bot skills": ["allow", "deny", "json"],
-    "bot import": ["worker", "agent", "yes", "json"], "bot export": ["out", "memory", "yes", "json"],
+    "bot import": ["worker", "agent", "yes", "json"], "bot export": ["out", "review", "set", "add", "yes", "json"],
     "bot remove": ["json"], "bot restore": ["json"], "bot delete": ["yes", "json"], "bot chat": [], "bot send": ["wait", "timeout", "json"], "bot stop": ["json"],
     "bot memory": ["zoom", "html", "json"], "bot routine list": ["json"],
     "bot routine add": ["name", "prompt", "at", "every", "cron", "timezone", "json"], "bot routine run": [], "bot routine remove": ["json"],
@@ -294,7 +304,7 @@ function checkScheduleCommand(command: string, operands: readonly string[], valu
 }
 
 /** The flags `bot add` and `bot edit` share. */
-const BOT_FIELDS = ["name", "title", "cwd", "model", "thinking", "memory-model", "utility-model", "emoji", "shape", "ears", "color", "language", "call-voice"];
+const BOT_FIELDS = ["name", "title", "description", "tagging", "cwd", "model", "thinking", "memory-model", "utility-model", "emoji", "shape", "ears", "color", "language", "call-voice"];
 /** Operands each bot command takes, in order. */
 const BOT_OPERANDS: Record<string, readonly string[]> = {
   "bot list": [], "bot add": [], "bot show": ["bot"], "bot edit": ["bot"], "bot soul": ["bot"], "bot tools": ["bot"], "bot skills": ["bot"],
@@ -339,6 +349,7 @@ function checkBotCommand(command: string, operands: readonly string[], values: R
   if (given("call-voice") && !cleared("call-voice") && !gptLiveVoice(values["call-voice"])) {
     throw new Error(`--call-voice must be one of GPT-Live's voices: ${GPT_LIVE_VOICES.join(", ")}; "" goes back to Settings' default.`);
   }
+  if (given("tagging") && !isBotTagging(String(values["tagging"]).trim().toLowerCase())) throw new Error(`--tagging must be one of: ${BOT_TAGGING.join(", ")}.`);
   if (given("timeout") && (!values["wait"] || !/^\d+$/u.test(String(values["timeout"])) || Number(values["timeout"]) < 1 || Number(values["timeout"]) > 3600)) {
     throw new Error("--timeout needs --wait and 1-3600 seconds.");
   }

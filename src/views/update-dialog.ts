@@ -3,7 +3,7 @@
  * update job itself run in the gateway; the dialog shows the snapshot and sends the operator's choices to the app.
  */
 import { html, nothing } from "lit";
-import type { UpdateSnapshot } from "../lib/update-types.ts";
+import type { UpdateSnapshot } from "../api/schema/updates.ts";
 
 export function renderUpdateDialog(props: {
   open: boolean; checking: boolean; starting: boolean; readOnly: boolean; error: string; reconnecting: boolean;

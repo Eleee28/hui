@@ -13,13 +13,13 @@ the streaming check uses the local deterministic provider, not operator secrets.
 2. Seed history before starting HUI:
 
    ```bash
-   node e2e/position-rail-fixture.mjs <ROOT> <PI_PACKAGE>/dist/core/session-manager.js
+   node e2e/fixtures/position-rail-fixture.mjs <ROOT> <PI_PACKAGE>/dist/core/session-manager.js
    ```
 
    This exclusively creates the fixture HUI registry and two PI conversations:
    **Conversation navigation** (100 prompt/response pairs) and **Short
    conversation** (one pair). It refuses to overwrite an existing registry.
-3. Start `e2e/pi-provider-fixture.mjs` on port 43127 with its workspace and log
+3. Start `e2e/fixtures/pi-provider-fixture.mjs` on port 43127 with its workspace and log
    under the same root, then `npm run dev` with the isolated environment. This
    run used `http://localhost:5173` and a disposable managed Brave/CDP profile.
 4. Open Home in the Browser tool and activate **Open Conversation navigation**.

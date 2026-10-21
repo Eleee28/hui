@@ -34,7 +34,7 @@ an environment stripped of provider credentials (retain PATH/HOME/USER/LANG):
 HUI_E2E_PROVIDER_PORT=43157 \
 HUI_E2E_WORKSPACE="$HUI_GROUPS_RUN/workspace" \
 HUI_E2E_PROVIDER_LOG="$HUI_GROUPS_RUN/provider.jsonl" \
-node e2e/pi-provider-fixture.mjs
+node e2e/fixtures/pi-provider-fixture.mjs
 
 XDG_CONFIG_HOME="$HUI_GROUPS_RUN/xdg" \
 PI_CODING_AGENT_DIR="$HUI_GROUPS_RUN/pi-agent" \
@@ -103,7 +103,7 @@ Project grouping is by exact directory, not inferred Git-repository identity.
 Owners, archival state, message previews and system-session classifications are
 not exposed because this registry does not supply them.
 
-- `npm test -- src/lib/sidebar-sessions.test.ts src/views/shell.test.ts src/views/home.test.ts src/views/sessions.test.ts`: 66 passed.
+- `npm test -- src/lib/session/sidebar-sessions.test.ts src/views/shell.test.ts src/views/home.test.ts src/views/sessions.test.ts`: 66 passed.
 - `npm test`: 369 passed, no skips.
 - `npm run typecheck`: passed.
 - `npm run build`: passed.

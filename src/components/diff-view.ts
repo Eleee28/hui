@@ -3,12 +3,12 @@
  * chooses the comparison (uncommitted changes, the last commit, the previous branch with a branch picker, the default
  * branch, the last two with "Include uncommitted"), the layout (unified, or side by side when the pane is wide) and
  * refreshes; a filterable list of changed files (status, +/- counts, totals) sits beside the selected file's diff,
- * syntax-coloured by `diff-highlight.ts`. Large or binary files open collapsed with a notice, renames show as renames,
- * and the file name opens the file in a Files view (the chat's file-link event, `OPEN_FILE_EVENT`). It refreshes when
- * the conversation's agent turn ends and when it becomes visible again. On narrow screens the list and the diff take
- * turns, with Back.
+ * syntax-coloured by `lib/diff/highlight.ts`. Large or binary files open collapsed with a notice, renames show as
+ * renames, and the file name opens the file in a Files view (the chat's file-link event, `OPEN_FILE_EVENT`). It
+ * refreshes when the conversation's agent turn ends and when it becomes visible again. On narrow screens the list and
+ * the diff take turns, with Back.
  *
- * It owns presentation and per-view state (`diff-view-state.ts`); the gateway runs Git (`server/git-diff.ts`). No
+ * It owns presentation and per-view state (`lib/diff/view-state.ts`); the gateway runs Git (`server/git/diff.ts`). No
  * decorators: the Work pane's view registry, which imports this lazily, also loads in Node tests.
  */
 import { html, nothing, svg, type PropertyValues, type SVGTemplateResult, type TemplateResult } from "lit";
@@ -16,13 +16,14 @@ import { HuiElement } from "../lit/hui-element.ts";
 import { icons } from "../lib/icons.ts";
 import { loadViewAssets } from "../lib/view-assets.ts";
 import { renderPicker } from "../views/settings-picker.ts";
-import { DIFF_COLLAPSE_LINES, type DiffBranch, type DiffChanges, type DiffComparison, type DiffFile, type DiffInfo } from "../../shared/diff.ts";
-import { mixedLineEndings, parseHunks, patchLineCount, splitRows, type DiffHunk, type DiffLine } from "../lib/diff-hunks.ts";
-import { highlightHunks, type LineHighlights } from "../lib/diff-highlight.ts";
-import { DiffRequestError, loadDiffChanges, loadDiffFile, loadDiffInfo, type DiffQuery } from "../lib/diff-store.ts";
-import { chosenParent, initialComparison, readDiffViewState, writeDiffViewState, type DiffLayout } from "../lib/diff-view-state.ts";
-import { OPEN_FILE_EVENT, type OpenFileDetail } from "../lib/file-link-store.ts";
-import { onTurnEnd } from "../lib/session-turn-end.ts";
+import { DIFF_COLLAPSE_LINES } from "../lib/diff/view-state.ts";
+import type { DiffBranch, DiffChanges, DiffComparison, DiffFile, DiffInfo } from "../api/schema/diff.ts";
+import { mixedLineEndings, parseHunks, patchLineCount, splitRows, type DiffHunk, type DiffLine } from "../lib/diff/hunks.ts";
+import { highlightHunks, type LineHighlights } from "../lib/diff/highlight.ts";
+import { DiffRequestError, loadDiffChanges, loadDiffFile, loadDiffInfo, type DiffQuery } from "../api/diff.ts";
+import { chosenParent, initialComparison, readDiffViewState, writeDiffViewState, type DiffLayout } from "../lib/diff/view-state.ts";
+import { OPEN_FILE_EVENT, type OpenFileDetail } from "../lib/files/file-link-store.ts";
+import { onTurnEnd } from "../lib/session/turn-end.ts";
 
 loadViewAssets(() => import("../styles/diff-view.css"));
 

@@ -1,16 +1,15 @@
 /**
  * Calls with bots (HUI-18), rendering only: the bot header's Call button, the
  * call view and its minimized bar. State and actions come from props owned by
- * `hui-app.ts` (src/lib/live-call.ts and voice-controller.ts hold the logic).
+ * `hui-app.ts` (src/lib/voice/live-call.ts and src/controllers/voice-controller.ts hold the logic).
  */
 import { html, nothing, svg, type SVGTemplateResult, type TemplateResult } from "lit";
-import type { BotView } from "../lib/bots.ts";
-import { callStatusLabel, type CallView } from "../lib/live-call.ts";
-import { gptLiveVoiceLabel, isGptLiveVoice } from "../../shared/calls.ts";
-import { formatCallTime } from "../lib/voice.ts";
+import { botLook, type BotView } from "../lib/bots/bots.ts";
+import { callStatusLabel, type CallView } from "../lib/voice/live-call.ts";
+import { gptLiveVoiceLabel, isGptLiveVoice } from "../lib/voice/calls.ts";
+import { formatCallTime } from "../lib/voice/voice.ts";
 import { renderBotAvatar } from "./bots.ts";
-import { callFaceState } from "../lib/bot-face.ts";
-import { botLook } from "../../shared/bots.ts";
+import { callFaceState } from "../lib/bots/face.ts";
 import { loadViewAssets } from "../lib/view-assets.ts";
 
 loadViewAssets(() => import("../styles/voice.css"));

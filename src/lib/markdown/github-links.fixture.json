@@ -1,0 +1,16 @@
+{
+  "maxEmbeds": 3,
+  "urls": [
+    { "input": "https://github.com/cli/cli", "expected": { "kind": "repo", "owner": "cli", "repo": "cli", "url": "https://github.com/cli/cli" }, "key": "repo:cli/cli" },
+    { "input": "http://www.github.com/ACME/Web.git/tree/main", "expected": { "kind": "repo", "owner": "ACME", "repo": "Web", "url": "https://github.com/ACME/Web" }, "key": "repo:acme/web" },
+    { "input": "https://github.com/cli/cli/pull/42/files?x=1#diff", "expected": { "kind": "pull", "owner": "cli", "repo": "cli", "number": 42, "url": "https://github.com/cli/cli/pull/42" }, "key": "item:cli/cli#42" },
+    { "input": "https://github.com/CLI/cli/issues/42", "expected": { "kind": "issue", "owner": "CLI", "repo": "cli", "number": 42, "url": "https://github.com/CLI/cli/issues/42" }, "key": "item:cli/cli#42" },
+    { "input": "https://github.com/cli/cli/pulls", "expected": { "kind": "repo", "owner": "cli", "repo": "cli", "url": "https://github.com/cli/cli" }, "key": "repo:cli/cli" },
+    { "input": "https://github.com/settings/tokens", "expected": null, "key": null },
+    { "input": "https://u:p@github.com/cli/cli", "expected": null, "key": null },
+    { "input": "https://github.com.evil.test/cli/cli", "expected": null, "key": null },
+    { "input": "ftp://github.com/cli/cli", "expected": null, "key": null },
+    { "input": "https://github.com/cli", "expected": null, "key": null },
+    { "input": "not a URL", "expected": null, "key": null }
+  ]
+}

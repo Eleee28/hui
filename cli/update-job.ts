@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { updateDirectory } from "./installation.ts";
 import { processAlive } from "./state.ts";
-import type { UpdateJob } from "../src/lib/update-types.ts";
+import type { UpdateJob } from "./releases.ts";
 
 export const updateJobFile = (installationRoot: string) => join(updateDirectory(installationRoot), "job.json");
 

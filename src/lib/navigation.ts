@@ -9,7 +9,6 @@ export const ROUTABLE_SETTINGS_PAGES = [
   "connection",
   "integrations",
   "workers",
-  "sessions",
   "worktrees",
   "models",
   "tools",
@@ -63,6 +62,10 @@ export function resolveNavigation(pathname: string): NavigationResolution {
   // Worktrees moved into Settings; keep old links working.
   if (segments.length === 1 && segments[0] === "worktrees") {
     return { target: { kind: "settings", page: "worktrees" }, path: "/settings/worktrees" };
+  }
+
+  if (segments.length === 2 && segments[0] === "settings" && segments[1] === "sessions") {
+    return resolveNavigation("/sessions");
   }
 
   if (segments.length === 1) {

@@ -45,7 +45,7 @@ let cached: Promise<WorkerRelease> | undefined;
 export function workerRelease(): Promise<WorkerRelease> {
   cached ??= (async () => {
     const root = PACKAGE_ROOT;
-    const dirs = SOURCE ? ["server", "shared", "src/lib", "skills"] : ["build/server", "build/shared", "build/src", "build/skills"];
+    const dirs = SOURCE ? ["server", "skills"] : ["build/server", "build/skills"];
     const files: WorkerRelease["files"] = [];
     for (const dir of dirs) if (existsSync(join(root, dir))) await collect(root, dir, files);
     const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8")) as { version?: string; dependencies?: Record<string, string> };

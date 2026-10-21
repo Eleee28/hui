@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { compactPrompt, compressStep, masterPrompt, mergeStep, ruler, sizeFeedback, viewDoc } from "./prompts.ts";
 
 test("the size reference is a ruler of dashes as many bytes long as the limit, with nothing in it to copy", () => {

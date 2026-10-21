@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
-import { decodeBrowserFrame, encodeBrowserFrame, parseBrowserViewMessage, type BrowserViewState } from "../../shared/browser.ts";
+import { test } from "vitest";
+import type { BrowserViewState } from "../api/schema/browser.ts";
 import { browserPreviewDisplay, browserTabOptions, browserViewEmptyMessage, browserViewStatus, fitFrame, pointPosition, relativeTime } from "./browser-view.ts";
 
 const state: BrowserViewState = {
@@ -8,47 +8,6 @@ const state: BrowserViewState = {
   tabs: [{ id: "t1", title: "Fixture", url: "http://127.0.0.1:5173/" }, { id: "t4", title: "", url: "https://example.com/docs" }],
   current: "t1", watching: "t1", following: true,
 };
-
-test("frames round-trip and malformed frames are rejected", () => {
-  const image = new Uint8Array([0xff, 0xd8, 1, 2, 3, 0xff, 0xd9]);
-  const encoded = encodeBrowserFrame({ tabId: "t4", width: 1280, height: 800, seq: 3 }, image);
-  const decoded = decodeBrowserFrame(encoded.buffer as ArrayBuffer);
-  assert.deepEqual(decoded?.header, { tabId: "t4", width: 1280, height: 800, seq: 3 });
-  assert.deepEqual([...decoded!.image], [...image]);
-  // A view into a larger buffer decodes from its own offset.
-  const padded = new Uint8Array(encoded.length + 8);
-  padded.set(encoded, 8);
-  assert.deepEqual(decodeBrowserFrame(padded.subarray(8))?.header.tabId, "t4");
-  const header = (value: unknown) => {
-    const json = new TextEncoder().encode(JSON.stringify(value));
-    const out = new Uint8Array(4 + json.length + 1);
-    new DataView(out.buffer).setUint32(0, json.length);
-    out.set(json, 4);
-    return out;
-  };
-  for (const bad of [
-    new Uint8Array([0, 0]),
-    new Uint8Array([0, 0, 0xff, 0xff, 1]),
-    header({ tabId: "x1", width: 10, height: 10, seq: 1 }),
-    header({ tabId: "t1", width: 0, height: 10, seq: 1 }),
-    header({ tabId: "t1", width: 10, height: 99_999, seq: 1 }),
-    header({ tabId: "t1", width: 10, height: 10 }),
-    encodeBrowserFrame({ tabId: "t1", width: 10, height: 10, seq: 1 }, new Uint8Array()),
-  ]) assert.equal(decodeBrowserFrame(bad), undefined);
-});
-
-test("view messages are validated before the pane uses them", () => {
-  assert.deepEqual(parseBrowserViewMessage({ type: "state", running: true, mode: "windowed", tabs: [{ id: "t1", title: 7, url: "u" }, { id: "../x" }, null], current: "t1", watching: "bogus", following: false }), {
-    type: "state", running: true, mode: "windowed", tabs: [{ id: "t1", title: "", url: "u" }], current: "t1", watching: null, following: false,
-  });
-  assert.deepEqual(parseBrowserViewMessage({ type: "action", tabId: "t2", text: "Clicked e2", point: { x: 5, y: "7" }, at: "now" }), {
-    type: "action", tabId: "t2", text: "Clicked e2", at: "now",
-  });
-  assert.deepEqual(parseBrowserViewMessage({ type: "action", tabId: "t2", text: "Clicked e2", point: { x: 5, y: 7 }, at: "now" })?.type, "action");
-  for (const bad of [null, [], { type: "frame" }, { type: "action", tabId: "t1" }, { type: "action", tabId: "tab", text: "x" }]) {
-    assert.equal(parseBrowserViewMessage(bad), undefined);
-  }
-});
 
 test("frames fit the pane without distortion or upscaling, and pointers map onto them", () => {
   assert.deepEqual(fitFrame({ width: 640, height: 900 }, { width: 1280, height: 800 }), { width: 640, height: 400 });

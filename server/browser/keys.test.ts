@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { KeyParseError, parseKey } from "./keys.ts";
 
 test("named keys, characters and modifiers map to CDP key events", () => {

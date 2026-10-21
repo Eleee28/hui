@@ -1,0 +1,50 @@
+[
+  {
+    "input": {
+      "kind": "local",
+      "title": "Fix picker",
+      "problem": " It differs. ",
+      "fix": " Reuse the picker. "
+    },
+    "expected": "# Fix picker\n\n## Problem\n\nIt differs.\n\n## Proposed fix\n\nReuse the picker."
+  },
+  {
+    "input": {
+      "kind": "local",
+      "title": "Investigate"
+    },
+    "expected": "# Investigate\n\n## Problem\n\nNot described.\n\n## Proposed fix\n\nNot known yet. Investigate and confirm the root cause before changing code."
+  },
+  {
+    "input": {
+      "kind": "jira",
+      "title": "Fallback",
+      "jira": {
+        "key": "APP-1",
+        "url": "https://example.test/browse/APP-1",
+        "summary": "Fix login",
+        "description": " Steps\nnext "
+      }
+    },
+    "expected": "# APP-1: Fix login\n\nJira: [APP-1](https://example.test/browse/APP-1)\n\n## Description\n\nSteps\nnext"
+  },
+  {
+    "input": {
+      "kind": "jira",
+      "title": "Missing description"
+    },
+    "expected": "# Missing description\n\n## Description\n\nNo description in Jira. Investigate and confirm the scope before changing code."
+  },
+  {
+    "input": {
+      "kind": "local",
+      "title": "Linked",
+      "problem": "P",
+      "jira": {
+        "key": "APP-2",
+        "url": "https://example.test/browse/APP-2"
+      }
+    },
+    "expected": "# Linked\n\nJira: [APP-2](https://example.test/browse/APP-2)\n\n## Problem\n\nP\n\n## Proposed fix\n\nNot known yet. Investigate and confirm the root cause before changing code."
+  }
+]

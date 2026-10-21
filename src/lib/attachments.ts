@@ -5,7 +5,7 @@
  * `images` field want. Images are also kept as data URLs so the composer can
  * show a thumbnail without a second read.
  */
-import type { Attachment, TranscriptAttachment } from "./sessions-store.ts";
+import type { Attachment } from "../api/sessions.ts";
 
 /** pi accepts these natively as image content. */
 const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
@@ -60,20 +60,6 @@ export async function readAttachment(file: File): Promise<Attachment> {
     mimeType,
     dataBase64: toBase64(await file.arrayBuffer()),
   };
-}
-
-/** Reads a sent message's attachments back into composer attachments.
- * Unreadable ones are skipped. */
-export async function readTranscriptAttachments(items: readonly (string | TranscriptAttachment)[] = []): Promise<Attachment[]> {
-  const readable = items.filter((item): item is TranscriptAttachment & { url: string } =>
-    typeof item !== "string" && Boolean(item.url));
-  const read = await Promise.allSettled(readable.map(async (item) => {
-    const response = await fetch(item.url);
-    if (!response.ok) throw new Error(`Could not read ${item.name}.`);
-    const blob = await response.blob();
-    return readAttachment(new File([blob], item.name, { type: item.mimeType || blob.type }));
-  }));
-  return read.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
 }
 
 export function attachmentBytes(attachment: Attachment): number {

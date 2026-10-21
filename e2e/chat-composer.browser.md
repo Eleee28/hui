@@ -15,7 +15,7 @@ mkdir -p "$HUI_E2E_ROOT/home" "$HUI_E2E_ROOT/xdg" \
   "$HUI_E2E_ROOT/pi-agent/extensions" "$HUI_E2E_ROOT/pi-sessions" \
   "$HUI_E2E_ROOT/workspace"
 printf 'fixture contents\n' > "$HUI_E2E_ROOT/workspace/fixture.txt"
-cp e2e/question-extension.ts "$HUI_E2E_ROOT/pi-agent/extensions/question-extension.ts"
+cp e2e/fixtures/question-extension.ts "$HUI_E2E_ROOT/pi-agent/extensions/question-extension.ts"
 ```
 
 Create `$HUI_E2E_ROOT/pi-agent/models.json`:
@@ -36,7 +36,7 @@ Start the provider, then the gateway in separate terminals:
 HUI_E2E_WORKSPACE="$HUI_E2E_ROOT/workspace" \
 HUI_E2E_PROVIDER_LOG="$HUI_E2E_ROOT/provider.jsonl" \
 HUI_E2E_PROVIDER_PORT=43127 \
-node e2e/pi-provider-fixture.mjs
+node e2e/fixtures/pi-provider-fixture.mjs
 ```
 
 ```bash

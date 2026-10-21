@@ -1,9 +1,10 @@
 /** Installs, activates and rolls back HUI releases. A candidate is staged with npm beside the installation, booted
  * against a throwaway configuration, then switched in by rewriting the release pointer and restarting the gateway;
- * a failed activation restores the previous pointer and gateway. It never edits a source checkout or PI data. */
+ * a failed activation restores the previous pointer and gateway. A successful switch deletes every staged release the
+ * pointer no longer names, keeping the current and previous ones. It never edits a source checkout or PI data. */
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, realpath, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
@@ -92,5 +93,14 @@ export async function updateRelease(installation: Installation, options: { from?
     }
     throw error;
   }
+  await removeSupersededReleases(directory, next);
   return { version, ...(sha256 ? { sha256 } : {}), restarted: Boolean(previousGateway) };
+}
+
+async function removeSupersededReleases(directory: string, kept: ReleasePointer): Promise<void> {
+  const warn = (error: unknown) => console.error(`hui: could not delete superseded releases: ${error instanceof Error ? error.message : String(error)}`);
+  const superseded = (await readdir(directory).catch((error: unknown) => { warn(error); return []; }))
+    .filter((entry) => entry.startsWith("release-") && entry !== kept.current && entry !== kept.previous);
+  if (superseded.length) console.error(`hui: deleting superseded releases ${superseded.join(", ")}`);
+  for (const entry of superseded) await rm(join(directory, entry), { recursive: true, force: true }).catch(warn);
 }

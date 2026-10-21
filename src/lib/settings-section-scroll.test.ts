@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { scrollSectionWhenReady, SECTION_SCROLL_LIMIT_MS, SECTION_SCROLL_SETTLED_MS } from "./settings-section-scroll.ts";
 
 /** A section whose top is `offset - scroll`; scrolling it into view sets scroll = offset. */

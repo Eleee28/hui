@@ -1,21 +1,31 @@
 /**
  * HUI's scheduled prompts: the task and run registry in one JSON file, the at/every/cron schedule rules, and
- * the in-process timer that fires due tasks. Sending a prompt to its session is the injected executor's job;
- * this module only decides when a task runs and records how each run ended. Runs a previous gateway left
- * queued or running are marked failed on start.
+ * the in-process timer that fires due tasks. Sending a prompt to its session is the injected executor's job:
+ * the service only decides when a task runs and records how each run ended. Runs a previous gateway left
+ * queued or running are reconciled through a saved delivery, never blindly sent again.
+ * `executeAutomationTask` is the gateway's executor: it prompts the target session, or hands a bot's routine to
+ * the bot service, and waits for the run to settle.
  */
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { recordDiagnosticEvent } from "./observability.ts";
+import { BotStoreError, BotWorkerOfflineError } from "./bots/bots.ts";
+import type { LiveSessions } from "./sessions/live-sessions.ts";
+import { readRegistry, type SessionRecord } from "./sessions/sessions.ts";
+import type { BotRecord } from "./bots-format.ts";
 
 import type {
   AutomationCreator,
+  AutomationFailureKind,
   AutomationRun,
   AutomationSchedule,
   AutomationSnapshot,
   AutomationTask,
   AutomationTaskInput,
-} from "../src/lib/automation-types.ts";
+} from "./api/automation.ts";
+
+export type { AutomationSchedule, AutomationRunStatus, AutomationCreator, AutomationTask, AutomationRun, AutomationFailureKind, AutomationSnapshot, AutomationTaskInput } from "./api/automation.ts";
 
 const STORE_VERSION = 1;
 const MAX_RUNS = 500;
@@ -37,7 +47,40 @@ export type AutomationExecution = {
 export type AutomationExecutor = (
   task: AutomationTask,
   signal: AbortSignal,
+  context: AutomationExecutionContext,
 ) => Promise<AutomationExecution>;
+
+export type AutomationExecutionContext = {
+  run: AutomationRun;
+  /** Flush before dispatch. A failed checkpoint must prevent sending the prompt. */
+  checkpoint: (delivery: NonNullable<AutomationRun["delivery"]>) => Promise<void>;
+};
+
+/** Only an executor that knows input was NOT dispatched may request another attempt. */
+export class AutomationRetryError extends Error {
+  readonly kind: AutomationFailureKind;
+  constructor(message: string, kind: AutomationFailureKind) {
+    super(message);
+    this.kind = kind;
+  }
+}
+
+const RETRY_DELAYS = [30_000, 120_000];
+/** Shutdown detaches observers; it must not cancel work the runtime will resume. */
+export const AUTOMATION_SUSPENDED = "HUI automation scheduler suspended";
+
+/** Labels explain a failure; they never decide that replaying a prompt is safe. */
+export function automationFailureKind(error: unknown): AutomationFailureKind {
+  if (error instanceof AutomationRetryError) return error.kind;
+  const message = error instanceof Error ? error.message : String(error);
+  if (/quota|rate.?limit|too many requests|\b429\b|insufficient.credit|billing/iu.test(message)) return "rate-limit";
+  if (/unauthori[sz]ed|forbidden|api.?key|authentication|credential|unknown model|no[_ ]model|not configured|archived|no longer exists|could not start/iu.test(message)) return "configuration";
+  if (/disconnect|reconnect|offline|unreachable|connection/iu.test(message)) return "connection";
+  if (/restart|interrupted|not delivered|could not.*recover|cannot.*recover/iu.test(message)) return "interrupted";
+  if (/timed? ?out|timeout/iu.test(message)) return "timeout";
+  if (/temporar|overload|service unavailable|\b50[234]\b/iu.test(message)) return "transient";
+  return "unknown";
+}
 
 export class AutomationInputError extends Error {}
 export class AutomationNotFoundError extends Error {}
@@ -127,6 +170,23 @@ function parseTask(value: unknown): AutomationTask | undefined {
 }
 
 const RUN_STATUSES = new Set(["queued", "running", "completed", "failed", "skipped", "cancelled"]);
+const FAILURE_KINDS = new Set(["connection", "rate-limit", "configuration", "transient", "interrupted", "timeout", "unknown"]);
+
+function parseRunRecovery(value: Record<string, unknown>): Partial<AutomationRun> {
+  const delivery = value["delivery"];
+  const failure = value["failure"];
+  return {
+    ...(Number.isSafeInteger(value["attempt"]) && (value["attempt"] as number) >= 1 ? { attempt: value["attempt"] as number } : {}),
+    ...(typeof value["retryAt"] === "string" && Number.isFinite(Date.parse(value["retryAt"])) ? { retryAt: value["retryAt"] } : {}),
+    ...(typeof value["deadlineAt"] === "string" && Number.isFinite(Date.parse(value["deadlineAt"])) ? { deadlineAt: value["deadlineAt"] } : {}),
+    ...(isRecord(delivery) && typeof delivery["text"] === "string" && delivery["text"].length > 0 && Number.isSafeInteger(delivery["before"]) && (delivery["before"] as number) >= 0 ? {
+      delivery: { text: delivery["text"], before: delivery["before"] as number, ...(typeof delivery["requestId"] === "string" ? { requestId: delivery["requestId"] } : {}) },
+    } : {}),
+    ...(isRecord(failure) && typeof failure["kind"] === "string" && FAILURE_KINDS.has(failure["kind"]) && typeof failure["needsAttention"] === "boolean" ? {
+      failure: { kind: failure["kind"] as AutomationFailureKind, needsAttention: failure["needsAttention"] },
+    } : {}),
+  };
+}
 
 function parseRun(value: unknown): AutomationRun | undefined {
   if (!isRecord(value)) return undefined;
@@ -154,6 +214,7 @@ function parseRun(value: unknown): AutomationRun | undefined {
     ...(typeof value["finishedAt"] === "string" ? { finishedAt: value["finishedAt"] } : {}),
     ...(typeof value["summary"] === "string" ? { summary: value["summary"] } : {}),
     ...(typeof value["error"] === "string" ? { error: value["error"] } : {}),
+    ...parseRunRecovery(value),
   };
 }
 
@@ -328,6 +389,15 @@ function checkUntil(until: string | undefined, next: number | null, nowMs: numbe
 const iso = (timestamp: number) => new Date(timestamp).toISOString();
 const isoOrNull = (timestamp: number | null) => (timestamp === null ? null : iso(timestamp));
 
+/** A deleted temporary task can still have an accepted input to observe. This task is NEVER dispatched again. */
+function observationTask(run: AutomationRun): AutomationTask {
+  return {
+    id: run.taskId, name: run.taskName, sessionId: run.sessionId, prompt: run.delivery!.text,
+    description: "", enabled: false, nextRunAt: null, schedule: { kind: "at", at: run.createdAt },
+    createdAt: run.createdAt, updatedAt: run.createdAt, timeoutSeconds: 900,
+  };
+}
+
 function text(value: unknown, label: string, maximum: number, required = true): string {
   if (typeof value !== "string") throw new AutomationInputError(`${label} must be text.`);
   const trimmed = value.trim();
@@ -382,8 +452,11 @@ export class AutomationService {
   readonly #clock: Clock;
   #mutation = Promise.resolve();
   #timer: ReturnType<typeof setTimeout> | undefined;
-  #active = new Map<string, { runId: string; abort: AbortController }>();
+  #active = new Map<string, { runId: string; abort: AbortController; executing: boolean }>();
   #started = false;
+  #starting: Promise<void> | undefined;
+  #generation = 0;
+  #scheduleVersion = 0;
 
   constructor(file: string, execute: AutomationExecutor, clock: Clock = SYSTEM_CLOCK) {
     this.#file = file;
@@ -440,28 +513,56 @@ export class AutomationService {
 
   async start(): Promise<void> {
     if (this.#started) return;
-    this.#started = true;
+    if (this.#starting) return this.#starting;
+    this.#starting = this.#start().catch((error: unknown) => { this.#started = false; this.#active.clear(); throw error; }).finally(() => { this.#starting = undefined; });
+    return this.#starting;
+  }
+
+  async #start(): Promise<void> {
+    const generation = this.#generation;
     const nowMs = this.#clock.now();
     const now = iso(nowMs);
-    await this.#update((file) => ({
-      ...file,
-      runs: file.runs.map((run) =>
-        run.status === "queued" || run.status === "running"
-          ? { ...run, status: "failed", finishedAt: now, error: "HUI restarted before this run finished." }
-          : run,
-      ),
-      // A temporary task whose end came, or whose last run was cut short, while HUI was down goes now: nothing runs.
-      tasks: file.tasks.filter((task) => !taskExpired(task, nowMs, false)),
-    }));
+    const file = await this.#update((file) => {
+      if (generation !== this.#generation) return file;
+      const runs = file.runs.map((run): AutomationRun => {
+        if (run.status !== "queued" && run.status !== "running") return run;
+        const task = file.tasks.find((task) => task.id === run.taskId) ?? (run.delivery ? observationTask(run) : undefined);
+        const deadline = run.deadlineAt ?? (task ? iso(Date.parse(run.createdAt) + task.timeoutSeconds * 1000) : now);
+        // A saved delivery can only be observed, not sent anew. A retry was explicitly safe before dispatch.
+        if (task && (run.delivery || (run.retryAt && Date.parse(deadline) > nowMs &&
+          (task.until === undefined || Date.parse(task.until) > nowMs)))) {
+          this.#active.set(task.id, { runId: run.id, abort: new AbortController(), executing: false });
+          return { ...run, deadlineAt: deadline };
+        }
+        return {
+          ...run, status: "failed", finishedAt: now,
+          error: "HUI restarted before this run could be reconciled. Check its chat before running it again.",
+          failure: { kind: "interrupted", needsAttention: true },
+        };
+      });
+      return {
+        ...file, runs,
+        // Keep the last temporary run's task until its recovered observer settles it.
+        tasks: file.tasks.filter((task) => !taskExpired(task, nowMs, this.#active.has(task.id)) || this.#active.has(task.id)),
+      };
+    });
+    if (generation !== this.#generation) return;
+    this.#started = true;
+    for (const run of file.runs) {
+      if (this.#active.get(run.taskId)?.runId !== run.id) continue;
+      const task = file.tasks.find((task) => task.id === run.taskId) ?? (run.delivery ? observationTask(run) : undefined);
+      if (task && (!run.retryAt || Date.parse(run.retryAt) <= nowMs)) this.#launchRun(task, run);
+    }
     await this.#wake();
   }
 
   async snapshot(): Promise<AutomationSnapshot> {
     await this.start();
     const file = await this.#read();
-    const nextWake = file.tasks
-      .filter((task) => task.enabled && task.nextRunAt)
-      .map((task) => task.nextRunAt as string)
+    const nextWake = [
+      ...file.tasks.filter((task) => task.enabled && task.nextRunAt).map((task) => task.nextRunAt as string),
+      ...file.runs.filter((run) => run.status === "queued" && run.retryAt).map((run) => run.retryAt as string),
+    ]
       .toSorted()[0] ?? null;
     return {
       scheduler: { enabled: true, activeRuns: this.#active.size, nextWakeAt: nextWake },
@@ -509,6 +610,9 @@ export class AutomationService {
     await this.#update((file) => {
       const current = file.tasks.find((task) => task.id === id);
       if (!current) throw new AutomationNotFoundError(`Unknown automation task: ${id}`);
+      if (this.#active.has(id) && (input.sessionId !== current.sessionId || input.prompt !== current.prompt || input.name !== current.name)) {
+        throw new AutomationConflictError("Stop the active run before changing its target, name or prompt.");
+      }
       const enabled = input.enabled !== false;
       const until = untilInput === undefined ? current.until : untilInput ?? undefined;
       const runsLeft = runs === undefined ? current.runsLeft : runs ?? undefined;
@@ -551,9 +655,10 @@ export class AutomationService {
     if (this.#active.has(id)) throw new AutomationConflictError("This task is already running.");
     let run: AutomationRun | undefined;
     let task: AutomationTask | undefined;
-    await this.#update((file) => {
+    try { await this.#update((file) => {
       const found = file.tasks.find((item) => item.id === id);
       if (!found) throw new AutomationNotFoundError(`Unknown automation task: ${id}`);
+      if (this.#active.has(id)) throw new AutomationConflictError("This task is already running.");
       const nowMs = this.#clock.now();
       if (found.runsLeft === 0) throw new AutomationConflictError("This task has no runs left.");
       if (found.until !== undefined && Date.parse(found.until) <= nowMs) throw new AutomationConflictError("This task has ended.");
@@ -563,46 +668,119 @@ export class AutomationService {
       run = {
         id: randomUUID(), taskId: found.id, taskName: found.name, sessionId: found.sessionId,
         source, status: "queued", createdAt: iso(nowMs),
+        attempt: 1, deadlineAt: iso(nowMs + found.timeoutSeconds * 1000),
       };
+      this.#active.set(id, { runId: run.id, abort: new AbortController(), executing: false });
       return { ...file, tasks: file.tasks.map((item) => item.id === id ? task! : item), runs: [run, ...file.runs] };
-    });
-    void this.#executeRun(task!, run!);
+    }); } catch (error) {
+      if (run && this.#active.get(id)?.runId === run.id) this.#active.delete(id);
+      throw error;
+    }
+    this.#launchRun(task!, run!);
     return run!;
   }
 
   async cancel(runId: string): Promise<void> {
-    const active = [...this.#active.values()].find((entry) => entry.runId === runId);
+    const found = [...this.#active.entries()].find(([, entry]) => entry.runId === runId);
+    const active = found?.[1];
     if (!active) throw new AutomationConflictError("That run is no longer active.");
     active.abort.abort();
+    if (!active.executing) {
+      await this.#finish(found![0], runId, "cancelled", undefined, "Run cancelled.");
+      this.#active.delete(found![0]);
+      this.#reschedule();
+    }
   }
 
   async #executeRun(task: AutomationTask, run: AutomationRun): Promise<void> {
-    const abort = new AbortController();
-    this.#active.set(task.id, { runId: run.id, abort });
-    const startedAt = new Date(this.#clock.now()).toISOString();
-    await this.#update((file) => ({
-      ...file,
-      runs: file.runs.map((item) => item.id === run.id ? { ...item, status: "running", startedAt } : item),
-    }));
+    const active = this.#active.get(task.id);
+    if (!active || active.runId !== run.id || active.executing || active.abort.signal.aborted) return;
+    active.executing = true;
+    const { abort } = active;
+    const generation = this.#generation;
+    let current = run;
+    let retrying = false;
+    let timedOut = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      timer = setTimeout(() => abort.abort(), task.timeoutSeconds * 1000);
-      timer.unref();
-      const result = await this.#execute(task, abort.signal);
-      await this.#finish(task.id, run.id, abort.signal.aborted ? "cancelled" : "completed", result.summary);
+      const nowMs = this.#clock.now();
+      const remaining = Date.parse(run.deadlineAt ?? iso(Date.parse(run.createdAt) + task.timeoutSeconds * 1000)) - nowMs;
+      if (remaining <= 0) {
+        timedOut = true;
+        // Reacquire an accepted receipt with an aborted signal so the executor cancels only its original input.
+        if (run.delivery) abort.abort();
+        else throw new Error("The run's timeout elapsed before it could finish.");
+      }
+      if (!run.delivery && task.until !== undefined && Date.parse(task.until) <= nowMs) throw new Error("This temporary task ended before its retry could be delivered.");
+      const { retryAt: _retryAt, error: _error, failure: _failure, ...kept } = current;
+      current = { ...kept, status: "running", startedAt: current.startedAt ?? iso(nowMs), attempt: (run.attempt ?? 1) + (run.retryAt ? 1 : 0) };
+      await this.#update((file) => ({ ...file, runs: file.runs.map((item) => item.id === run.id ? current : item) }));
+      if (!this.#started || generation !== this.#generation) return;
+      if (abort.signal.aborted && !timedOut) throw new DOMException("Run cancelled.", "AbortError");
+      if (remaining > 0) {
+        timer = setTimeout(() => { timedOut = true; abort.abort(); }, remaining);
+        timer.unref();
+      }
+      const result = await this.#execute(task, abort.signal, {
+        run: current,
+        checkpoint: async (delivery) => {
+          if (abort.signal.aborted || !this.#started || generation !== this.#generation) throw new DOMException("Run cancelled.", "AbortError");
+          current = { ...current, delivery };
+          await this.#update((file) => ({ ...file, runs: file.runs.map((item) => item.id === run.id ? current : item) }));
+        },
+      });
+      if (!this.#started || generation !== this.#generation) return;
+      await this.#finish(task.id, run.id, timedOut ? "failed" : abort.signal.aborted ? "cancelled" : "completed", result.summary,
+        timedOut ? "Run timed out. Check its chat before running it again." : undefined,
+        timedOut ? { kind: "timeout", needsAttention: true } : undefined);
     } catch (error) {
+      if (!this.#started || generation !== this.#generation) return;
       const cancelled = abort.signal.aborted;
+      const kind = timedOut ? "timeout" : automationFailureKind(error);
+      const delay = RETRY_DELAYS[(current.attempt ?? 1) - 1];
+      const retryAt = delay === undefined ? undefined : this.#clock.now() + delay;
+      const deadline = Date.parse(current.deadlineAt ?? iso(Date.parse(current.createdAt) + task.timeoutSeconds * 1000));
+      if (!cancelled && !current.delivery && error instanceof AutomationRetryError && retryAt !== undefined && retryAt < deadline &&
+        (task.until === undefined || retryAt < Date.parse(task.until))) {
+        const queued: AutomationRun = {
+          ...current, status: "queued", retryAt: iso(retryAt), error: error.message,
+          failure: { kind, needsAttention: false },
+        };
+        await this.#update((file) => ({ ...file, runs: file.runs.map((item) => item.id === run.id ? queued : item) }));
+        if (!this.#started || generation !== this.#generation) return;
+        if (abort.signal.aborted) {
+          await this.#finish(task.id, run.id, "cancelled", undefined, "Run cancelled.");
+          return;
+        }
+        retrying = true;
+        return;
+      }
       await this.#finish(
         task.id,
         run.id,
-        cancelled ? "cancelled" : error instanceof AutomationConflictError ? "skipped" : "failed",
+        timedOut ? "failed" : cancelled ? "cancelled" : error instanceof AutomationConflictError ? "skipped" : "failed",
         undefined,
-        cancelled ? "Run cancelled." : error instanceof Error ? error.message : "Automation failed.",
+        timedOut ? "Run timed out. Check its chat before running it again." : cancelled ? "Run cancelled." : error instanceof Error ? error.message : "Automation failed.",
+        !cancelled || timedOut ? { kind, needsAttention: true } : undefined,
       );
     } finally {
       if (timer) clearTimeout(timer);
-      this.#active.delete(task.id);
+      if (this.#active.get(task.id) === active) {
+        if (retrying) active.executing = false;
+        else this.#active.delete(task.id);
+      }
+      this.#reschedule();
     }
+  }
+
+  #launchRun(task: AutomationTask, run: AutomationRun): void {
+    void this.#executeRun(task, run).catch((error: unknown) => this.#reportFailure(error));
+  }
+
+  #reportFailure(error: unknown): void {
+    recordDiagnosticEvent({ area: "automation", level: "error", action: "scheduler_failed",
+      summary: "The scheduler could not record or advance a run. Check its registry before running it again.",
+      detail: error instanceof Error ? error.message : String(error) });
   }
 
   /** Records how a run ended. A skipped run gives a temporary task its run back; a temporary task whose last run this
@@ -613,14 +791,17 @@ export class AutomationService {
     status: AutomationRun["status"],
     summary?: string,
     error?: string,
+    failure?: AutomationRun["failure"],
   ): Promise<void> {
     const nowMs = this.#clock.now();
     const finishedAt = iso(nowMs);
     let changed = false;
     await this.#update((file) => {
-      const runs = file.runs.map((run) => run.id === runId
-        ? { ...run, status, finishedAt, ...(summary ? { summary } : {}), ...(error ? { error } : {}) }
-        : run);
+      const runs = file.runs.map((run): AutomationRun => {
+        if (run.id !== runId) return run;
+        const { retryAt: _retryAt, error: _error, failure: _failure, ...kept } = run;
+        return { ...kept, status, finishedAt, ...(summary ? { summary } : {}), ...(error ? { error } : {}), ...(failure ? { failure } : {}) };
+      });
       const current = file.tasks.find((task) => task.id === taskId);
       if (!current) return { ...file, runs };
       const task = status === "skipped" && current.runsLeft !== undefined
@@ -643,7 +824,14 @@ export class AutomationService {
     if (!this.#started) return;
     const nowMs = this.#clock.now();
     let due: AutomationTask[] = [];
+    const retries: Array<{ task: AutomationTask; run: AutomationRun }> = [];
     await this.#update((file) => {
+      for (const run of file.runs) {
+        const active = this.#active.get(run.taskId);
+        const task = file.tasks.find((task) => task.id === run.taskId);
+        if (task && active?.runId === run.id && !active.executing && run.retryAt &&
+          (Date.parse(run.retryAt) <= nowMs || (task.until !== undefined && Date.parse(task.until) <= nowMs))) retries.push({ task, run });
+      }
       // Temporary tasks whose end came go first (a run still going finishes on its own), as do any whose last run is over.
       const tasks = file.tasks.filter((task) => !taskExpired(task, nowMs, this.#active.has(task.id)));
       due = tasks.filter((task) => task.enabled && task.nextRunAt !== null && Date.parse(task.nextRunAt) <= nowMs);
@@ -661,6 +849,7 @@ export class AutomationService {
         }),
       };
     });
+    for (const { task, run } of retries) this.#launchRun(task, run);
     for (const task of due) {
       try {
         await this.run(task.id, "scheduled");
@@ -672,30 +861,177 @@ export class AutomationService {
   }
 
   #reschedule(): void {
+    const version = ++this.#scheduleVersion;
     if (this.#timer) this.#clock.clearTimer(this.#timer);
     this.#timer = undefined;
     if (!this.#started) return;
     void this.#read().then((file) => {
+      if (!this.#started || version !== this.#scheduleVersion) return;
       // The next run, or the next end of a temporary task, paused ones included.
-      const next = file.tasks
-        .flatMap((task) => [
+      const next = [
+        ...file.tasks.flatMap((task) => [
           ...(task.enabled && task.nextRunAt ? [Date.parse(task.nextRunAt)] : []),
           ...(task.until !== undefined ? [Date.parse(task.until)] : []),
-        ])
+        ]),
+        ...file.runs.flatMap((run) => run.status === "queued" && run.retryAt ? [Date.parse(run.retryAt)] : []),
+      ]
         .filter(Number.isFinite)
         .toSorted((a, b) => a - b)[0];
       if (next === undefined) return;
       const delay = Math.max(0, Math.min(2_147_000_000, next - this.#clock.now()));
-      this.#timer = this.#clock.setTimer(() => void this.#wake(), delay);
+      this.#timer = this.#clock.setTimer(() => { void this.#wake().catch((error: unknown) => this.#reportFailure(error)); }, delay);
       this.#timer.unref?.();
-    });
+    }).catch((error: unknown) => this.#reportFailure(error));
   }
 
   dispose(): void {
+    this.#started = false;
+    this.#generation += 1;
+    this.#scheduleVersion += 1;
     if (this.#timer) this.#clock.clearTimer(this.#timer);
     this.#timer = undefined;
-    for (const active of this.#active.values()) active.abort.abort();
+    for (const active of this.#active.values()) active.abort.abort(AUTOMATION_SUSPENDED);
     this.#active.clear();
-    this.#started = false;
   }
+}
+
+export type AutomationTaskDeps = {
+  liveSessions: LiveSessions;
+  bots: {
+    botForSession(sessionId: string): Promise<BotRecord | undefined>;
+    runRoutine(
+      bot: BotRecord,
+      record: SessionRecord,
+      task: AutomationTask,
+      signal: AbortSignal,
+      options: { requestId: string; checkpoint: AutomationExecutionContext["checkpoint"] },
+    ): Promise<AutomationExecution>;
+    resumeRoutine(bot: BotRecord, record: SessionRecord, delivery: NonNullable<AutomationRun["delivery"]>, signal: AbortSignal): Promise<AutomationExecution>;
+  };
+};
+
+function waitForAutomationSession(
+  record: SessionRecord,
+  signal: AbortSignal,
+  sessions: Pick<LiveSessions, "watch">,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener("abort", onAbort);
+      watched.unsubscribe();
+      if (error) reject(error);
+      else resolve();
+    };
+    const onAbort = () => finish(new DOMException("Run cancelled.", "AbortError"));
+    const watched = sessions.watch(record.id, (message) => {
+      if (message.kind !== "status") return;
+      if (message.status === "idle") finish();
+      else if (message.status === "running" || message.status === "waiting") {
+        finish(new AutomationConflictError("The target session is already running."));
+      } else if (message.status === "error") {
+        finish(new Error("The target session runtime could not start."));
+      } else if (message.status === "disconnected") {
+        finish(new Error("The target session's machine is disconnected."));
+      }
+    });
+    signal.addEventListener("abort", onAbort, { once: true });
+    if (signal.aborted) onAbort();
+    else if (watched.snapshot.status === "idle") finish();
+    else if (watched.snapshot.status === "running" || watched.snapshot.status === "waiting") {
+      finish(new AutomationConflictError("The target session is already running."));
+    } else if (watched.snapshot.status === "error") {
+      finish(new Error("The target session runtime could not start."));
+    } else if (watched.snapshot.status === "disconnected") {
+      finish(new Error("The target session's machine is disconnected."));
+    }
+  });
+}
+
+export function waitForAutomationRun(
+  record: SessionRecord,
+  signal: AbortSignal,
+  sessions: Pick<LiveSessions, "watch" | "transcript" | "abort">,
+): Promise<AutomationExecution> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener("abort", onAbort);
+      watched.unsubscribe();
+      if (error) {
+        reject(error);
+        return;
+      }
+      const lastAssistant = sessions.transcript(record.id)
+        .findLast((entry) => entry.kind === "message" && entry.role === "assistant");
+      const summary = lastAssistant?.kind === "message" ? lastAssistant.text.trim() : "";
+      resolve(summary ? { summary } : {});
+    };
+    const onAbort = () => {
+      void sessions.abort(record.id).finally(() => {
+        finish(new DOMException("Run cancelled.", "AbortError"));
+      });
+    };
+    const watched = sessions.watch(record.id, (message) => {
+      if (message.kind === "event" && message.event.type === "settled") finish();
+      else if (message.kind === "status" && message.status === "error") {
+        finish(new Error("The target session runtime failed."));
+      } else if (message.kind === "status" && message.status === "disconnected") {
+        finish(new Error("HUI is disconnected from the machine the target session runs on."));
+      } else if (message.kind === "closed") {
+        finish(new Error("The target session runtime exited."));
+      }
+    });
+    signal.addEventListener("abort", onAbort, { once: true });
+    if (signal.aborted) onAbort();
+  });
+}
+
+export async function executeAutomationTask(
+  task: AutomationTask,
+  signal: AbortSignal,
+  context: AutomationExecutionContext,
+  { liveSessions, bots }: AutomationTaskDeps,
+): Promise<AutomationExecution> {
+  const record = (await readRegistry()).find((session) => session.id === task.sessionId);
+  if (!record) throw new AutomationNotFoundError("The target session no longer exists.");
+  // A bot's routine: marked as such, and queued behind a busy bot instead of skipped.
+  const bot = record.bot ? await bots.botForSession(record.id) : undefined;
+  if (record.bot && !bot) throw new AutomationNotFoundError("The target bot no longer exists.");
+  if (bot) {
+    const execution = context.run.delivery
+      ? bots.resumeRoutine(bot, record, context.run.delivery, signal)
+      : bots.runRoutine(bot, record, task, signal, { requestId: context.run.id, checkpoint: context.checkpoint });
+    return execution.catch((error: unknown) => {
+      // The scheduler permits this only before the persisted dispatch checkpoint.
+      if (error instanceof BotWorkerOfflineError) throw new AutomationRetryError(error.message, "connection");
+      throw error;
+    });
+  }
+  if (liveSessions.status(record.id) === "running") {
+    throw new AutomationConflictError("The target session is already running.");
+  }
+  if (!liveSessions.ensure(record)) {
+    throw new AutomationNotFoundError("The target session no longer exists.");
+  }
+  await waitForAutomationSession(record, signal, liveSessions);
+  const completion = waitForAutomationRun(record, signal, liveSessions);
+  try {
+    await liveSessions.prompt(record.id, task.prompt);
+  } catch (error) {
+    // The completion watcher has not observed a turn yet. Cancelling it keeps
+    // the subscription from leaking while the original acceptance error is
+    // reported to the automation run.
+    if (!signal.aborted) await liveSessions.abort(record.id).catch(() => undefined);
+    throw error;
+  }
+  return completion;
+}
+
+export function automationStoreFailure(error: unknown): never {
+  throw error instanceof AutomationStoreError ? new BotStoreError(error.message, { cause: error }) : error;
 }

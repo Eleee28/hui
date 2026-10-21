@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { packCandidate, releaseFixture } from "./release-fixture.mjs";
+import { packCandidate, releaseFixture } from "./fixtures/release-fixture.mjs";
 
 const exec = promisify(execFile);
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -22,7 +22,7 @@ const env = { ...process.env, XDG_CONFIG_HOME: join(root, "config"), XDG_DATA_HO
   PI_CODING_AGENT_DIR: agentDir, HUI_PI_BACKEND: "sdk" };
 const releases = process.env.HUI_E2E_RELEASES === "1" ? await releaseFixture(root) : null;
 if (releases) Object.assign(env, releases.env);
-const provider = spawn(process.execPath, [join(repo, "e2e/pi-provider-fixture.mjs")], {
+const provider = spawn(process.execPath, [join(repo, "e2e/fixtures/pi-provider-fixture.mjs")], {
   env: { ...env, HUI_E2E_PROVIDER_PORT: "0", HUI_E2E_WORKSPACE: workspace, HUI_E2E_PROVIDER_LOG: join(root, "provider.jsonl") },
   stdio: ["ignore", "pipe", "inherit"],
 });

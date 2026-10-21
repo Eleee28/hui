@@ -7,7 +7,7 @@ read or changed.
 
 ## Journey
 
-1. Start `e2e/pi-provider-fixture.mjs` with the disposable workspace and the
+1. Start `e2e/fixtures/pi-provider-fixture.mjs` with the disposable workspace and the
    isolated `hui-e2e/fixture` model, then start HUI on `localhost:5199`.
 2. Through New Session, choose the fixture workspace, enter
    `E2E_RICH_EMBEDS`, and activate **Start session**. The real PI turn returns
@@ -45,7 +45,7 @@ stored in the repository.
 ## Automated coverage
 
 - Markdown recognition, strict allowlist behavior and escaping:
-  `src/lib/markdown.test.ts`.
+  `src/lib/markdown/markdown.test.ts`.
 - Agent-visible presentation guidance through the real PI SDK:
   `server/runtimes/pi-sdk.test.ts`.
 - Production dependency audit: `npm audit --omit=dev` reported zero

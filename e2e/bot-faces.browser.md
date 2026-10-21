@@ -7,7 +7,7 @@ accessibility and cost. Run against `e2e/visual-verification.mjs launch
 --branch feat/bot-faces --pi-sessions` in headless Chromium driven through CDP
 (the Browser tool's headless Brave hangs on screenshots on this host). HUI, the
 gateway's `/__hui/bots` routes and stream, Pi Durable and OptChat are real; the
-model provider (`e2e/pi-provider-fixture.mjs`) is a deterministic fake. No
+model provider (`e2e/fixtures/pi-provider-fixture.mjs`) is a deterministic fake. No
 operator transcript, credential or account is used.
 
 Since 2026-10-07 the Look is a row of the bot's Settings tab rather than a
@@ -20,12 +20,9 @@ the old dialog.
    `NODE_USE_ENV_PROXY` unset: `node e2e/visual-verification.mjs launch --branch
    feat/bot-faces --pi-sessions`, then `doctor` on the receipt
    before and after the browser work, and `cleanup` at the end.
-2. Setup through HUI's guarded API (not the journey under test): `PUT
-   /__hui/settings {"bots":{"showTab":true}}` (since 2026-10-07
-   `{"labs":{"bots":true}}`: Settings → Labs → Bots, the one switch, replaced Show
-   the Bots tab; an old `showTab` still reads as bots on), then `POST /__hui/bots` for ten
-   bots: Scout (blob, blue), Coach (heart, magenta), Atlas (round, mint), Pixel
-   (cookie, coral), Tri (triangle, yellow), Juno (heart, lilac), Moss (cookie,
+2. Setup through HUI's guarded API (not the journey under test): `POST
+   /__hui/bots` for ten bots: Scout (blob, blue), Coach (heart, magenta), Atlas
+   (round, mint), Pixel (cookie, coral), Tri (triangle, yellow), Juno (heart, lilac), Moss (cookie,
    mint), Owl (🦉), and Ledger and Nova with no look (their ids pick it); an
    eleventh, Old, archived. States come from messages
    (`POST /__hui/bots/:id/messages`): `E2E_REPLAY` holds a streaming reply
@@ -80,13 +77,13 @@ the old dialog.
 
 That run also checked the face on a call, through a VoiceStudio fixture HUI no
 longer has. On GPT-Live calls the face listens with the microphone's level and
-speaks with the bot's audio: `src/lib/bot-face.test.ts`,
-`src/lib/voice-controller.test.ts` and `src/lib/live-call.test.ts` check it, as
+speaks with the bot's audio: `src/lib/bots/face.test.ts`,
+`src/controllers/voice-controller.test.ts` and `src/lib/voice/live-call.test.ts` check it, as
 did the real calls of the calls pull request.
 
 ## More shapes and ears (2026-10-08, `f2a2753`, clean checkout; doctor passed before and after)
 
-`visual-verification.mjs launch --pi-sessions`, bots on in Labs, nine bots through
+`visual-verification.mjs launch --pi-sessions`, nine bots through
 `POST /__hui/bots`: Nova (star, bunny), Petal (flower, sprout), Nimbus (cloud,
 bear), Dew (drop), Boo (ghost, horns), Capsule (pill, cat), Cubo (block,
 antenna), Hex (hexagon) and Plain (no look). The Browser tool's headless Chrome
@@ -108,8 +105,37 @@ Browser tool only opened the captures to inspect them.
    sheet (`scrollWidth` 390, the card 353 px).
 5. Console: Lit's development-mode warnings only, as on `main`.
 
-`set_profile` changing the look is covered by `server/bot-service.test.ts` and
-`server/runtimes/durable-bots.test.ts`; no browser run had the model call it.
+`set_profile` changing the look is covered by `server/bots/service.test.ts` and
+`server/bots/durable.test.ts`; no browser run had the model call it.
+
+## Sleeping, working and done (2026-10-19, `66a873d`, clean checkout; doctor passed before and after)
+
+`visual-verification.mjs launch` (default fixture), seven
+bots through `POST /__hui/bots` with a `soul` so no first turn runs: Ada,
+Master (cat ears), Grace, Pedro, Sherlock, Luisma and Maria. Grace, Luisma,
+Maria and Sherlock each got one message with `wait: true`, so their turns ended
+with nobody reading them.
+
+1. Bots tab: the four that answered show a green dot and open eyes; Ada, Master
+   and Pedro, never spoken to, sleep with closed eyes and a *z* badge. Row
+   names read *Grace, done, unread* and *Ada, sleeping*.
+2. Clicking Sherlock, then Maria, then Luisma: the open row has no badge and
+   open eyes (*Luisma, idle*; the header and panel say *Idle*), and each bot
+   left behind sleeps (*Sherlock, sleeping*).
+3. `E2E_REPLAY` on Ada, a held memory summary on Master and
+   `/hui-e2e-question confirm` on Pedro: Ada thinks and Master shows
+   *Summarizing memory…*, both without a badge; Pedro shows the hand.
+4. `POST <providerUrl>/control/release-replay`: Ada and Master turn green,
+   awake. A second headless Chrome on the same instance logged Ada's face and
+   badge from a MutationObserver (observation only): *thinking* with no badge,
+   then the done badge and the hop in the same frame as the status stream's
+   *idle* and *unread*, then *idle* 1.15 s later; never *sleeping*. Earlier
+   runs of the same probe on the branch, before the status stream's unread
+   marks won over the bot list, caught a list frame read before the unread
+   write putting a finished bot to sleep for about a second.
+5. 390×844: the drawer's roster shows the same badges. Dark theme: the green
+   dot and the *z* badge stay legible.
+6. Console: Lit's development-mode warnings only.
 
 ## Limits and gaps
 
@@ -120,3 +146,5 @@ Browser tool only opened the captures to inspect them.
   shows it, but no disconnect was forced.
 - Headless Chromium; screenshots cannot show motion, so motion is asserted
   through transforms and animation state, plus a screencast kept with the PR.
+- A row that moves while its bot hops (another bot had newer activity) ends
+  the hop; it shows the green dot at once.

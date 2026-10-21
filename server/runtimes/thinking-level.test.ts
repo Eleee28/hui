@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import { test } from "vitest";
 import { lowestThinkingLevel, offIsSent, withUpstreamThinkingMap, type ThinkingModel } from "./thinking-level.ts";
 import { runPiUtilityPrompt } from "./pi.ts";
 
@@ -59,7 +59,7 @@ test("utility calls send the cheapest level a gateway model accepts", { timeout:
   const address = server.address();
   assert(address && typeof address !== "string");
   const previous = { ...process.env };
-  t.after(async () => {
+  t.onTestFinished(async () => {
     process.env = previous;
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     await rm(dir, { recursive: true, force: true });

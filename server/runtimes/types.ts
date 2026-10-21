@@ -12,74 +12,14 @@
  * Another harness can slot in beside them without any of the UI changing.
  */
 import type { TranscriptMetrics } from "./transcript-metrics.ts";
-import type { CallRecord } from "../../shared/calls.ts";
-
-export type RuntimeQueue = {
-  steering: readonly string[];
-  followUp: readonly string[];
-  /** HUI-owned follow-ups are kept outside the runtime until they are sent, so
-   * the operator can still edit, remove, and reorder them. */
-  items?: readonly QueuedMessage[];
-};
-
-export type QueuedMessage = {
-  id: string;
-  text: string;
-  mode: "followUp";
-};
-
-export type RuntimeQuestion =
-  | {
-      id: string;
-      method: "select";
-      title: string;
-      /** Shown under the title, as a confirmation's message is (a bot's reason for an access request). */
-      message?: string;
-      options: readonly string[];
-      timeout?: number;
-    }
-  | {
-      id: string;
-      method: "confirm";
-      title: string;
-      message: string;
-      timeout?: number;
-    }
-  | {
-      id: string;
-      method: "input";
-      title: string;
-      placeholder?: string;
-      timeout?: number;
-    }
-  | {
-      id: string;
-      method: "editor";
-      title: string;
-      prefill?: string;
-      timeout?: number;
-    };
+export type { RuntimeInspection, RuntimeTool, ToolCatalogEntry, ToolsCatalog, SessionTools } from "../api/tools.ts";
+export type {
+  CompactionReason, QueuedMessage, RuntimeCommand, RuntimeCompaction, RuntimeModel, RuntimeQuestion, RuntimeQueue, RuntimeUsage,
+} from "../api/session-events.ts";
+import type { CompactionReason, RuntimeCommand, RuntimeModel, RuntimeQuestion, RuntimeQueue, RuntimeUsage } from "../api/session-events.ts";
+import type { CallRecord } from "../calls-format.ts";
 
 export type RuntimeQuestionResponse = { value: string } | { confirmed: boolean };
-
-/** Why PI compacted: `/compact`, its context threshold, or a context overflow it recovers from. */
-export type CompactionReason = "manual" | "threshold" | "overflow";
-
-/** A compaction shown outside the transcript: one in progress, or one that
- * ended without writing a summary (a written one is a `compaction` entry).
- * Without flags it is PI's: the session is busy, input waits for it and Stop
- * cancels it. `blocking: false` marks one the runtime runs beside the
- * conversation, as Durable runs a manual or background compaction: the session
- * stays idle, input is never held and a run carries on meanwhile; a manual one
- * can be cancelled on its own. `background: true` marks the runtime's own,
- * which nothing in HUI cancels. */
-export type RuntimeCompaction = {
-  status: "running" | "failed" | "cancelled";
-  reason: CompactionReason;
-  message?: string;
-  blocking?: false;
-  background?: true;
-};
 
 /** Everything the browser needs to draw a turn, normalised across tools. */
 export type RuntimeEvent =
@@ -90,7 +30,7 @@ export type RuntimeEvent =
   | { type: "tool_end"; id: string; name: string; output?: string; details?: unknown; failed?: boolean }
   | { type: "queue_update"; queue: RuntimeQueue }
   | { type: "question"; question: RuntimeQuestion }
-  | { type: "notice"; message: string; level: "info" | "warning" | "error" }
+  | { type: "notice"; message: string; level: "info" | "warning" | "error"; recovery?: true }
   | { type: "turn_start" }
   | { type: "turn_end" }
   /** `blocking` and `background` as in `RuntimeCompaction`; absent, it blocks and is not background. */
@@ -106,34 +46,6 @@ export type RuntimeEvent =
   /** `output` holds the last lines the runtime process wrote to stderr before
    * it failed. It feeds diagnostics only and is never sent to a browser. */
   | { type: "error"; message: string; output?: string };
-
-/**
- * A model the runtime can switch to. `id` is what the tool expects back in
- * `setModel`; `name` is only for display.
- */
-export type RuntimeModel = {
-  provider: string;
-  id: string;
-  name: string;
-  contextWindow?: number;
-  maxTokens?: number;
-};
-
-/** A runtime-owned command invoked through an ordinary `/name` prompt. */
-export type RuntimeCommand = {
-  name: string;
-  description: string;
-  source: "extension" | "skill" | "prompt";
-};
-
-export type RuntimeUsage = {
-  contextTokens: number | null;
-  contextWindow: number;
-  percent: number | null;
-  inputTokens: number;
-  outputTokens: number;
-  costUsd: number | null;
-};
 
 /** A PI entry id, or a user message the browser shows without one yet (the
  * running prompt or one delivered mid-run), counted from the end of the branch. */
@@ -169,12 +81,17 @@ export type StartOptions = {
   worker?: string;
 };
 
+/** A caller-owned input identity, deduplicated by runtimes that expose tracked prompt receipts. */
+export type RuntimePromptOptions = { requestId: string };
+/** The answer recorded for one tracked input, independent of later turns in its conversation. */
+export type RuntimePromptResult = { summary?: string };
+
 export type RuntimeSession = {
   /** Root process owned by this runtime, when the adapter launches one. HUI
    * uses it only for ephemeral resource telemetry; it is never persisted. */
   readonly processId?: number;
   /** A fresh read of the initialized registry and effective prompt. */
-  inspect?(): Promise<import("../../src/lib/tools-types.ts").RuntimeInspection>;
+  inspect?(): Promise<import("../api/tools.ts").RuntimeInspection>;
   /** The owning runtime's conversation identity. */
   readonly sessionId: string;
   /** Where the conversation is stored, once the tool has decided. */
@@ -183,11 +100,15 @@ export type RuntimeSession = {
   /** The runtime itself continues runs interrupted by a gateway restart, so
    * HUI must never replay them with a recovery prompt. */
   readonly resumesInterruptedRuns?: boolean;
-  prompt(text: string, attachments?: readonly PromptAttachment[]): Promise<void>;
+  prompt(text: string, attachments?: readonly PromptAttachment[], options?: RuntimePromptOptions): Promise<void>;
   /** Queue an instruction before the next model call while the agent is busy. */
   steer?(text: string, attachments?: readonly PromptAttachment[]): Promise<void>;
   /** Queue work to begin only after the current agent run has settled. */
-  followUp?(text: string, attachments?: readonly PromptAttachment[]): Promise<void>;
+  followUp?(text: string, attachments?: readonly PromptAttachment[], options?: RuntimePromptOptions): Promise<void>;
+  /** Reacquire and await an already-admitted input by its caller-owned identity. Never sends new input. */
+  waitForTrackedPrompt?(requestId: string): Promise<RuntimePromptResult>;
+  /** Withdraw that queued input or abort only the active task that owns it, never a later, unrelated run. */
+  cancelTrackedPrompt?(requestId: string): Promise<void>;
   /** Returns an unsubscribe function. */
   subscribe(listener: (event: RuntimeEvent) => void): () => void;
   /*
@@ -207,6 +128,9 @@ export type RuntimeSession = {
   setModel?(provider: string, id: string): Promise<void>;
   currentThinking?(): string | undefined;
   setThinking?(level: string): Promise<void>;
+  /** Fast mode: the session's requests to a model with one (`RuntimeModel.fast`) ask for it. */
+  currentFast?(): boolean;
+  setFast?(on: boolean): Promise<void>;
   pendingQueue?(): RuntimeQueue;
   pendingQuestions?(): readonly RuntimeQuestion[];
   respondQuestion?(id: string, response: RuntimeQuestionResponse): Promise<void>;

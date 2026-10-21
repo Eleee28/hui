@@ -14,7 +14,7 @@
  */
 import { createHash } from "node:crypto";
 import type { JsonValue } from "@earendil-works/chord";
-import { clampThinkingLevel, type Message, type ModelThinkingLevel } from "@earendil-works/pi-ai";
+import type { Message } from "@earendil-works/pi-ai";
 import {
   convertToLlm, migrateSessionEntries, parseSessionEntries, sessionEntryToContextMessages, type SessionEntry,
 } from "@earendil-works/pi-coding-agent";
@@ -24,6 +24,7 @@ import {
 } from "@earendil-works/pi-durable";
 import { transcriptUsage } from "../observability.ts";
 import { durableContext, type DurableHost } from "./durable-host.ts";
+import { fitThinking } from "./model-controls.ts";
 import { defaultThinking, initialModel, modelRef, SUMMARY_PREFIX, SUMMARY_SUFFIX } from "./durable.ts";
 
 type ModelRef = { provider: string; modelId: string };
@@ -213,7 +214,7 @@ async function agentFor(host: DurableHost, session: { cwd: string; model?: strin
   const requested = session.thinking ?? plan.thinkingLevel ?? defaultThinking(host, session.cwd);
   return {
     model,
-    thinkingLevel: requested && resolved ? clampThinkingLevel(resolved, requested as ModelThinkingLevel) : undefined,
+    thinkingLevel: requested && resolved ? fitThinking(resolved, requested) : undefined,
   };
 }
 

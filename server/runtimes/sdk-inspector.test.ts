@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { test } from "node:test";
+import { test } from "vitest";
 import { SdkInspector } from "./sdk-inspector.ts";
 
 function fixture(reply?: Record<string, unknown>) {

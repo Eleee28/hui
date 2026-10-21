@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import type { ProviderSummary } from "../../shared/providers.ts";
+import { test } from "vitest";
+import type { ProviderSummary } from "../api/schema/providers.ts";
 import { connectionMethods, connectionName, providerBrand, providerBrands } from "./provider-choices.ts";
 
 const provider = (id: string, methods: ("oauth" | "api_key")[]): ProviderSummary => ({

@@ -2,7 +2,7 @@
  * How model providers are grouped and named in the connection UI: the featured brands, their display names
  * and the sign-in methods each offers. PI owns the providers and credentials themselves.
  */
-import type { ProviderSummary } from "../../shared/providers.ts";
+import type { ProviderSummary } from "../api/schema/providers.ts";
 
 export const providerBrands = [
   { id: "opencode-go", name: "OpenCode Go", description: "Use your OpenCode Go subscription.", providers: ["opencode-go"] },

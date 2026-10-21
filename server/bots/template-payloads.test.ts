@@ -1,0 +1,214 @@
+import { expectTypeOf, test } from "vitest";
+import type { AutomationSchedule } from "../api/automation.ts";
+import type { BotFaceEars, BotFaceShape, BotTagging, BotView, BotVoice } from "../api/bots.ts";
+import type { BotTriggerInput } from "../api/bot-triggers.ts";
+import type * as Templates from "../api/bot-templates.ts";
+
+type LegacyBotTemplateFormat = "grok" | "openclaw" | "claude-code" | "letta" | "character-card" | "crewai" | "hui" | "text";
+type LegacyBotTemplateSkill = {
+  name: string;
+  description: string;
+  content: string;
+  files?: LegacyBotTemplateSkillFile[];
+};
+type LegacyBotTemplateSkillFile = { path: string; text: string };
+type LegacyBotTemplateRoutine = {
+  name: string;
+  prompt: string;
+  schedule?: string;
+  automation?: AutomationSchedule;
+  description?: string;
+};
+type LegacyBotTemplateMemory = { name?: string; text: string };
+type LegacyBotTemplateIntegration = { name: string; description?: string };
+type LegacyBotTemplate = {
+  format: LegacyBotTemplateFormat;
+  origin?: string;
+  author?: string;
+  name: string;
+  title?: string;
+  description?: string;
+  emoji?: string;
+  avatar?: { shape?: BotFaceShape; ears?: BotFaceEars; color?: string };
+  soul: string;
+  opener?: string;
+  memories: LegacyBotTemplateMemory[];
+  skills: LegacyBotTemplateSkill[];
+  routines: LegacyBotTemplateRoutine[];
+  integrations: LegacyBotTemplateIntegration[];
+  model?: string;
+  tools?: string[];
+  hui?: {
+    handle?: string;
+    thinking?: string;
+    memoryModel?: string;
+    memoryThinking?: string;
+    voice?: BotVoice;
+    tagging?: Exclude<BotTagging, "anyone">;
+    disabledTools?: string[];
+    disabledSkills?: string[];
+  };
+  open?: LegacyBotOpenPoint[];
+  needs?: string[];
+  triggers?: LegacyBotTemplateTrigger[];
+  dropped: string[];
+  notes: string[];
+};
+type LegacyBotImportSource =
+  | { kind: "file"; name: string; data: string }
+  | { kind: "files"; files: { path: string; data: string }[] }
+  | { kind: "url"; url: string }
+  | { kind: "text"; text: string };
+type LegacyBotImportRoutine = {
+  name: string;
+  prompt: string;
+  schedule: AutomationSchedule;
+  scheduleText?: string;
+  guessed: boolean;
+};
+type LegacyBotImportPreview = {
+  template: LegacyBotTemplate;
+  candidates?: { key: string; name: string; title?: string }[];
+  pick?: string;
+  bot: {
+    name: string;
+    handle: string;
+    title?: string;
+    description?: string;
+    emoji?: string;
+    avatar?: { shape?: BotFaceShape; ears?: BotFaceEars; color?: string };
+    worker?: { id: string; name: string };
+  };
+  soul: string;
+  opener?: string;
+  model?: string;
+  thinking?: string;
+  utilityModel?: string;
+  memories: { included: number; total: number };
+  skills: (LegacyBotTemplateSkill & { original: string })[];
+  routines: LegacyBotImportRoutine[];
+  integrations: (LegacyBotTemplateIntegration & { tool?: { name: string; label: string } })[];
+  disabledTools: string[];
+  disabledSkills: string[];
+  open: LegacyBotOpenPoint[];
+  needs: string[];
+  triggers: LegacyBotTemplateTrigger[];
+  dropped: string[];
+  notes: string[];
+};
+type LegacyBotImportResult = {
+  bot: BotView;
+  skills: string[];
+  routines: number;
+  opener: boolean;
+  warnings: string[];
+};
+type LegacyBotExportSchedule = { kind: "every"; everyMs: number } | { kind: "cron"; expression: string };
+type LegacyBotOpenPoint = {
+  kind: "ask" | "confirm";
+  where: string;
+  question: string;
+  excerpt?: string;
+  operator?: true;
+};
+type LegacyBotTemplateTrigger = Pick<BotTriggerInput, "name" | "filter" | "prompt" | "delivery"> & { cooldownSeconds: number };
+type LegacyBotExportGroup = "keep" | "remove" | "ask" | "confirm";
+type LegacyBotExportAddition = { quote: string; group: Exclude<LegacyBotExportGroup, "keep">; becomes?: string };
+type LegacyBotExportField = { key: string; text: string };
+type LegacyBotExportPart = {
+  id: string;
+  label: string;
+  kind: "text" | "script";
+  fields: LegacyBotExportField[];
+  read: boolean;
+  unread?: string;
+};
+type LegacyBotExportChange = {
+  id: string;
+  part: string;
+  quote: string;
+  group: LegacyBotExportGroup;
+  reason: string;
+  replacement: string;
+  label: string;
+  question: string;
+};
+type LegacyBotExportFileChange = { id: string; part: string; group: "keep" | "remove" | "confirm"; reasons: string[]; question: string };
+type LegacyBotExportCleanup = { part: string; field: string; kind: string; sample: string; count: number };
+type LegacyBotExportMeta = {
+  avatar?: { emoji?: string; shape?: BotFaceShape; ears?: BotFaceEars; color?: string };
+  model?: string;
+  thinking?: string;
+  memoryModel?: string;
+  memoryThinking?: string;
+  voice?: BotVoice;
+  tagging?: Exclude<BotTagging, "anyone">;
+  routines: { schedule: LegacyBotExportSchedule }[];
+  triggers: Pick<LegacyBotTemplateTrigger, "filter" | "delivery" | "cooldownSeconds">[];
+  disabledTools: string[];
+  disabledSkills: string[];
+  skills: string[];
+};
+type LegacyBotExportReview = {
+  id: string;
+  botId: string;
+  name: string;
+  model?: string;
+  warning?: string;
+  parts: LegacyBotExportPart[];
+  cleanup: LegacyBotExportCleanup[];
+  changes: LegacyBotExportChange[];
+  files: LegacyBotExportFileChange[];
+  needs: { id: string; text: string }[];
+  leftOut: string[];
+  meta: LegacyBotExportMeta;
+};
+
+test("the bot import and export schemas say what the old types said", () => {
+  expectTypeOf<LegacyBotTemplateFormat>().toMatchTypeOf<Templates.BotTemplateFormat>();
+  expectTypeOf<Templates.BotTemplateFormat>().toMatchTypeOf<LegacyBotTemplateFormat>();
+  expectTypeOf<LegacyBotTemplateSkill>().toMatchTypeOf<Templates.BotTemplateSkill>();
+  expectTypeOf<Templates.BotTemplateSkill>().toMatchTypeOf<LegacyBotTemplateSkill>();
+  expectTypeOf<LegacyBotTemplateSkillFile>().toMatchTypeOf<Templates.BotTemplateSkillFile>();
+  expectTypeOf<Templates.BotTemplateSkillFile>().toMatchTypeOf<LegacyBotTemplateSkillFile>();
+  expectTypeOf<LegacyBotTemplateRoutine>().toMatchTypeOf<Templates.BotTemplateRoutine>();
+  expectTypeOf<Templates.BotTemplateRoutine>().toMatchTypeOf<LegacyBotTemplateRoutine>();
+  expectTypeOf<LegacyBotTemplateMemory>().toMatchTypeOf<Templates.BotTemplateMemory>();
+  expectTypeOf<Templates.BotTemplateMemory>().toMatchTypeOf<LegacyBotTemplateMemory>();
+  expectTypeOf<LegacyBotTemplateIntegration>().toMatchTypeOf<Templates.BotTemplateIntegration>();
+  expectTypeOf<Templates.BotTemplateIntegration>().toMatchTypeOf<LegacyBotTemplateIntegration>();
+  expectTypeOf<LegacyBotTemplate>().toMatchTypeOf<Templates.BotTemplate>();
+  expectTypeOf<Templates.BotTemplate>().toMatchTypeOf<LegacyBotTemplate>();
+  expectTypeOf<LegacyBotImportSource>().toMatchTypeOf<Templates.BotImportSource>();
+  expectTypeOf<Templates.BotImportSource>().toMatchTypeOf<LegacyBotImportSource>();
+  expectTypeOf<LegacyBotImportRoutine>().toMatchTypeOf<Templates.BotImportRoutine>();
+  expectTypeOf<Templates.BotImportRoutine>().toMatchTypeOf<LegacyBotImportRoutine>();
+  expectTypeOf<LegacyBotImportPreview>().toMatchTypeOf<Templates.BotImportPreview>();
+  expectTypeOf<Templates.BotImportPreview>().toMatchTypeOf<LegacyBotImportPreview>();
+  expectTypeOf<LegacyBotImportResult>().toMatchTypeOf<Templates.BotImportResult>();
+  expectTypeOf<Templates.BotImportResult>().toMatchTypeOf<LegacyBotImportResult>();
+  expectTypeOf<LegacyBotExportSchedule>().toMatchTypeOf<Templates.BotExportSchedule>();
+  expectTypeOf<Templates.BotExportSchedule>().toMatchTypeOf<LegacyBotExportSchedule>();
+  expectTypeOf<LegacyBotOpenPoint>().toMatchTypeOf<Templates.BotOpenPoint>();
+  expectTypeOf<Templates.BotOpenPoint>().toMatchTypeOf<LegacyBotOpenPoint>();
+  expectTypeOf<LegacyBotTemplateTrigger>().toMatchTypeOf<Templates.BotTemplateTrigger>();
+  expectTypeOf<Templates.BotTemplateTrigger>().toMatchTypeOf<LegacyBotTemplateTrigger>();
+  expectTypeOf<LegacyBotExportGroup>().toMatchTypeOf<Templates.BotExportGroup>();
+  expectTypeOf<Templates.BotExportGroup>().toMatchTypeOf<LegacyBotExportGroup>();
+  expectTypeOf<LegacyBotExportAddition>().toMatchTypeOf<Templates.BotExportAddition>();
+  expectTypeOf<Templates.BotExportAddition>().toMatchTypeOf<LegacyBotExportAddition>();
+  expectTypeOf<LegacyBotExportField>().toMatchTypeOf<Templates.BotExportField>();
+  expectTypeOf<Templates.BotExportField>().toMatchTypeOf<LegacyBotExportField>();
+  expectTypeOf<LegacyBotExportPart>().toMatchTypeOf<Templates.BotExportPart>();
+  expectTypeOf<Templates.BotExportPart>().toMatchTypeOf<LegacyBotExportPart>();
+  expectTypeOf<LegacyBotExportChange>().toMatchTypeOf<Templates.BotExportChange>();
+  expectTypeOf<Templates.BotExportChange>().toMatchTypeOf<LegacyBotExportChange>();
+  expectTypeOf<LegacyBotExportFileChange>().toMatchTypeOf<Templates.BotExportFileChange>();
+  expectTypeOf<Templates.BotExportFileChange>().toMatchTypeOf<LegacyBotExportFileChange>();
+  expectTypeOf<LegacyBotExportCleanup>().toMatchTypeOf<Templates.BotExportCleanup>();
+  expectTypeOf<Templates.BotExportCleanup>().toMatchTypeOf<LegacyBotExportCleanup>();
+  expectTypeOf<LegacyBotExportMeta>().toMatchTypeOf<Templates.BotExportMeta>();
+  expectTypeOf<Templates.BotExportMeta>().toMatchTypeOf<LegacyBotExportMeta>();
+  expectTypeOf<LegacyBotExportReview>().toMatchTypeOf<Templates.BotExportReview>();
+  expectTypeOf<Templates.BotExportReview>().toMatchTypeOf<LegacyBotExportReview>();
+});

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { test } from "node:test";
-import type { WorkerView } from "../shared/workers.ts";
+import { test, type TestContext } from "vitest";
+import type { WorkerView } from "../server/worker/workers.ts";
 import { formatWorkers, workersCommand } from "./workers.ts";
 
 /** A stand-in gateway: the workers routes over an in-memory list, recording each request. */
-async function fakeGateway(t: { after(fn: () => unknown): void }) {
+async function fakeGateway(t: TestContext) {
   const workers: WorkerView[] = [];
   const calls: string[] = [];
   let next = 0;
@@ -33,7 +33,7 @@ async function fakeGateway(t: { after(fn: () => unknown): void }) {
     reply(405, { error: "method not allowed" });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  t.after(() => new Promise((resolve) => server.close(resolve)));
+  t.onTestFinished(() => new Promise((resolve) => server.close(() => resolve())));
   const address = server.address() as { port: number };
   return { base: `http://127.0.0.1:${address.port}/`, workers, calls };
 }

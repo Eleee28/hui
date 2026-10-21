@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { convertToLlm } from "@earendil-works/pi-coding-agent";
 import { CONTEXT_EDIT_KIND, planPiImport, type PiImportDraft } from "./pi-import.ts";
 import { SUMMARY_PREFIX, SUMMARY_SUFFIX } from "./durable.ts";

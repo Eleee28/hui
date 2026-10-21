@@ -13,7 +13,7 @@ Run on 2026-10-07 against a gateway built from `feat/bot-schedules` at `b0483c2`
 with the Browser tool on an owned headless Brave (disposable profile, CDP 18800).
 HUI, the gateway's routes and streams, Pi Durable, OptChat, Automation, the bot
 tools' extension and the CLI are real; only the model provider is a fake
-(`e2e/pi-provider-fixture.mjs`). No operator configuration, transcript,
+(`e2e/fixtures/pi-provider-fixture.mjs`). No operator configuration, transcript,
 credential or account is involved.
 
 ## Reproduce
@@ -22,11 +22,10 @@ credential or account is involved.
    `XDG_DATA_HOME`, `XDG_STATE_HOME`, `PI_CODING_AGENT_DIR` and
    `PI_CODING_AGENT_SESSION_DIR` inside it, `PI_OFFLINE=1`, `TZ=Europe/Madrid`;
    every process is started with `env -i` and only those variables (no proxy).
-2. Start `e2e/pi-provider-fixture.mjs` (`HUI_E2E_PROVIDER_PORT=0`) and point
+2. Start `e2e/fixtures/pi-provider-fixture.mjs` (`HUI_E2E_PROVIDER_PORT=0`) and point
    `<agent>/models.json` at it (provider `hui-e2e`, model `fixture`).
 3. Start the built gateway and set it up through the guarded API (not the
-   journey under test): `PUT /__hui/settings` with `labs.bots: true` and
-   `themeMode: "dark"`; `POST /__hui/bots` for Ada (title *Release watcher*,
+   journey under test): `PUT /__hui/settings` with `themeMode: "dark"`; `POST /__hui/bots` for Ada (title *Release watcher*,
    heart, lilac, a soul); an operator routine *Morning digest* on Ada's chat
    (`0 9 * * 1-5`, Europe/Madrid); an ordinary session *Release notes*. Then
    `hui schedule add --name "Nightly review" … --cron "0 2 * * *" --session
@@ -75,11 +74,6 @@ credential or account is involved.
    … --session "Release notes" --until 2026-10-10T18:00 --runs 24` a temporary
    session schedule; `resume`, `edit --every 2h --runs 12` and `pause` acted on
    it; `hui bot routine list ada` shows the same facts.
-7. **Bots off** (`labs.bots: false` through `PUT /__hui/settings`): `hui schedule
-   list` printed only the session's schedules; `schedule list --bot ada` and
-   `schedule show "Watch #82"` printed *hui: Bots are off on this gateway: they
-   are a preview. Turn them on in Settings → Labs → Bots.* and exited 1; `pause`
-   and `resume` of *Nightly review* worked. Bots were turned on again after.
-8. Page errors: none. The console's errors are the UI's requests that failed
+7. Page errors: none. The console's errors are the UI's requests that failed
    while the gateway was stopped for the restart, which the gateway's UI
    diagnostics recorded (`ui/request_failed`, three entries).

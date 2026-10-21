@@ -10,7 +10,7 @@ bin/hui.mjs gateway run`) in a temporary HOME and XDG directories, with a local
 worker: its connect command is `env HOME=<temp>/remote SHELL=/bin/sh`, so the
 "remote" is a separate home on the same machine, with the built worker release
 pre-installed (no network). HUI, the worker host, Pi Durable and OptChat are
-real; the model provider (`e2e/pi-provider-fixture.mjs`) is the deterministic
+real; the model provider (`e2e/fixtures/pi-provider-fixture.mjs`) is the deterministic
 fake. Driven through CDP in headless Chromium. No operator transcript,
 credential or account is used.
 
@@ -25,9 +25,7 @@ dialog.
 1. `npm run build`. In a temporary root: a PI agent directory under its
    `home/.pi/agent` (models.json with the fixture provider and two models,
    `fixture` and `utility`; an auth.json key the fixture requires), HUI settings
-   `{"bots":{"showTab":true},"models":{"utility":"fx/utility"}}` (since 2026-10-07
-   `"labs":{"bots":true}` instead: Settings → Labs → Bots, the one switch,
-   replaced Show the Bots tab; an old `showTab` still reads as bots on), and the worker
+   `{"models":{"utility":"fx/utility"}}`, and the worker
    release written into `<root>/remote/.local/share/hui-worker/releases/<id>/`
    from `build/server/worker/release.js`'s `workerRelease()`, with `node_modules`
    linked and `.ready` written.

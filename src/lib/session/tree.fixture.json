@@ -1,0 +1,61 @@
+[
+  {
+    "input": {
+      "sessions": [],
+      "rootId": "missing"
+    },
+    "expected": [
+      "missing"
+    ]
+  },
+  {
+    "input": {
+      "sessions": [
+        {
+          "id": "a"
+        },
+        {
+          "id": "b",
+          "parentId": "a"
+        },
+        {
+          "id": "c",
+          "parentId": "b"
+        },
+        {
+          "id": "d"
+        },
+        {
+          "id": "e",
+          "parentId": "a"
+        }
+      ],
+      "rootId": "a"
+    },
+    "expected": [
+      "a",
+      "b",
+      "e",
+      "c"
+    ]
+  },
+  {
+    "input": {
+      "sessions": [
+        {
+          "id": "a",
+          "parentId": "b"
+        },
+        {
+          "id": "b",
+          "parentId": "a"
+        }
+      ],
+      "rootId": "a"
+    },
+    "expected": [
+      "a",
+      "b"
+    ]
+  }
+]

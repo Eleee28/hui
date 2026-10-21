@@ -1,0 +1,98 @@
+[
+  {
+    "input": [],
+    "expected": null
+  },
+  {
+    "input": [
+      {
+        "kind": "tool",
+        "name": "progress_card",
+        "args": {
+          "markdown": "Notes",
+          "plan": [
+            {
+              "step": " One ",
+              "status": "completed"
+            },
+            {
+              "step": "Two",
+              "status": "in_progress"
+            },
+            null,
+            {
+              "step": "",
+              "status": "pending"
+            },
+            {
+              "step": "bad",
+              "status": "wrong"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "markdown": "Notes",
+      "steps": [
+        {
+          "step": "One",
+          "status": "completed"
+        },
+        {
+          "step": "Two",
+          "status": "in_progress"
+        }
+      ]
+    }
+  },
+  {
+    "input": [
+      {
+        "kind": "tool",
+        "name": "progress_card",
+        "args": {
+          "markdown": "Old"
+        }
+      },
+      {
+        "kind": "tool",
+        "name": "other",
+        "args": {
+          "markdown": "Ignore"
+        }
+      }
+    ],
+    "expected": {
+      "markdown": "Old",
+      "steps": []
+    }
+  },
+  {
+    "input": [
+      {
+        "kind": "tool",
+        "name": "progress_card",
+        "args": {
+          "markdown": "Old"
+        }
+      },
+      {
+        "kind": "tool",
+        "name": "progress_card",
+        "args": {}
+      }
+    ],
+    "expected": null
+  },
+  {
+    "input": [
+      {
+        "kind": "tool",
+        "name": "progress_card",
+        "args": []
+      }
+    ],
+    "expected": null
+  }
+]

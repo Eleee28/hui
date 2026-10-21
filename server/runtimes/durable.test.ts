@@ -6,12 +6,12 @@ import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { after, test, type TestContext } from "node:test";
-import { normalizeSettings } from "../../src/lib/settings.ts";
+import { afterAll, test, type TestContext } from "vitest";
+import { normalizeSettings } from "../hui-settings.ts";
 import type { DurableSession } from "./durable.ts";
-import type { AgentToolInvocation } from "../agent-tools-bridge.ts";
+import type { AgentToolInvocation } from "../agent-tools/bridge.ts";
 import type { RuntimeEvent, TranscriptEntry } from "./types.ts";
-import { SecretFiles, SecretRequests } from "../secret-requests.ts";
+import { SecretFiles, SecretRequests } from "../agent-tools/secret-requests.ts";
 import { completeLines } from "../test-support/json-lines.ts";
 
 // HUI's configuration directory (provider selections, credentials, the default
@@ -20,20 +20,22 @@ import { completeLines } from "../test-support/json-lines.ts";
 const root = await mkdtemp(join(tmpdir(), "hui-durable-home-"));
 process.env["HOME"] = root;
 process.env["XDG_CONFIG_HOME"] = join(root, "config");
-after(() => rm(root, { recursive: true, force: true }));
+afterAll(() => rm(root, { recursive: true, force: true }));
 const { DurableHost, durableContext, registryCaller } = await import("./durable-host.ts");
+const { createDurableBots } = await import("../bots/durable-access.ts");
 // The estimate Durable's compaction thresholds use; the package root does not export it.
 const { estimateContext } = await import(new URL("./harness/compaction.js", import.meta.resolve("@earendil-works/pi-durable")).href) as {
   estimateContext(view: unknown, extra: readonly unknown[]): number;
 };
-const { durableConversationId, durableReference, startDurable } = await import("./durable.ts");
+const { durableConversationId, durableReference, expandSkill, startDurable } = await import("./durable.ts");
 const { importPiSession } = await import("./pi-import.ts");
+const { searchTranscripts } = await import("./transcript-search.ts");
 const { aggregateUsage } = await import("../observability.ts");
 type DurableHost = import("./durable-host.ts").DurableHost;
 
 const settings = normalizeSettings(undefined);
 
-async function fixture(t: TestContext, options: { contextWindow?: number; settings?: Record<string, unknown>; extensions?: Record<string, string> } = {}) {
+async function fixture(t: TestContext, options: { contextWindow?: number; settings?: Record<string, unknown>; extensions?: Record<string, string>; models?: readonly string[]; thinkingLevelMaps?: Record<string, object> } = {}) {
   const dir = await mkdtemp(join(tmpdir(), "hui-durable-test-"));
   const agentDir = join(dir, "agent");
   const cwd = join(dir, "workspace");
@@ -45,13 +47,13 @@ async function fixture(t: TestContext, options: { contextWindow?: number; settin
   }
   await writeFile(join(cwd, "fixture.txt"), "Durable fixture content\n");
   const log = join(dir, "requests.jsonl");
-  const provider = spawn(process.execPath, [fileURLToPath(new URL("../../e2e/pi-provider-fixture.mjs", import.meta.url))], {
+  const provider = spawn(process.execPath, [fileURLToPath(new URL("../../e2e/fixtures/pi-provider-fixture.mjs", import.meta.url))], {
     stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, HUI_E2E_PROVIDER_PORT: "0", HUI_E2E_WORKSPACE: cwd, HUI_E2E_PROVIDER_LOG: log },
   });
   const hosts: DurableHost[] = [];
   const children: ReturnType<typeof spawn>[] = [];
-  t.after(async () => {
+  t.onTestFinished(async () => {
     for (const host of hosts) await host.close().catch(() => {});
     for (const child of children) child.kill("SIGKILL");
     const exit = once(provider, "exit"); provider.kill(); await exit;
@@ -62,9 +64,10 @@ async function fixture(t: TestContext, options: { contextWindow?: number; settin
   assert(baseUrl, String(ready));
   await writeFile(join(agentDir, "models.json"), JSON.stringify({ providers: { "hui-e2e": {
     // Requires the provider identity HUI gives every PI request (docs/api.md).
-    baseUrl, api: "anthropic-messages", headers: { "x-client-session-id": "${PI_CLIENT_SESSION_ID}" }, apiKey: "fixture-key", models: ["fixture", "group/second"].map((id) => ({
+    baseUrl, api: "anthropic-messages", headers: { "x-client-session-id": "${PI_CLIENT_SESSION_ID}" }, apiKey: "fixture-key", models: (options.models ?? ["fixture", "group/second"]).map((id) => ({
       id, name: id, reasoning: true, input: ["text", "image"], contextWindow: options.contextWindow ?? 32000, maxTokens: 4096,
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      ...(options.thinkingLevelMaps?.[id] ? { thinkingLevelMap: options.thinkingLevelMaps[id] } : {}),
     })),
   } } }));
   await writeFile(join(agentDir, "settings.json"), JSON.stringify({
@@ -79,6 +82,7 @@ async function fixture(t: TestContext, options: { contextWindow?: number; settin
       invokeTool: options.invokeTool ?? (async (invocation) => { invocations.push(invocation); return { ok: true }; }),
       lookupCaller: async () => undefined,
     });
+    created.configureDurableBots(createDurableBots(created, {}));
     hosts.push(created);
     return created;
   };
@@ -134,7 +138,7 @@ function userEntryId(session: DurableSession, prefix: string): string {
   return entry.entryId;
 }
 
-type ProviderRequest = { system?: unknown; messages?: unknown };
+type ProviderRequest = { system?: unknown; messages?: unknown; speed?: unknown };
 async function providerRequests(log: string): Promise<ProviderRequest[]> {
   return completeLines(await readFile(log, "utf8")).map((line) => JSON.parse(line) as ProviderRequest);
 }
@@ -181,6 +185,14 @@ test("resume references round-trip Durable's integer conversation IDs only", () 
   }
 });
 
+test("a host whose bots were never configured refuses to open its store, so no conversation runs without bot policy", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "hui-durable-unconfigured-"));
+  const host = new DurableHost({ dir: join(dir, "store"), agentDir: dir, resume: false });
+  await assert.rejects(host.open(), /before its bots were configured/u);
+  assert.equal(existsSync(join(dir, "store")), false);
+  await rm(dir, { recursive: true, force: true });
+});
+
 test("the live view streams an answer Durable sends whole, exactly once", { timeout: 45_000 }, async (t) => {
   const f = await fixture(t);
   const session = await startDurable({ cwd: f.cwd, huiSessionId: "durable-whole-answer" }, f.host());
@@ -192,6 +204,64 @@ test("the live view streams an answer Durable sends whole, exactly once", { time
   // The fixture's short reply reaches Durable's stream as one partial; the live view shows it from these events.
   assert.equal(streamed.join(""), "Fixture response.");
   await transcriptWhere(session, answered("Fixture response."));
+});
+
+test("fast mode asks a Claude Opus model for speed: fast, while the session has it on", { timeout: 45_000 }, async (t) => {
+  const f = await fixture(t, { models: ["fixture", "claude-opus-5-5"] });
+  const session = await startDurable({ cwd: f.cwd, huiSessionId: "durable-fast", model: "hui-e2e/claude-opus-5-5" }, f.host());
+  assert.equal(session.currentModel()?.fast, true);
+  assert.deepEqual(session.currentModel()?.thinkingLevels, ["off", "minimal", "low", "medium", "high", "ultra"]);
+  assert.equal(session.currentFast(), false);
+  const speeds = async () => (await providerRequests(f.log)).map((request) => request.speed ?? "standard");
+
+  await session.setFast(true);
+  assert.equal(session.currentFast(), true);
+  await turns(session, ["hello fast"]);
+  assert.deepEqual(await speeds(), ["fast"]);
+  // A model without fast mode is asked for nothing, though the session keeps it on.
+  await session.setModel("hui-e2e", "fixture");
+  await turns(session, ["hello fixture"]);
+  await session.setModel("hui-e2e", "claude-opus-5-5");
+  await session.setFast(false);
+  await turns(session, ["hello standard"]);
+  assert.deepEqual(await speeds(), ["fast", "standard", "standard"]);
+});
+
+test("a switch to a model without the chosen thinking level lowers it for that model only", { timeout: 45_000 }, async (t) => {
+  const max = { low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" };
+  const f = await fixture(t, { models: ["fixture", "claude-opus-5-5"], thinkingLevelMaps: { "claude-opus-5-5": max } });
+  const host = f.host();
+  const session = await startDurable({ cwd: f.cwd, huiSessionId: "durable-fit", model: "hui-e2e/claude-opus-5-5" }, host);
+  assert.deepEqual(session.currentModel()?.thinkingLevels, ["off", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]);
+  await session.setThinking("max");
+  await session.setModel("hui-e2e", "fixture");
+  assert.equal(session.currentThinking(), "high");
+  await session.setModel("hui-e2e", "claude-opus-5-5");
+  assert.equal(session.currentThinking(), "max");
+
+  // A level chosen at creation that the first model lacks comes back the same way.
+  const created = await startDurable({ cwd: f.cwd, huiSessionId: "durable-fit-new", model: "hui-e2e/fixture", thinking: "max" }, host);
+  assert.equal(created.currentThinking(), "high");
+  await created.setModel("hui-e2e", "claude-opus-5-5");
+  assert.equal(created.currentThinking(), "max");
+});
+
+test("Ultra sends the model its highest level and asks the agent to plan, decide, delegate and verify, until it is turned off", { timeout: 45_000 }, async (t) => {
+  const max = { low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" };
+  const f = await fixture(t, { models: ["claude-opus-5-5"], thinkingLevelMaps: { "claude-opus-5-5": max } });
+  const session = await startDurable({ cwd: f.cwd, huiSessionId: "durable-ultra", model: "hui-e2e/claude-opus-5-5" }, f.host());
+  assert.equal(session.currentModel()?.thinkingLevels?.at(-1), "ultra");
+  const ultraPrompt = async () => JSON.stringify((await providerRequests(f.log)).filter((request) => !summarizing(request)).at(-1)?.system);
+
+  await session.setThinking("ultra");
+  assert.deepEqual([session.currentThinking(), session.modelThinking()], ["ultra", "max"]);
+  await turns(session, ["hello ultra"]);
+  assert.match(await ultraPrompt(), /Proactive Sub-Agent Orchestration[^"]*Ultra active for this session[^"]*Ask only before actions that are hard to undo[^"]*sessions_spawn/u);
+
+  await session.setThinking("high");
+  assert.deepEqual([session.currentThinking(), session.modelThinking()], ["high", "high"]);
+  await turns(session, ["hello high"]);
+  assert.doesNotMatch(await ultraPrompt(), /Ultra active/u);
 });
 
 test("Durable runs a real tool turn and reopens the conversation from its store", { timeout: 45_000 }, async (t) => {
@@ -229,11 +299,148 @@ test("Durable runs a real tool turn and reopens the conversation from its store"
   assert.deepEqual(withoutMetrics(reopened.transcript()), withoutMetrics(live), "the reopened transcript is the stored one");
 });
 
+test("tracked inputs deduplicate handlers and inbox admission, then recover their own answer after reattach and reopen", { timeout: 60_000 }, async (t) => {
+  const f = await fixture(t, { extensions: { "tracked.js": `
+    import { appendFileSync } from 'node:fs';
+    import { join } from 'node:path';
+    export default function (pi) {
+      pi.on('input', (event, ctx) => { appendFileSync(join(ctx.cwd, 'tracked-inputs.log'), event.text + '\\n'); });
+    }
+  ` } });
+  const host = f.host();
+  const first = await startDurable({ cwd: f.cwd, huiSessionId: "tracked-routine" }, host);
+  const input = "E2E_COMMAND_RUNNING tracked routine";
+  const request = { requestId: "automation-run-1" };
+  await Promise.all([first.prompt(input, undefined, request), first.prompt(input, undefined, request)]);
+  assert.equal((await f.control("/control/wait-replay-ready")).status, 200);
+  const queueUpdate = nextEvent(first, (event) => event.type === "queue_update" && event.queue.followUp.length === 1);
+  await Promise.all([
+    first.followUp("queued routine", undefined, { requestId: "automation-run-2" }),
+    first.followUp("queued routine", undefined, { requestId: "automation-run-2" }),
+  ]);
+  const queued = await queueUpdate;
+  assert(queued.type === "queue_update");
+  assert.deepEqual(queued.queue.followUp, ["queued routine"], "the duplicate identity admitted one durable inbox item");
+  await first.cancelTrackedPrompt("automation-run-2");
+  await assert.rejects(first.waitForTrackedPrompt("automation-run-2"), /not answered/u);
+  assert.equal(first.isStreaming, true, "withdrawing a queued receipt leaves the active unrelated routine running");
+  assert.deepEqual((await readFile(join(f.cwd, "tracked-inputs.log"), "utf8")).trim().split("\n"), [input, "queued routine"], "deduplication happens before input handlers too");
+
+  const reference = first.sessionFile;
+  first.dispose();
+  const reattached = await startDurable({ cwd: f.cwd, sessionFile: reference, huiSessionId: "tracked-routine" }, host);
+  const recovering = reattached.waitForTrackedPrompt(request.requestId);
+  await f.control("/control/release-replay", "POST");
+  const original = await recovering;
+  assert.match(original.summary ?? "", /Tool complete/u);
+  await transcriptWhere(reattached, (entries) => answered("Tool complete")(entries) && !reattached.isStreaming);
+  await turns(reattached, ["An unrelated later question"]);
+  assert.deepEqual(await reattached.waitForTrackedPrompt(request.requestId), original, "a later reply cannot replace the receipt's answer");
+  const before = await readFile(join(f.cwd, "tracked-inputs.log"), "utf8");
+  const requestsBeforeRetry = await readFile(f.log, "utf8");
+  await reattached.prompt(input, undefined, request);
+  assert.equal(await readFile(join(f.cwd, "tracked-inputs.log"), "utf8"), before, "a completed retry does not run hooks");
+  reattached.dispose();
+  await host.close();
+  const reopened = await startDurable({ cwd: f.cwd, sessionFile: reference, huiSessionId: "tracked-routine" }, f.host());
+  assert.deepEqual(await reopened.waitForTrackedPrompt(request.requestId), original);
+  await reopened.prompt(input, undefined, request);
+  assert.equal(reopened.transcript().filter((entry) => entry.kind === "message" && entry.role === "user" && entry.text === input).length, 1);
+  assert.equal(await readFile(f.log, "utf8"), requestsBeforeRetry, "reacquiring and retrying the same receipt sends no new model requests");
+  assert.equal(reopened.transcript().filter((entry) => entry.kind === "tool" && entry.name === "bash").length, 1, "the original command is the only bash invocation");
+  await assert.rejects(reopened.waitForTrackedPrompt("not-admitted"), /could not be found/u);
+});
+
+test("cancelling a placed tracked input aborts its task, and cancelling it again cannot stop a later turn", { timeout: 45_000 }, async (t) => {
+  const f = await fixture(t);
+  const session = await startDurable({ cwd: f.cwd, huiSessionId: "tracked-cancel" }, f.host());
+  await session.prompt("E2E_COMMAND_RUNNING tracked cancellation", undefined, { requestId: "cancel-me" });
+  assert.equal((await f.control("/control/wait-replay-ready")).status, 200);
+  await session.cancelTrackedPrompt("cancel-me");
+  await assert.rejects(session.waitForTrackedPrompt("cancel-me"), /not answered/u);
+  await transcriptWhere(session, () => !session.isStreaming);
+  const settled = nextEvent(session, (event) => event.type === "settled");
+  await session.prompt("Later unrelated question", undefined, { requestId: "keep-running" });
+  await session.cancelTrackedPrompt("cancel-me");
+  assert.match((await session.waitForTrackedPrompt("keep-running")).summary ?? "", /Fixture response/u);
+  await settled;
+});
+
+test("a provider retry is announced as a recovery notice", { timeout: 45_000 }, async (t) => {
+  const f = await fixture(t, { settings: { retry: { enabled: true, maxRetries: 1, baseDelayMs: 1 } } });
+  const session = await startDurable({ cwd: f.cwd, huiSessionId: "durable-retry-notice" }, f.host());
+  const notified = nextEvent(session, (event) => event.type === "notice");
+  await session.prompt("E2E_ERROR retried");
+  const notice = await notified;
+  assert(notice.type === "notice" && notice.level === "warning" && notice.recovery === true, JSON.stringify(notice));
+});
+
+test("a skill turned off in HUI is refused with a notice and never reaches the model", { timeout: 45_000 }, async (t) => {
+  const f = await fixture(t);
+  const skill = join(f.agentDir, "skills", "review", "SKILL.md");
+  await mkdir(join(f.agentDir, "skills", "review"), { recursive: true });
+  await writeFile(skill, "---\nname: review\ndescription: Review fixture skill.\n---\nReview body.\n");
+  const session = await startDurable({ cwd: f.cwd, huiSessionId: "durable-disabled-skill" }, f.host({ huiSettings: normalizeSettings({ disabledSkills: [{ name: "review", path: skill }] }) }));
+  const notified = nextEvent(session, (event) => event.type === "notice");
+  const settled = nextEvent(session, (event) => event.type === "settled");
+  await session.prompt("/skill:review now");
+  assert.deepEqual(await notified, { type: "notice", level: "warning", message: "Skill “review” is disabled for HUI sessions." });
+  await settled;
+  const aliased = nextEvent(session, (event) => event.type === "notice");
+  await session.prompt("$review now");
+  assert.deepEqual(await aliased, { type: "notice", level: "warning", message: "Skill “review” is disabled for HUI sessions." }, "the composer's $name form too");
+  assert.equal(session.isStreaming, false);
+  assert.deepEqual(session.transcript(), [], "nothing reached the model");
+});
+
+test("a skill of the same name from another folder stays usable when only one of them is turned off", { timeout: 45_000 }, async (t) => {
+  const f = await fixture(t);
+  await mkdir(join(f.agentDir, "skills", "review"), { recursive: true });
+  await writeFile(join(f.agentDir, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review fixture skill.\n---\nReview body.\n");
+  const elsewhere = join(f.cwd, "elsewhere", "review", "SKILL.md");
+  const session = await startDurable({ cwd: f.cwd, huiSessionId: "durable-same-name-skill" }, f.host({ huiSettings: normalizeSettings({ disabledSkills: [{ name: "review", path: elsewhere }] }) }));
+  const settled = nextEvent(session, (event) => event.type === "settled");
+  await session.prompt("/skill:review now");
+  await settled;
+  assert.ok(session.transcript().some((entry) => entry.kind === "message" && entry.role === "user"), "the enabled review ran");
+});
+
+test("a bundled skill turned off in HUI is refused with a notice", { timeout: 45_000 }, async (t) => {
+  const f = await fixture(t);
+  const visualizeOff = normalizeSettings({ disabledSkills: [{ name: "visualize", path: "hui:skill:visualize" }] });
+  const session = await startDurable({ cwd: f.cwd, huiSessionId: "durable-disabled-bundled-skill" }, f.host({ huiSettings: visualizeOff }));
+  for (const text of ["/skill:visualize now", "$visualize now"]) {
+    const notified = nextEvent(session, (event) => event.type === "notice");
+    await session.prompt(text);
+    assert.deepEqual(await notified, { type: "notice", level: "warning", message: "Skill “visualize” is disabled for HUI sessions." }, text);
+  }
+  assert.deepEqual(session.transcript(), [], "nothing reached the model");
+});
+
+test("a skill named like a bundled one turned off in HUI stays usable", { timeout: 45_000 }, async (t) => {
+  const f = await fixture(t);
+  await mkdir(join(f.agentDir, "skills", "visualize"), { recursive: true });
+  await writeFile(join(f.agentDir, "skills", "visualize", "SKILL.md"), "---\nname: visualize\ndescription: Local visualize skill.\n---\nLocal body.\n");
+  const visualizeOff = normalizeSettings({ disabledSkills: [{ name: "visualize", path: "hui:skill:visualize" }] });
+  const replaced = await startDurable({ cwd: f.cwd, huiSessionId: "durable-replaced-bundled-skill" }, f.host({ huiSettings: visualizeOff }));
+  const settled = nextEvent(replaced, (event) => event.type === "settled");
+  await replaced.prompt("/skill:visualize now");
+  await settled;
+  assert.ok(replaced.transcript().some((entry) => entry.kind === "message" && entry.role === "user"), "the local visualize ran");
+});
+
+test("a tracked provider failure retains its original diagnostic for routine failure classification", { timeout: 45_000 }, async (t) => {
+  const f = await fixture(t, { settings: { retry: { enabled: false } } });
+  const session = await startDurable({ cwd: f.cwd, huiSessionId: "tracked-model-error" }, f.host());
+  await session.prompt("E2E_ERROR tracked failure", undefined, { requestId: "failed-model-request" });
+  await assert.rejects(session.waitForTrackedPrompt("failed-model-request"), /model_error: .*fixture provider error/u);
+});
+
 test("a gateway killed mid-tool resumes the run without replaying bash", { timeout: 60_000 }, async (t) => {
   const f = await fixture(t);
   const hostUrl = new URL("./durable-host.ts", import.meta.url).href;
   const durableUrl = new URL("./durable.ts", import.meta.url).href;
-  const settingsUrl = new URL("../../src/lib/settings.ts", import.meta.url).href;
+  const settingsUrl = new URL("../hui-settings.ts", import.meta.url).href;
   // A separate process owns the store and is SIGKILLed while bash is running.
   const child = spawn(process.execPath, ["--input-type=module", "-e", `
     const { DurableHost } = await import(${JSON.stringify(hostUrl)});
@@ -241,9 +448,10 @@ test("a gateway killed mid-tool resumes the run without replaying bash", { timeo
     const { normalizeSettings } = await import(${JSON.stringify(settingsUrl)});
     const host = new DurableHost({ dir: ${JSON.stringify(f.store)}, agentDir: ${JSON.stringify(f.agentDir)},
       readSettings: async () => normalizeSettings(undefined), invokeTool: async () => ({}), lookupCaller: async () => undefined });
+    host.configureDurableBots(null);
     const session = await startDurable({ cwd: ${JSON.stringify(f.cwd)}, huiSessionId: "crash" }, host);
     process.stdout.write("REF " + session.sessionFile + "\\n");
-    await session.prompt("E2E_COMMAND_RUNNING hold the command");
+    await session.prompt("E2E_COMMAND_RUNNING hold the command", undefined, { requestId: "routine-crash" });
   `], { stdio: ["ignore", "pipe", "pipe"], env: process.env });
   f.children.push(child);
   let stderr = "";
@@ -259,6 +467,7 @@ test("a gateway killed mid-tool resumes the run without replaying bash", { timeo
 
   // A new gateway opens the same store; the harness resumes the run by itself.
   const session = await startDurable({ cwd: f.cwd, sessionFile: reference }, f.host());
+  assert.match((await session.waitForTrackedPrompt("routine-crash")).summary ?? "", /Tool complete/u, "the same accepted input's receipt survives SIGKILL");
   const entries = await transcriptWhere(session, answered("Tool complete"));
   const tool = entries.find((entry) => entry.kind === "tool");
   assert(tool && tool.kind === "tool" && tool.name === "bash", JSON.stringify(entries));
@@ -307,7 +516,7 @@ test("secret_request keeps the value out of the store and the model, and Stop ca
   const changed: Array<() => void> = [];
   const requests = new SecretRequests({ onChange: () => { for (const wake of changed.splice(0)) wake(); } });
   const files = new SecretFiles(f.dir);
-  t.after(() => { requests.dispose(); files.dispose(); });
+  t.onTestFinished(() => { requests.dispose(); files.dispose(); });
   const pending = async (count: number) => {
     while (requests.questions("durable-secret").length !== count) await new Promise<void>((wake) => changed.push(wake));
     return requests.questions("durable-secret");
@@ -688,6 +897,29 @@ test("a PI session moved to Durable keeps its history and spend, and the model r
   assert.equal(await readFile(source, "utf8"), content, "the PI file is unchanged");
 });
 
+test("transcript search finds a text in a Durable conversation and in a PI file, without starting either", { timeout: 30_000 }, async (t) => {
+  const f = await fixture(t);
+  const message = (id: string, parentId: string | null, role: string, text: string) => ({ type: "message", id, parentId, timestamp: "2026-10-01T10:00:00.000Z",
+    message: { role, content: [{ type: "text", text }], timestamp: 1, ...(role === "assistant" ? { api: "anthropic-messages", provider: "hui-e2e", model: "fixture", stopReason: "stop" } : {}) } });
+  const content = [
+    { type: "session", version: 3, id: "pi-1", timestamp: "2026-10-01T10:00:00.000Z", cwd: f.cwd },
+    message("u1", null, "user", "Where is the Flux Capacitor wired?"), message("a1", "u1", "assistant", "The flux capacitor sits behind the seat."),
+    message("u2", "a1", "user", '<skill name="time" location="/skills/time/SKILL.md">\nReferences are relative to /skills/time.\n\nThe warp drive manual.\n</skill>\n\nAny news?'),
+  ].map((line) => JSON.stringify(line)).join("\n") + "\n";
+  const source = join(f.dir, "pi-session.jsonl");
+  await writeFile(source, content);
+  const host = f.host();
+  const { conversationId } = await importPiSession(host, { id: "searched", cwd: f.cwd, source, model: "hui-e2e/fixture" }, content);
+  const moved = durableReference(conversationId);
+
+  assert.deepEqual(await searchTranscripts(host, [source, moved, "/missing.jsonl"], "  FLUX capacitor "), [
+    { sessionFile: source, snippet: "The flux capacitor sits behind the seat.", matches: 2 },
+    { sessionFile: moved, snippet: "The flux capacitor sits behind the seat.", matches: 2 },
+  ]);
+  assert.deepEqual(await searchTranscripts(host, [source, moved], "warp drive"), [], "an inlined skill is not what the chat shows");
+  assert.equal((await searchTranscripts(host, [moved], "any NEWS"))[0]?.snippet, "Any news?");
+});
+
 test("model and thinking changes persist on the conversation", { timeout: 30_000 }, async (t) => {
   const f = await fixture(t);
   const host = f.host();
@@ -744,7 +976,7 @@ test("overlapping closes settle once the store is released, and a reopen waits f
 test("Durable requests give each HUI session its own PI_CLIENT_SESSION_ID for provider headers", async (t) => {
   const inherited = process.env["PI_CLIENT_SESSION_ID"];
   delete process.env["PI_CLIENT_SESSION_ID"];
-  t.after(() => {
+  t.onTestFinished(() => {
     if (inherited === undefined) delete process.env["PI_CLIENT_SESSION_ID"];
     else process.env["PI_CLIENT_SESSION_ID"] = inherited;
   });
@@ -775,7 +1007,7 @@ test("Durable requests give each HUI session its own PI_CLIENT_SESSION_ID for pr
 });
 
 test("a worker row with the same durable:N never becomes the caller of a gateway conversation", async () => {
-  const { updateRegistry } = await import("../sessions.ts");
+  const { updateRegistry } = await import("../sessions/sessions.ts");
   const base = { cwd: root, tool: "durable", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
   await updateRegistry(() => [
     { ...base, id: "remote-row", piSessionFile: "durable:7", worker: "w1" },
@@ -874,7 +1106,7 @@ async function settledAfter(session: DurableSession, text: string): Promise<void
 
 async function extensionFixture(t: TestContext, options: Parameters<typeof fixture>[1] = {}) {
   const dir = await mkdtemp(join(tmpdir(), "hui-durable-extension-log-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }));
   const events = join(dir, "extension.jsonl");
   const f = await fixture(t, { ...options, extensions: { "fixture.js": fixtureExtension(events), ...options.extensions } });
   return { ...f, events, eventsDir: dir };
@@ -931,12 +1163,29 @@ test("Stop while an input handler asks leaves the prompt unsent", { timeout: 45_
   assert.equal(await readFile(f.log, "utf8").catch(() => ""), "", "the model was never asked");
 });
 
+test("tracked acceptance waits through an input-handler question and targeted cancellation keeps its prompt unsent", { timeout: 45_000 }, async (t) => {
+  const f = await extensionFixture(t);
+  const session = await startDurable({ cwd: f.cwd, huiSessionId: "tracked-stop-input" }, f.host());
+  const asked = nextEvent(session, (event) => event.type === "question");
+  const settled = nextEvent(session, (event) => event.type === "settled");
+  const dispatch = session.prompt("FIXTURE_ASK_FIRST E2E_EXTENSION_TOOL", undefined, { requestId: "waiting-input" });
+  await asked;
+  assert.equal(session.isStreaming, false);
+  await session.cancelTrackedPrompt("waiting-input");
+  await dispatch;
+  await settled;
+  assert.deepEqual(session.transcript(), []);
+  assert.deepEqual(session.pendingQuestions(), []);
+  await assert.rejects(session.waitForTrackedPrompt("waiting-input"), /could not be found/u);
+  assert.equal(await readFile(f.log, "utf8").catch(() => ""), "", "cancelling pre-admission asks never reaches the model");
+});
+
 test("end-of-run handlers see a Stop in ctx.signal and hold the settle, not the extensions' idle view", { timeout: 45_000 }, async (t) => {
   const f = await extensionFixture(t);
   const session = await startDurable({ cwd: f.cwd, huiSessionId: "durable-end-handlers" }, f.host());
   let release!: () => void;
   (globalThis as { fixtureHoldAgentEnd?: Promise<void> }).fixtureHoldAgentEnd = new Promise((resolve) => { release = resolve; });
-  t.after(() => { release(); delete (globalThis as { fixtureHoldAgentEnd?: Promise<void> }).fixtureHoldAgentEnd; });
+  t.onTestFinished(() => { release(); delete (globalThis as { fixtureHoldAgentEnd?: Promise<void> }).fixtureHoldAgentEnd; });
   const settled = nextEvent(session, (event) => event.type === "settled");
   const holding = nextEvent(session, (event) => event.type === "notice" && event.message === "agent_end is holding");
   await session.prompt("E2E_RICH read the fixture");
@@ -956,6 +1205,29 @@ test("end-of-run handlers see a Stop in ctx.signal and hold the settle, not the 
   await session.abort();
   await stopped;
   assert.equal((await logged(f.events, "agent_end"))[1]?.["stopped"], true, "a handler tells a user's Stop by ctx.signal");
+});
+
+test("a Stop resolves once the end-of-run handlers ran, so a rewind can follow at once", { timeout: 45_000 }, async (t) => {
+  const f = await extensionFixture(t);
+  const session = await startDurable({ cwd: f.cwd, huiSessionId: "durable-stop-settles" }, f.host());
+  let release!: () => void;
+  (globalThis as { fixtureHoldAgentEnd?: Promise<void> }).fixtureHoldAgentEnd = new Promise((resolve) => { release = resolve; });
+  t.onTestFinished(() => { release(); delete (globalThis as { fixtureHoldAgentEnd?: Promise<void> }).fixtureHoldAgentEnd; });
+  const running = nextEvent(session, (event) => event.type === "tool_start");
+  const holding = nextEvent(session, (event) => event.type === "notice" && event.message === "agent_end is holding");
+  await session.prompt("E2E_COMMAND_RUNNING hold the command");
+  await running;
+  let stopped = false;
+  const stopping = session.abort().then(() => { stopped = true; });
+  await holding;
+  assert.equal(stopped, false, "Stop waits for the end-of-run handlers, as PI's does");
+  const releasedAt = Date.now();
+  release();
+  await stopping;
+  assert.ok(Date.now() - releasedAt < 5_000, "Stop wakes when the handlers finish, not at its wait's timeout");
+  assert.equal(session.isStreaming, false, "a resolved Stop is idle");
+  await session.rewind({ userFromEnd: 0 }, { excludeUserMessage: true });
+  assert.deepEqual(session.transcript(), []);
 });
 
 test("rewinding drops prompt-specific extension context but keeps independent context", { timeout: 45_000 }, async (t) => {
@@ -1101,7 +1373,7 @@ test("interrupted runs wait for their extensions even when another session's sta
   }` } });
   const hostUrl = new URL("./durable-host.ts", import.meta.url).href;
   const durableUrl = new URL("./durable.ts", import.meta.url).href;
-  const settingsUrl = new URL("../../src/lib/settings.ts", import.meta.url).href;
+  const settingsUrl = new URL("../hui-settings.ts", import.meta.url).href;
   // A separate gateway owns the store and is SIGKILLed while bash is running.
   const child = spawn(process.execPath, ["--input-type=module", "-e", `
     const { DurableHost } = await import(${JSON.stringify(hostUrl)});
@@ -1109,6 +1381,7 @@ test("interrupted runs wait for their extensions even when another session's sta
     const { normalizeSettings } = await import(${JSON.stringify(settingsUrl)});
     const host = new DurableHost({ dir: ${JSON.stringify(f.store)}, agentDir: ${JSON.stringify(f.agentDir)},
       readSettings: async () => normalizeSettings(undefined), invokeTool: async () => ({}), lookupCaller: async () => undefined });
+    host.configureDurableBots(null);
     const session = await startDurable({ cwd: ${JSON.stringify(f.cwd)}, huiSessionId: "crash-extensions" }, host);
     process.stdout.write("REF " + session.sessionFile + "\\n");
     await session.prompt("E2E_COMMAND_RUNNING hold the command");
@@ -1175,7 +1448,7 @@ export default function (pi) {
 
 async function compactionFixture(t: TestContext, options: Parameters<typeof fixture>[1]) {
   const dir = await mkdtemp(join(tmpdir(), "hui-durable-compaction-log-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }));
   const log = join(dir, "extension.jsonl");
   const f = await fixture(t, { ...options, extensions: { "compaction.js": compactingExtension(log) } });
   const session = await startDurable({ cwd: f.cwd, huiSessionId: "durable-extension-compaction" }, f.host());
@@ -1361,4 +1634,18 @@ test("a storage error ends the store's sessions; the host releases it and a sess
   assert.ok(answered("Fixture response.")(again.transcript()));
   assert.deepEqual(again.transcript().flatMap((entry) => entry.kind === "message" && entry.role === "user" ? [entry.text] : []).filter((text) => text !== "hello while the store is locked"),
     ["hello before", "hello after"], "the conversation is the one it was");
+});
+
+test("a skill named later in a message is expanded ahead of it", async () => {
+  const baseDir = await mkdtemp(join(tmpdir(), "hui-skill-"));
+  const filePath = join(baseDir, "SKILL.md");
+  await writeFile(filePath, "---\nname: arena\n---\nArena body.\n");
+  const skills = [{ name: "arena", filePath, baseDir }];
+  const block = `<skill name="arena" location="${filePath}">\nReferences are relative to ${baseDir}.\n\nArena body.\n</skill>`;
+  assert.equal(expandSkill("/skill:arena fix it", skills), `${block}\n\nfix it`);
+  assert.equal(expandSkill("fix it with $arena.", skills), `${block}\n\nfix it with $arena.`);
+  assert.equal(expandSkill("/skill:arena then $skill:arena", skills), `${block}\n\nthen $skill:arena`);
+  for (const text of ["costs $5", "see $HOME/x", "a$arena"]) assert.equal(expandSkill(text, skills), text);
+  assert.equal(expandSkill("/plan with $arena", skills, (body) => body.replace("/plan", "Plan:")), `${block}\n\nPlan: with $arena`);
+  await rm(baseDir, { recursive: true });
 });

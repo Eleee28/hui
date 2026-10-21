@@ -3,7 +3,7 @@
 import { html, nothing } from "lit";
 import { icons } from "../../lib/icons.ts";
 import { openMessageContextMenu } from "../../lib/message-context-menu.ts";
-import type { TranscriptItem } from "../../lib/sessions-store.ts";
+import type { TranscriptItem } from "../../api/sessions.ts";
 import { stripShellPreamble } from "../../lib/tool-shell-display.ts";
 import { renderHighlightedCommand } from "./command-highlight.ts";
 import { displayToolValue, syncToolOverflow } from "./read-tool-card.ts";

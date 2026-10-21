@@ -14,10 +14,10 @@ import { huiToolDefinitions } from "./hui-tools.ts";
 import { lowestThinkingLevel, withUpstreamThinkingMap } from "./thinking-level.ts";
 import { HUI_DEFAULT_PROMPT, HUI_PROMPT_REVISION, huiPromptExtension } from "./hui-prompt.ts";
 import { PI_SDK_VERSION } from "./pi-backend.ts";
-import { safeSourceLabel } from "../source-label.ts";
+import { safeSourceLabel } from "../pi/source-label.ts";
 import skillPolicyExtension, { disabledSkillsFrom } from "./skill-policy-extension.mjs";
 import { createPolicySettingsManager } from "./resource-policy.ts";
-import type { RuntimeInspection } from "../../src/lib/tools-types.ts";
+import type { RuntimeInspection } from "./types.ts";
 
 type Launch = {
   cwd: string; agentDir: string; sessionFile?: string; model?: string;

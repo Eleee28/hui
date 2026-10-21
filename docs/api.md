@@ -7,6 +7,37 @@ All routes live under `/__hui/` and require the `x-hui: 1` header. Expected
 client errors use `{ "error": "message worth showing the user" }` with a 4xx
 status; storage/backend failures use the same shape with 500.
 
+## Published schema
+
+### `GET /__hui/api-schema`
+
+Returns the running gateway's JSON Schema 2020-12 document, built from the
+in-memory public payload schemas. It requires `x-hui: 1`, uses `no-store`, and
+returns the same document committed as `docs/api.schema.json` for that package
+version. Other methods return 405.
+
+`$defs` contains named payloads, with local `#/$defs/<Name>` references.
+`x-hui-routes` lists each described route's `method`, `path`, and `response`,
+plus `request` or `events` when present, as schema references.
+`x-hui-api-version` is the gateway package version. `x-hui-areas` maps API area
+names to their payload names for browser type generation. Every JSON route has
+a schema and a route heading in this document; the coverage check rejects gaps.
+Internal records and credentials are not published.
+
+File and HTML responses stay outside the payload catalog: prompt attachment
+images and downloads, presented media, the widget sandbox, bot memory HTML,
+file previews and downloads, browser tab preview images, and VS Code entry and
+proxy responses. Their JSON errors do not turn the successful byte response
+into a JSON payload. Terminal and browser binary frames remain described in
+prose; their JSON control messages have schemas. External trigger hooks, the
+worker protocol and the loopback agent-tools bridge are not browser contracts.
+Theme files are JSON consumed by the browser, so their payload shape is included.
+
+Run `npm run api:schema` to update the committed document and generated browser
+types. The browser types are generated from the JSON document, not imported
+from the server. This document remains the prose contract for behavior, errors
+and ordering.
+
 ## Desktop shell boundary
 
 The Electron renderer uses the same HTTP/SSE contract. Its main process invokes
@@ -66,14 +97,17 @@ before switching a per-installation pointer under
 `~/.local/share/hui/updates`). The pointer has its own versioned lifecycle format,
 separate from all session contracts. Activation failure restores the old pointer
 and running gateway; explicit rollback can use the original installed CLI even
-if the selected release is broken. GitHub release downloads use unauthenticated,
-bounded fixed-repository API reads, stable tags and a mandatory
+if the selected release is broken. After a successful update, the updater deletes
+every staged release except the pointer's current and previous ones. It writes
+what it deletes and any failed deletion to stderr (the gateway log for browser
+updates) and still reports success. GitHub release downloads use
+unauthenticated, bounded fixed-repository API reads, stable tags and a mandatory
 SHA-256 sidecar. See README for install, trust and host-management limits.
 
 ### Browser updates
 
 The browser owns no package, process, token or filesystem access. These guarded
-routes expose `UpdateSnapshot` from `src/lib/update-types.ts`:
+routes expose `UpdateSnapshot` from `server/api/updates.ts`:
 
 | Route | Behavior |
 | --- | --- |
@@ -81,6 +115,13 @@ routes expose `UpdateSnapshot` from `src/lib/update-types.ts`:
 | `GET /__hui/update/check` | Background discovery; use the gateway's one-hour in-memory check cache, shared across browsers |
 | `POST /__hui/update/check` | Check latest stable GitHub release; never install or restart |
 | `POST /__hui/update` | Accept only `{ version: "x.y.z" }` matching an installable check; return 202 after detached updater starts |
+
+### `GET /__hui/update`
+### `GET /__hui/update/check`
+### `POST /__hui/update/check`
+### `POST /__hui/update`
+
+The table above describes these routes. Their response is `UpdateSnapshot`; the install request is `UpdateRequest`.
 
 Malformed input returns 400; absent/stale checks, active sessions a restart
 would interrupt, or concurrent operations return 409. Pi Durable runs do not
@@ -221,7 +262,7 @@ stores nothing while it is on. Settings → Tools → Codemode off
 (`settings.codemode.enabled: false`, on by default) makes every open session
 configure `extensions: { remove: [codemode] }` from its next request, and new
 and reopened sessions start that way; a session on a remote worker follows once
-it reopens there. A bot's chat also goes without it when its Tools tab turns
+it reopens there. A bot's chat also goes without it when its Tools & skills page turns
 `codemode` off. Scripts reach only the tools the conversation has: a tool
 removed from it (browser off, a bot's disabled tools) is not callable from
 scripts either. A script has no deadline unless it sets `timeout_ms` in its
@@ -373,7 +414,7 @@ Text is bounded to 256 KiB; `truncated` reports when the source was larger.
 
 ### `GET /__hui/tools`
 
-Returns the global `ToolsCatalog` from `src/lib/tools-types.ts`: selected backend,
+Returns the global `ToolsCatalog` described in `server/api/tools.ts`: selected backend,
 pinned SDK version, shipped tools (`name`, `description`, `source`,
 `defaultEnabled`), redacted configured global sources, diagnostics and the HUI
 base prompt text/revision. It requires no session, model or credentials and runs
@@ -438,18 +479,45 @@ All routes retain the `x-hui` guard and `no-store` responses. Metadata never
 includes saved credentials; a login response may contain a short-lived device
 code, sign-in URL and input prompt for this local user's active login.
 
-| Route | Contract |
-| --- | --- |
-| `GET /__hui/providers` | Built-in names, supported login methods, configured/auth-available flags, selected IDs, model context/output limits, active login state; ordered `accounts` with opaque ID, fallback name, optional display-only email, auth availability and optional epoch-ms `cooldownUntil` |
-| `POST /__hui/providers/:provider/login` | `{ method: "api_key" or "oauth", name?: string, accountId?: string }`; a new account by default, or reconnect exactly `accountId`; starts PI's provider-owned login; returns opaque login ID and pending state |
-| `POST /__hui/providers/login/:id` | `{ promptId, value }`; responds to the exact current prompt; never echoes the value |
-| `DELETE /__hui/providers/login/:id` | Cancels a pending login |
-| `PUT /__hui/providers/:provider` | `{ models: string[] }`; validates exact catalog IDs and atomically saves the deduplicated selection; empty explicitly disables all models for this provider |
-| `DELETE /__hui/providers/:provider` | Removes this HUI selection and all its accounts/credentials; PI config/auth is untouched |
-| `PUT /__hui/providers/:provider/accounts` | `{ order: string[] }`; must contain every existing account ID exactly once; durable priority order |
-| `DELETE /__hui/providers/:provider/accounts/:account` | Removes only that account/credential; keeps other accounts and the shared model selection |
-| `GET /__hui/providers/:provider/accounts/:account/quota` | Account-specific quota with the same response shape below |
-| `GET /__hui/providers/:provider/quota` | `{ status, checkedAt, windows, plan?, email?, access?, message? }`; status is `available`, `unsupported` or `unavailable`; windows contain measured `usedPercent`, `scope` (`account`, `scoped`, `spend`) and optional epoch-ms `resetAt` |
+### `GET /__hui/providers`
+
+Built-in names, supported login methods, configured/auth-available flags, selected IDs, model context/output limits, active login state; ordered `accounts` with opaque ID, fallback name, optional display-only email, auth availability and optional epoch-ms `cooldownUntil`.
+
+### `POST /__hui/providers/:provider/login`
+
+`{ method: "api_key" or "oauth", name?: string, accountId?: string }`; a new account by default, or reconnect exactly `accountId`; starts PI's provider-owned login; returns opaque login ID and pending state.
+
+### `POST /__hui/providers/login/:id`
+
+`{ promptId, value }`; responds to the exact current prompt; never echoes the value.
+
+### `DELETE /__hui/providers/login/:id`
+
+Cancels a pending login.
+
+### `PUT /__hui/providers/:provider`
+
+`{ models: string[] }`; validates exact catalog IDs and atomically saves the deduplicated selection; empty explicitly disables all models for this provider.
+
+### `DELETE /__hui/providers/:provider`
+
+Removes this HUI selection and all its accounts/credentials; PI config/auth is untouched.
+
+### `PUT /__hui/providers/:provider/accounts`
+
+`{ order: string[] }`; must contain every existing account ID exactly once; durable priority order.
+
+### `DELETE /__hui/providers/:provider/accounts/:account`
+
+Removes only that account/credential; keeps other accounts and the shared model selection.
+
+### `GET /__hui/providers/:provider/accounts/:account/quota`
+
+Account-specific quota with the same response shape below.
+
+### `GET /__hui/providers/:provider/quota`
+
+`{ status, checkedAt, windows, plan?, email?, access?, message? }`; status is `available`, `unsupported` or `unavailable`; windows contain measured `usedPercent`, `scope` (`account`, `scoped`, `spend`) and optional epoch-ms `resetAt`.
 
 Credentials use PI's locked auth storage at `$XDG_CONFIG_HOME/hui/providers/auth.json`
 (default `~/.config/hui/providers/auth.json`, mode 0600). Selections use a separate
@@ -541,16 +609,22 @@ Input errors receive `400`, and a PI command/agent failure receives `502`.
 Every successful response contains `{ kind, target, message, snapshot }`, where
 `snapshot` is the refreshed `GET /__hui/pi` shape.
 
-`POST /__hui/pi/packages/install` accepts `{ "url": "https://pi.dev/packages/<package>" }`.
+### `POST /__hui/pi/packages/install`
+
+Accepts `{ "url": "https://pi.dev/packages/<package>" }`.
 Only clean HTTPS catalog URLs without credentials, query strings or fragments
 are accepted. HUI derives the npm source and invokes PI's own `install` command.
 
-`POST /__hui/pi/packages/remove` accepts `{ "source": "<browser label>" }`.
+### `POST /__hui/pi/packages/remove`
+
+Accepts `{ "source": "<browser label>" }`.
 The label must resolve to exactly one currently configured raw package source;
 HUI then passes that exact source to PI's own `remove` command. Extensions that
 were configured directly rather than as packages remain inventory-only.
 
-`POST /__hui/pi/skills/install` accepts `{ "url": "https://..." }`. HUI starts
+### `POST /__hui/pi/skills/install`
+
+Accepts `{ "url": "https://..." }`. HUI starts
 a short-lived PI process with no session, context files, extensions or existing
 skills, minimal thinking and a low-cost catalog model. It refuses to fall back
 to an expensive default when no low-cost candidate is present. The optional
@@ -574,7 +648,9 @@ The SDK worker filters packages and direct extensions from a process-local
 settings view before PI discovers resources, so their executable code and
 bundled skills/prompts never load. Durable sessions load extensions, skills and
 prompts through the same filtered view. Individual disabled skills are removed before
-prompt and command assembly. Existing live runtimes are not killed or restarted.
+prompt and command assembly, and a `/skill:name` or `$name` naming one is refused with the
+warning `notice` `Skill “name” is disabled for HUI sessions.` before it reaches the
+model. Existing live runtimes are not killed or restarted.
 When `HUI_PI_BACKEND=cli`, an active plugin policy fails startup explicitly rather
 than silently loading disabled code.
 
@@ -597,6 +673,10 @@ cheap, fast, tool-free route for generated session titles and `/btw`. Example:
 { "models": { "primary": "openai/gpt-6-astra", "fallback": "anthropic/claude-sonnet-4-6", "utility": "openai/gpt-5.6-luna" } }
 ```
 
+The settings document also holds `questions: { timeoutMinutes }`, the question timeout of
+[Structured questions](#structured-questions), `0` (Off) unless 5, 10, 15, 30
+or 60 is saved.
+
 It also includes `calls: { voice }` (Settings → Models → Calls, HUI-18): the GPT-Live
 voice of a bot without one of its own ([GPT-Live calls](#gpt-live-calls)).
 Anything else normalizes to the default, `{ "voice": "cove" }`. A file saved while
@@ -609,6 +689,9 @@ Returns gateway uptime, `HTTP + SSE`, the fixed `Full Access` product mode and
 registered/live PI runtime counts per session status. This endpoint is diagnostic and read-only.
 
 ### macOS power
+
+### `GET /__hui/power`
+### `PUT /__hui/power`
 
 `Settings.power.keepAwake` (default `true`; only an explicit `false` turns it
 off) is the one saved power choice. On macOS the gateway applies it at startup
@@ -664,7 +747,7 @@ available only as part of the explicit `POST /__hui/sessions` transaction below.
 ### `GET /__hui/worktrees`
 
 Returns `{ worktrees, diagnostics, pending }` (`WorktreeInventory` in
-`shared/worktrees.ts`). Repositories come from registered session directories
+`server/api/worktrees.ts`). Repositories come from registered session directories
 and HUI's worktree root; each repository's main checkout is not listed. `dirty`, `bytes` and `pullRequests` are absent until a
 background `git status`, `du` or `gh pr list --head <branch>` answers; a failed
 lookup is listed in `unavailable`. A row whose removal was requested carries
@@ -755,8 +838,10 @@ type SubagentRecord = {
   summary?: string;
   error?: string;
   completionDelivery?: "pending" | "delivered"; // absent for legacy tasks
+  collect?: true; // collected by the parent with agents_wait (Swarm)
 };
-type SubagentTaskView = SubagentRecord & {
+type SubagentTaskView = Omit<SubagentRecord, "status"> & {
+  status: SubagentStatus | "queued"; // queued: a collected child waiting for a slot
   sessionId: string;
   parentSessionId: string;
   title: string;
@@ -784,7 +869,16 @@ type TranscriptEntry =
   | { kind: "error"; message: string };
 
 type RuntimeQueue = { steering: readonly string[]; followUp: readonly string[] };
-type RuntimeModel = { provider: string; id: string; name: string; contextWindow?: number; maxTokens?: number };
+type RuntimeModel = {
+  provider: string; id: string; name: string; contextWindow?: number; maxTokens?: number;
+  // The reasoning levels PI sends this model, cheapest first (PI's
+  // getSupportedThinkingLevels), then `ultra` from a Durable session; absent
+  // when the runtime cannot tell.
+  thinkingLevels?: readonly string[];
+  // Its provider has a fast mode: Claude Opus 5 and 4.8 on the Anthropic Messages
+  // API, OpenAI GPT and o-series models on the Responses APIs.
+  fast?: true;
+};
 type RuntimeCommand = {
   name: string; // Exact invocation name, without the leading slash.
   description: string;
@@ -805,6 +899,9 @@ type SessionSnapshot = {
   status: SessionStatus;
   model?: RuntimeModel;
   thinking?: string;
+  // Fast mode on or off; absent when the runtime cannot change speed (only
+  // Durable sessions can).
+  fast?: boolean;
   queue: RuntimeQueue;
   questions: readonly RuntimeQuestion[];
   subagents: readonly SubagentTaskView[];
@@ -827,7 +924,7 @@ type RuntimeEvent =
   | { type: "tool_end"; id: string; name: string; output?: string; failed?: boolean }
   | { type: "queue_update"; queue: RuntimeQueue }
   | { type: "question"; question: RuntimeQuestion }
-  | { type: "notice"; message: string; level: "info" | "warning" | "error" }
+  | { type: "notice"; message: string; level: "info" | "warning" | "error"; recovery?: true }
   | { type: "turn_start" }
   | { type: "turn_end" }
   | { type: "compaction_start"; reason: CompactionReason; blocking?: false; background?: true }
@@ -835,6 +932,10 @@ type RuntimeEvent =
   | { type: "settled"; historyRefreshed?: boolean }
   | { type: "error"; message: string };
 ```
+
+A `notice` with `recovery: true` (a provider retry, the model fallback) narrates
+recovery inside the run, so the browser closes it once the run settles or fails;
+any other notice stays until it is dismissed or replaced.
 
 The gateway also handles a runtime-only `{ type: "history" }`: entries written
 beside a run (a call's record) changed a Durable chat's history. It never reaches a
@@ -885,7 +986,7 @@ Durable sessions follow Durable's compaction semantics; see
 Every session has a development stage shown as its Kanban column. Sessions
 never sit in the Backlog column, which holds [backlog items](#kanban-backlog).
 The effective `stage` in a view is resolved by `effectiveSessionStage`
-(`shared/session-stages.ts`) with this precedence:
+(`server/sessions/session-stages.ts`) with this precedence:
 
 1. An **operator** placement (`PATCH … { stage }`) wins until the operator
    sends `stage: null`. Neither the agent nor pull requests can move it.
@@ -913,7 +1014,7 @@ Only a changed stage writes; polling an unchanged board stays read-only.
 | `title`, `group`, `pinned`, `archived`, `unread`, `icon` | HUI | Writable organizer metadata; changing it never renames or rewrites a PI file. Sidebar drag/drop and **Move to group** both update `group` through the session PATCH route. |
 | `cwd`, `tool`, `createdAt`, `source` | HUI | Fixed when registered |
 | `updatedAt` | HUI | Advanced when PI accepts a prompt; drives recency ordering |
-| `model`, `thinking` | HUI | Session preference passed back to the runtime on reopen |
+| `model`, `thinking`, `fast` | HUI | Session preference passed back to the runtime on reopen; `fast` is optional and only `true` is stored, so no registry version bump |
 | `parentId`, `subagent` | HUI | Optional additive lineage/task state for `sessions_spawn`; PI still owns the child transcript |
 | `bot` | HUI | Optional id of the bot whose forever chat this record is (see [Bots](#bots)); set at creation, never changed. No registry version bump. The bot registry decides: a record whose bot is gone is an ordinary session |
 | `stage`, `stageSource`, `stagePullRequests` | HUI | Optional Kanban stage and who placed it (`operator`, `agent`, `pullRequest`); absent means Investigation. A session started from a backlog item is created with an operator placement in the target column. See [Session stages](#session-stages). `stagePullRequests` is server-only and never returned in views. |
@@ -922,6 +1023,7 @@ Only a changed stage writes; polling an unchanged board stays read-only.
 | `status` | HUI process | Derived live state; never persisted |
 | `~/.config/hui/bots.json` | HUI | Bots, separate from `sessions.json`: `{ version: 1, bots: BotRecord[] }`, mode 0600. Serialized mutations, atomic rename. A record that does not validate is skipped, reported once in Logs and written back untouched; a file with a newer `version` or invalid JSON is refused and never overwritten. See [Bots](#bots). |
 | `~/.config/hui/backlog.json` | HUI | Kanban backlog, separate from `sessions.json`: `{ version: 1, tasks: BacklogLocalTask[], jira: { [KEY]: { group } } }`. A task is `{ id, title, problem, fix, cwd?, group, createdAt, jira?: { key, url } }`. Per Jira key only non-default HUI metadata (its group) is stored, never Jira facts. Serialized mutations, atomic rename; a file with a newer `version` or invalid JSON is refused and never overwritten. See [Kanban backlog](#kanban-backlog). |
+| `~/.config/hui/datadog.json` | HUI | Datadog orgs for link previews: `{ version: 1, orgs: [{ name, site }] }`, mode 0600, atomic rename. Names and sites only; pup keeps the tokens. A file HUI cannot read, or with another `version`, is reported and never overwritten. See [Datadog orgs](#datadog-orgs). |
 
 Registry mutations are serialized inside the gateway and written with an
 atomic rename. This prevents a boot-time `piSessionFile` save, a rename and a
@@ -936,7 +1038,8 @@ session-tool contract (see also [Suggested tasks](#suggested-tasks)):
 
 | Tool | Contract |
 |---|---|
-| `sessions_spawn` | Persist and start one isolated child session; accepts task, optional label/model/thinking and a bounded run timeout; a model missing from the caller's available models is rejected before any child is created, naming close matches (an unavailable or empty catalog does not block); returns immediately with task and child session ids |
+| `sessions_spawn` | Persist and start one isolated child session; accepts task, optional label/model/thinking, a bounded run timeout and `collect`; a model missing from the caller's available models is rejected before any child is created, naming close matches (an unavailable or empty catalog does not block); returns immediately with task and child session ids, plus `queued: true` when a collected child waits for a slot |
+| `agents_wait` | `{ ids, timeoutSeconds? }`: 1-100 task (or child session) ids of the caller's own children; any other id rejects the call. Resolves when all have finished or at the timeout (default 600, 1-3600 s) with `{ completed: [{ taskId, sessionKey, label, status, result?, error? }], pending: [taskId] }`; an abort rejects it. Returned results count as delivered. Replayed after a Durable crash |
 | `sessions_list` | Return metadata for at most 100 sessions in the caller's parent/child tree |
 | `sessions_history` | Return at most 100 recent structured entries from a visible session; tool entries are opt-in and the UTF-8 serialized result is capped at 80 KiB. A single entry larger than the cap becomes an explicit omission error entry |
 | `sessions_send` | Prompt or queue a message to a visible session; `timeoutSeconds: 0` is fire-and-forget, otherwise waits up to 120 seconds for the correlated reply |
@@ -951,7 +1054,15 @@ and unrelated session metadata never enter tool output. A PI child cancels a
 call (Stop) by dropping its connection; the handler sees that as the call's
 abort signal, as it sees a Durable tool call's own.
 
-`sessions_spawn` allows at most eight active descendants per root. A child has
+`sessions_spawn` allows at most eight active ordinary descendants per root.
+Collected children (`collect: true`, saved with `subagent.collect: true`) have
+their own limits per root: 32 starting or running, the rest queued in memory in
+spawn order and saved as `starting`, at most 50 queued or running. A collected
+child or its descendants cannot spawn collected children. A collected child's
+result keeps the delivery marker below, but while its parent is running or
+waiting HUI does not deliver it, so `agents_wait` can collect it; the operator's
+Stop on the parent (`POST /__hui/sessions/:id/abort`) cancels its queued and
+running collected children with `completionDelivery: "delivered"`. A child has
 its own PI process/session file and receives `[Subagent Task]` as its first user
 turn. On settlement HUI persists the terminal lifecycle and bounded summary,
 then prompts an idle parent or attempts steering on a running/waiting parent.
@@ -995,6 +1106,11 @@ Assistant Markdown has six bounded rich forms in addition to CommonMark/GFM:
   in a user message. HUI performs no Slack request, stores no Slack credential
   and never implies that the agent has read the private conversation. Labeled,
   mixed-prose, HTTP and non-canonical Slack URLs remain ordinary text or links.
+
+In the transcript, X and Slack cards, like [GitHub](#github-link-previews) and
+[Datadog](#datadog-link-previews) link previews, appear only on the latest user
+message and the latest assistant message; earlier messages, including the
+agent's messages folded into run details, and hand-offs keep the plain link.
 
 Raw author HTML, SVG, scripts and arbitrary iframes remain escaped; interactive
 HTML and SVG are [agent widgets](#agent-widgets). The runtime
@@ -1099,7 +1215,7 @@ route serves widget content and nothing is persisted outside the transcript.
 
 ### `GET|HEAD /__hui/widget-sandbox`
 
-The static outer page of every widget (`server/widget-sandbox.ts`), identical for
+The static outer page of every widget (`server/agent-tools/widget-sandbox.ts`), identical for
 every caller and holding no data, so it needs no x-hui header (an iframe cannot
 send one). Other methods answer 405. Headers:
 
@@ -1112,7 +1228,7 @@ send one). Other methods answer 405. Headers:
 | `X-Content-Type-Options` | `nosniff` |
 | `Cache-Control` | `no-store` |
 
-The widget policy (`widgetContentSecurityPolicy` in `shared/widgets.ts`) is
+The widget policy (`widgetContentSecurityPolicy` in `server/agent-tools/widget-sandbox.ts`, copied by `src/lib/widgets.ts`) is
 `default-src 'none'`; `script-src 'unsafe-inline'` plus cdnjs.cloudflare.com,
 cdn.jsdelivr.net, esm.sh and unpkg.com; `style-src` the same plus
 fonts.googleapis.com and fonts.bunny.net; `font-src data:`, the script CDNs,
@@ -1203,7 +1319,9 @@ with the optional `RuntimeSession` methods it offers), `session.call
 a `followUp` that arrives once the run has settled starts the next run, as a
 `prompt`), `session.transcript {key,seq,offset}` (one page of at most 8 MB of
 the transcript a frame with that `seq` left behind, `{entries,total}`),
-`session.dispose {key}`, `forget {keys}`,
+`session.dispose {key}`, `forget {keys}`, `sessions.search {sessionFiles,q}`
+(`{hits}`: the transcript search of `GET /__hui/sessions/search` over those
+conversations in the host's own store and files, without starting them),
 `put-file`, `get-file` and `sync-plan`/`sync-put`/`sync-commit`. A host whose
 `hello` lists the `bots` feature also answers the bot operations of
 [bots on a worker](#bots-on-a-worker), against its own store: `bot.create
@@ -1273,7 +1391,7 @@ whose values ride in `sync-commit`'s `env`. The host keeps them in memory
 environment variables, its own reads and those of the PI workers it starts,
 while leaving them out of every environment a process it starts inherits. Values PI resolves itself (`$NAME`, `${NAME}`, `!command`) are
 mirrored unchanged; an invalid models.json is not mirrored. The worker needs
-Node.js 22.19 or newer.
+Node.js 24 or newer.
 
 ### `GET /__hui/workers`
 
@@ -1282,14 +1400,18 @@ Node.js 22.19 or newer.
 hostname, platform, arch, node, home, release }, sync?: { at, files, uploaded,
 deleted, installed, skipped, errors } }`. Connection state is gateway memory.
 
-### `POST /__hui/workers` · `PATCH|DELETE /__hui/workers/:id`
+### `POST /__hui/workers`
+### `PATCH /__hui/workers/:id`
+### `DELETE /__hui/workers/:id`
 
 Body `{ name, command, extraPaths? }`; `command` is parsed like a shell would
 split plain words and quotes, without expansion. `POST` responds 201 `{ worker
 }`. A new command applies to the next connection. `DELETE` returns 409 while any
 session record names the worker; nothing on the remote is deleted.
 
-### `POST /__hui/workers/:id/connect|sync|disconnect`
+### `POST /__hui/workers/:id/connect`
+### `POST /__hui/workers/:id/sync`
+### `POST /__hui/workers/:id/disconnect`
 
 `connect` and `sync` respond 202 and continue in the gateway (a first connect
 may install Node and HUI); follow `GET /__hui/workers`. Both sides ping every
@@ -1317,8 +1439,8 @@ bot's name) registered through `createSession`, New Session's path; its record
 carries `bot`. The bot routes below never duplicate the session API: the chat's
 transcript, live stream, prompt, steer, follow-up and question routes are the
 session routes on `bot.sessionId`. A bot runs on this gateway or, chosen when it
-is created, on a remote worker ([below](#bots-on-a-worker)). Shared types are in
-`shared/bots.ts`:
+is created, on a remote worker ([below](#bots-on-a-worker)). The payloads are in
+`server/api/bots.ts`, the record and limits in `server/bots-format.ts`:
 
 ```ts
 type BotRecord = {
@@ -1326,7 +1448,8 @@ type BotRecord = {
   handle: string;              // unique; lowercase [a-z0-9-], 1–32, no leading/trailing dash; "events" and "import" are reserved
   name: string;                // 1–60, one line
   title?: string;              // role, ≤ 80, one line
-  description?: string;        // ≤ 500
+  description?: string;        // ≤ 500; what it does and when to tag it, as a skill's description (below)
+  tagging?: "mention" | "nobody"; // who may tag it (below); absent: anyone
   cwd: string;                 // absolute existing directory (on a worker, a directory there); the persona is not here but SOUL.md (below)
   worker?: string;             // the remote worker (Settings → Workers) the chat runs on, by id; set at creation, never changed
   model?: string;              // "provider/id" of the chat
@@ -1389,12 +1512,70 @@ type BotCatalogTool = {
 };
 ```
 
-A bot's memory is [OptChat](optchat.md): its chat's conversation enables it in
+A bot's conversation memory is [OptChat](optchat.md): its chat's conversation enables it in
 its creating commit, every turn starts fresh from the memory's view, and
 Durable's compactions are declined. The gateway reads it through
-`DurableHost.optchat` (`optChatBotMemory` in `server/bot-memory.ts`); a chat
+`DurableHost.optchat` (`optChatBotMemory` in `server/bots/memory.ts`); a chat
 whose conversation has no OptChat, or a store this process does not own, has no
 memory to read.
+
+### Explicit knowledge
+
+`facts.json` in the bot's HUI-owned home stores manually entered facts,
+preferences and decisions separately from OptChat and SOUL.md. For a worker
+bot the file and writes stay on that worker (`bot-facts` capability); an
+offline host or an older host without the capability returns 503. No gateway
+fallback, extraction or model call occurs. Existing bots without the file
+start with an empty list; no existing state is migrated.
+
+```ts
+type BotFact = {
+  id: string;
+  kind: "fact" | "preference" | "decision";
+  text: string;                 // 1–500 characters, trimmed
+  pinned: boolean;
+  source: string;               // immutable manual label, 1–200 characters
+  createdAt: string;
+  updatedAt: string;
+  revision: number;             // starts at 1, increments on every edit
+};
+```
+
+### `GET /__hui/bots/:id/facts`
+
+200 `{ facts: BotFact[] }`. Pinned first, then newest created
+
+### `POST /__hui/bots/:id/facts`
+
+201 `{ facts }`. `{ kind, text, source?, pinned? }`; source defaults to `Saved by you`, pinned to false; at most 40 entries
+
+### `PATCH /__hui/bots/:id/facts/:factId`
+
+200 `{ facts }`. `{ revision, kind?, text?, pinned? }`; preserves source and creation time
+
+### `DELETE /__hui/bots/:id/facts/:factId`
+
+Query `revision=N`.
+
+200 `{ facts }`. Deletes the saved entry, not raw conversation history or OptChat summaries
+
+Every route retains `x-hui: 1` and bounded JSON bodies.
+Malformed input is 400, missing bot/entry 404, an archived bot write or stale
+revision 409, unreadable stored state 500. Corrupt state is never silently
+replaced with an empty list. Writes serialize per bot and replace the file
+atomically with owner-only permissions. Bot deletion first retires its host's
+knowledge store, drains in-flight writes and rejects queued/late saves, so a
+save cannot recreate a deleted home. Bot deletion removes explicit knowledge,
+including when a chosen workspace inside its home must otherwise be preserved.
+
+Each model request reads current entries into a separate `knowledge` section,
+pinned first. It identifies them as operator-saved reference data and gives
+current corrections precedence over earlier chat summaries. The existing call
+helper receives the same current entries. If that read fails it returns an
+explicit failure, never answers from potentially stale conversation summaries. The Memory page exposes add, edit,
+pin/unpin, refresh and confirmed delete; it never claims a failed save succeeded.
+Only manual saves are supported; there is no agent write tool or automatic
+extraction. Template exports never include these entries.
 
 **The look.** A bot shows an animated face (a plush `shape` in a `color`, two
 dot eyes, optionally `ears` on top, after OpenAI's Dots) or, while it has one,
@@ -1433,7 +1614,7 @@ Without `cwd` the home folder is also its working directory. Then the Durable
 conversation, in one commit: its agent (`cwd`; the bot's model, else Settings'
 primary model, else PI's default, as above; thinking clamped to the model; no
 instructions), a `hui.bot` conversation document naming the bot, and
-OptChat through the `BotMemory` port (`server/bot-memory.ts`; name = bot name,
+OptChat through the `BotMemory` port (`server/bots/memory.ts`; name = bot name,
 model and thinking = `memoryModel`/`memoryThinking`). No prompt can reach the
 chat before these exist. Then the session record (with `bot` and
 `piSessionFile: durable:<id>`) is registered and started, then the bot record
@@ -1443,92 +1624,89 @@ conversation can remain in the store, never addressed. A bot created without
 `soul` speaks first: once it exists, HUI starts its first turn in the
 background (below); the create does not wait for it.
 
-### Bots are a preview (Settings → Labs → Bots)
+### Bots are always on
 
-Bots stay behind an opt-in Labs flag while they are work in progress:
-`settings.labs.bots`, a boolean in `settings.json` and the only switch for bots
-(the sidebar's Agents | Bots switch shows exactly while it is on). Only an explicit
-`true` turns it on. Absent, it is off, except in a file from before it where
-Settings → Sessions → *Show the Bots tab* (`bots.showTab: true`, now gone) was on:
-that reads as `true`, so an operator who had the tab keeps bots, and the next
-save writes only `labs.bots`. It round-trips through `GET`/`PUT
-/__hui/settings` like the other Labs flags, and the gateway reads it at each use,
-so either change applies at once, without a restart. A worker's host reads no
-flag: the gateway's refusals cover the bots that run there.
-
-While it is off, bots are dormant and nothing about them is deleted:
-
-- **Every bot route refuses** with `409 { "error": "Bots are off on this gateway:
-  they are a preview. Turn them on in Settings → Labs → Bots." }`
-  (`BOTS_OFF_MESSAGE` in `shared/bots.ts`): everything under `/__hui/bots`
-  (the events stream and the memory page included), `/__hui/calls` and every
-  call route, and the session routes of a bot's chat (`/__hui/sessions/:id/…`
-  actions, `PATCH`/`DELETE /__hui/sessions/:id` and its live stream's
-  WebSocket), since opening or prompting the chat would resume it. A record whose
-  bot is gone is an ordinary session, as elsewhere. 409, not 404: the gateway's
-  settings refuse the request while the bot and its data are all still there,
-  and 404 already means a bot that does not exist (the Bots tab and `hui bot`
-  treat it so). `hui bot …` prints that message (`hui: Bots are off…`) and
-  exits 1; the bots stream's client stops at the 409 and reads the settings
-  again.
-- **Nothing starts a bot's turn**: every turn HUI starts for a bot (a message,
-  a routine, a `message_bot` message, a call's hand-off, a new bot's first turn)
-  passes one check in `BotService` that refuses with that message, as do the
-  bot-only tools `message_bot`, `set_profile` and `routines`. A bot's chat that starts a
-  turn anyway (Durable resuming a run a restart interrupted, a worker's host
-  reattaching, a subagent reporting back) is stopped as soon as it reports
-  `running` or `waiting`.
-- **Routines** are kept, enabled, and skipped ([Routines](#routines)).
-- **Triggers** are kept: their routes and URLs answer 409, a listener's report
-  is not kept (it sends it again later), and what waited for a cooldown that
-  ends meanwhile is recorded as skipped ([Triggers](#triggers)).
-- **Turning it off** (a `PUT` that changes it from on to off) stops what bots
-  were doing, as archiving does without archiving: messages still waiting in
-  HUI's queue for a bot are withdrawn and a running turn stops; held calls end
-  and are recorded as usual (one passive entry in the chat, no turn), and their
-  browsers stop at the next heartbeat's 409; open bot streams end.
-- What still runs: the queue of clean-ups that deleting bots on offline workers
-  left (`bot-cleanup.json`), the one-time migration of instructions to SOUL.md,
-  and the read-only check of the roster's tool lists against each bot's chat at
-  start and at each worker connection; none of them starts a turn.
-
-Session views keep naming a bot's chat (`bot`), so the browser keeps it out of
-every session list whatever the flag says, and `GET /__hui/session-activity`
-leaves bots' chats out while it is off. The browser shows nothing of bots
-while it is off: no Agents | Bots switch, `/bots` and `/bots/:id` land on the
-home page (a remembered Bots tab shows Agents until the switch is back), no bot
-unread marks, no Settings → Sessions → Bots or Settings → Models → Calls, and no
-routines or their runs in Automations (whose next wake then counts only the
-tasks it lists).
+Bots have no switch: their routes, calls and chats are always there. A
+`settings.json` written before 2026-10-20 may still hold `labs.bots` or a
+top-level `bots` object (`bots.showTab`, older still). Nothing reads either key,
+and the next settings save drops them. Session views keep naming a bot's chat
+(`bot`), so the browser keeps it out of every session list.
 
 ### Routes
 
 All under `/__hui/bots`, with the usual `x-hui` guard (the memory page also
-accepts a same-origin page load, below). While bots are off every one answers
-409 ([above](#bots-are-a-preview-settings--labs--bots)). `:id` is a bot's id or handle. Bodies are JSON (create, edit and soul up to 256 KiB, messages up to 24 MB);
+accepts a same-origin page load, below). `:id` is a bot's id or handle. Bodies are JSON (create, edit and soul up to 256 KiB, messages up to 24 MB);
 unknown fields are refused, and `instructions` with a message saying the persona is SOUL.md now. Errors use the common `{ "error" }` shape: 400 for
 input (including an unknown model or a missing directory), 404 for an unknown
 bot, 409 when the bot's state refuses the request, 503 when the gateway cannot
 read the chat's memory or the bot's worker is offline, 500 for storage
 failures; other methods answer 405.
 
-| Route | Success | Behavior |
-| --- | --- | --- |
-| `GET /__hui/bots[?archived=1]` | 200 `{ bots: BotView[] }` | Active bots, or with `archived=1` only archived ones, sorted by name |
-| `POST /__hui/bots` | 201 `{ bot }` | `BotInput`: the record fields, all optional (`{}` is enough), `handle`, `disabledTools` and `disabledSkills` (below; tools checked against those every chat has, before an extension's, and skills against its directory's, on the machine it runs on), `worker` (a worker's id or name: [the bot runs there](#bots-on-a-worker), with its home folder and SOUL.md) and `soul` (SOUL.md's text, ≤ 20,000 characters after trimming; given, the bot skips its first conversation and no kickoff runs). Without `name` the bot is `New Bot` (`NEW_BOT_NAME`), which its first conversation replaces (`set_profile`). Without `handle` one is derived from the name (`-2`, `-3`… on collision); an explicit handle that is taken is 409 |
-| `GET /__hui/bots/:id` | 200 `{ bot }` | |
-| `PATCH /__hui/bots/:id` | 200 `{ bot }` | Only what changes (`worker` is 400: a bot stays on the machine it was created on); `""` clears `title`, `description`, `model`, `thinking` (back to the gateway defaults, above), `memoryModel` (also as `utilityModel`, the same field; giving both with different values is 400), `memoryThinking` (back to Settings' utility model, then the chat's model, and OptChat's default level); an avatar key `""` clears it (`emoji: ""` switches the bot to its face, `shape: ""` and `color: ""` go back to the ones its id picks, `ears: ""` takes them off), `avatar: null` clears them all (an unknown `shape` or `ears` or a color that is not `#rrggbb` is 400); a voice `language: ""` (back to Auto) or `live: ""` (back to Settings' call voice) clears that key, `voice: null` clears both (other voice keys are 400, VoiceStudio's old `profile` and `speed` included, and so is a `language` that is not one of Whisper's codes, a name such as `Spanish` included, or a `live` that is not one of GPT-Live's voices). `disabledTools` and `disabledSkills` replace the whole list (`[]` turns everything back on), checked against the running chat's catalog (below; on its worker for a bot there); they apply from its next request. `soul` is refused (400): SOUL.md has its own route. A given handle replaces the old one (409 if taken); a new `name` without one re-derives the handle while it is still the automatic one, derived from the old name (kept unique), and a handle chosen before stays. `model`/`thinking` go through the live chat (`setModel`/`setThinking`); `name` and the memory fields reconfigure OptChat, `name` also the session title; `cwd` is accepted only while the chat is idle (409 otherwise) and boots its runtime again there; a turn that starts during that edit (a routine, say) makes it answer 409 after the conversation and the chat's session record already moved, with the bot record still naming the old directory, so repeat the edit once the bot is idle to finish it. Archived bots are 409 |
-| `DELETE /__hui/bots/:id` | 200 `{ bot }` | Archives, deleting nothing: marks the bot, disables every Automation task aimed at its chat, withdraws messages still in HUI's follow-up queue for it, stops a running turn and archives the chat's session record. Idempotent |
-| `DELETE /__hui/bots/:id?permanent=1` | 200 `{ ok: true }`, plus `queued: true` for a bot whose worker is offline ([then](#bots-on-a-worker) its memory and home there go at the worker's next connection) | Deletes a bot for good, active or archived: withdraws messages still in HUI's follow-up queue for it and stops a running turn; its conversation stops being a bot's chat and its memory goes, in one commit (the `hui.bot` document cleared, OptChat turned off) and then OptChat's files; then every Automation task aimed at its chat, the chat's session record as `DELETE /__hui/sessions/:id` does (its runtime stops), its home folder `CONFIG_DIR/bots/<id>` with everything in it (SOUL.md and every file HUI or the bot put there; only `<BOTS_DIR>/<id>` itself, resolved, never following a link out), then the bot. A working directory the operator chose is never touched (when it lies inside the home folder, only SOUL.md goes). pi-durable cannot delete a conversation yet, so its raw log stays in the Durable store, where nothing reads it back. Each step can run again, so deleting again finishes an interrupted attempt; afterwards the bot is 404 |
-| `POST /__hui/bots/:id/restore` | 200 `{ bot }` | Unarchives the bot and its session record; routines stay disabled |
-| `POST /__hui/bots/:id/messages` | 202 or 200 | See below |
-| `POST /__hui/bots/:id/stop` | 200 `{ bot }` | Aborts the chat's running turn; an idle bot is unchanged; 409 while its chat starts |
-| `GET /__hui/bots/:id/memory` | 200 `{ status: BotMemoryStatus, view: string }` | The rendered current view (`<chat>`, one `id+n\|text` line per part, `</chat>`), read once the memory has caught up with the chat; the status counts the same messages |
-| `GET /__hui/bots/:id/memory/zoom?id=&n=` | 200 `{ text }` | OptChat's `zoom(id, n)` output: the two lines under line `id+n`, `n = 1` the whole message (`id+0\|kind: text`), or its own "No line id+n."; `id`/`n` must be whole numbers (400) |
-| `GET /__hui/bots/:id/catalog` | 200 `BotCatalog` | What the operator can turn off in the bot's chat and what is off, read from its `hui.bot` document; a roster copy that differs is repaired. It opens the chat (as a message would), so an extension's tools are listed; an archived bot's chat, or one that can't start, gets only the tools every chat has (`live: false`). An access request the chat waits on comes along as `request`. Archived bots too |
-| `GET /__hui/bots/:id/soul` | 200 `BotSoul` | SOUL.md's text, trimmed (at most 256 KiB is read), or `null` while the bot has none. Archived bots too |
-| `PUT /__hui/bots/:id/soul` | 200 `BotSoul` | `{ soul }`, nothing else: text of at most 20,000 characters after trimming (line ends become `\n`), written atomically (a temporary file and a rename, mode 0600) in the bot's home folder; `""` removes SOUL.md, which brings the first conversation back at the bot's next turn (no kickoff). Answers what was stored. The bot's `updatedAt` moves, so every screen reads it again. Archived bots are 409 |
-| `GET /__hui/bots/:id/memory/html` | 200 `text/html` | OptChat's self-contained browse page (the view, every message, each tree level; everything escaped). A link opens it, so like an attachment it takes `x-hui: 1` or a browser-attested `sec-fetch-site: same-origin` page load; any other request is 403 (cross-site, same-site, `none`, none at all). Served with `content-security-policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'` (inline styles only, never framed), `nosniff`, `cache-control: no-store` and `cross-origin-resource-policy: same-origin` |
+### `GET /__hui/bots`
+
+Optional query parameter `archived=1`.
+
+200 `{ bots: BotView[] }`. Active bots, or with `archived=1` only archived ones, sorted by name
+
+### `GET /__hui/bots/events`
+
+An SSE stream of `BotsStreamFrame` payloads. The `bots` event carries `BotsUpdate`.
+The first update contains the complete ordered `ids` list and bot views; later
+updates contain changed views and an `ids` list only when the layout changes.
+
+### `POST /__hui/bots`
+
+201 `{ bot }`. `BotInput`: the record fields, all optional (`{}` is enough), `handle`, `disabledTools` and `disabledSkills` (below; tools checked against those every chat has, before an extension's, and skills against its directory's, on the machine it runs on), `worker` (a worker's id or name: [the bot runs there](#bots-on-a-worker), with its home folder and SOUL.md) and `soul` (SOUL.md's text, ≤ 20,000 characters after trimming; given, the bot skips its first conversation and no kickoff runs). Without `name` the bot is `New Bot` (`NEW_BOT_NAME`), which its first conversation replaces (`set_profile`). Without `handle` one is derived from the name (`-2`, `-3`… on collision); an explicit handle that is taken is 409
+
+### `GET /__hui/bots/:id`
+
+200 `{ bot }`
+
+### `PATCH /__hui/bots/:id`
+
+200 `{ bot }`. Only what changes (`worker` is 400: a bot stays on the machine it was created on); `tagging: "anyone"` goes back to the default (another value is 400); `""` clears `title`, `description`, `model`, `thinking` (back to the gateway defaults, above), `memoryModel` (also as `utilityModel`, the same field; giving both with different values is 400), `memoryThinking` (back to Settings' utility model, then the chat's model, and OptChat's default level); an avatar key `""` clears it (`emoji: ""` switches the bot to its face, `shape: ""` and `color: ""` go back to the ones its id picks, `ears: ""` takes them off), `avatar: null` clears them all (an unknown `shape` or `ears` or a color that is not `#rrggbb` is 400); a voice `language: ""` (back to Auto) or `live: ""` (back to Settings' call voice) clears that key, `voice: null` clears both (other voice keys are 400, VoiceStudio's old `profile` and `speed` included, and so is a `language` that is not one of Whisper's codes, a name such as `Spanish` included, or a `live` that is not one of GPT-Live's voices). `disabledTools` and `disabledSkills` replace the whole list (`[]` turns everything back on), checked against the running chat's catalog (below; on its worker for a bot there); they apply from its next request. `soul` is refused (400): SOUL.md has its own route. A given handle replaces the old one (409 if taken); a new `name` without one re-derives the handle while it is still the automatic one, derived from the old name (kept unique), and a handle chosen before stays. `model`/`thinking` go through the live chat (`setModel`/`setThinking`); `name` and the memory fields reconfigure OptChat, `name` also the session title; `cwd` is accepted only while the chat is idle (409 otherwise) and boots its runtime again there; a turn that starts during that edit (a routine, say) makes it answer 409 after the conversation and the chat's session record already moved, with the bot record still naming the old directory, so repeat the edit once the bot is idle to finish it. Archived bots are 409
+
+### `DELETE /__hui/bots/:id`
+
+200 `{ bot }`. Archives, deleting nothing: marks the bot, disables every Automation task aimed at its chat, withdraws messages still in HUI's follow-up queue for it, stops a running turn and archives the chat's session record. Idempotent
+
+With `?permanent=1`: 200 `{ ok: true }`, plus `queued: true` for a bot whose worker is offline ([then](#bots-on-a-worker) its memory and home there go at the worker's next connection). Deletes a bot for good, active or archived: withdraws messages still in HUI's follow-up queue for it and stops a running turn; its conversation stops being a bot's chat and its memory goes, in one commit (the `hui.bot` document cleared, OptChat turned off) and then OptChat's files; then every Automation task aimed at its chat, the chat's session record as `DELETE /__hui/sessions/:id` does (its runtime stops), its home folder `CONFIG_DIR/bots/<id>` with everything in it (SOUL.md and every file HUI or the bot put there; only `<BOTS_DIR>/<id>` itself, resolved, never following a link out), then the bot. A working directory the operator chose is never touched (when it lies inside the home folder, only SOUL.md goes). pi-durable cannot delete a conversation yet, so its raw log stays in the Durable store, where nothing reads it back. Each step can run again, so deleting again finishes an interrupted attempt; afterwards the bot is 404
+
+### `POST /__hui/bots/:id/restore`
+
+200 `{ bot }`. Unarchives the bot and its session record; routines stay disabled
+
+### `POST /__hui/bots/:id/messages`
+
+202 or 200. See below
+
+### `POST /__hui/bots/:id/stop`
+
+200 `{ bot }`. Aborts the chat's running turn; an idle bot is unchanged; 409 while its chat starts
+
+### `GET /__hui/bots/:id/memory`
+
+200 `{ status: BotMemoryStatus, view: string }`. The rendered current view (`<chat>`, one `id+n\|text` line per part, `</chat>`), read once the memory has caught up with the chat; the status counts the same messages
+
+### `GET /__hui/bots/:id/memory/zoom`
+
+Query `id=&n=`.
+
+200 `{ text }`. OptChat's `zoom(id, n)` output: the two lines under line `id+n`, `n = 1` the whole message (`id+0\|kind: text`), or its own "No line id+n."; `id`/`n` must be whole numbers (400)
+
+### `GET /__hui/bots/:id/catalog`
+
+200 `BotCatalog`. What the operator can turn off in the bot's chat and what is off, read from its `hui.bot` document; a roster copy that differs is repaired. It opens the chat (as a message would), so an extension's tools are listed; an archived bot's chat, or one that can't start, gets only the tools every chat has (`live: false`). An access request the chat waits on comes along as `request`. Archived bots too
+
+### `GET /__hui/bots/:id/soul`
+
+200 `BotSoul`. SOUL.md's text, trimmed (at most 256 KiB is read), or `null` while the bot has none. Archived bots too
+
+### `PUT /__hui/bots/:id/soul`
+
+200 `BotSoul`. `{ soul }`, nothing else: text of at most 20,000 characters after trimming (line ends become `\n`), written atomically (a temporary file and a rename, mode 0600) in the bot's home folder; `""` removes SOUL.md, which brings the first conversation back at the bot's next turn (no kickoff). Answers what was stored. The bot's `updatedAt` moves, so every screen reads it again. Archived bots are 409
+
+`GET /__hui/bots/:id/memory/html` answers 200 `text/html`: OptChat's self-contained browse page (the view, every message, each tree level; everything escaped). A link opens it, so like an attachment it takes `x-hui: 1` or a browser-attested `sec-fetch-site: same-origin` page load; any other request is 403 (cross-site, same-site, `none`, none at all). Served with `content-security-policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'` (inline styles only, never framed), `nosniff`, `cache-control: no-store` and `cross-origin-resource-policy: same-origin`
 
 `POST /__hui/bots/:id/messages` takes `{ text, attachments?, wait?: boolean,
 timeoutSeconds? }`. `attachments` follow the prompt route's rules; an image
@@ -1570,7 +1748,7 @@ and, when the operator asks for a change, rewrites it with `write_soul` (the
 whole file, at most 20,000 characters, only in the operator's own turns) and
 says what it changed; then the file. It is read
 from disk on every request of the host that runs the conversation, through
-the resolver that host sets (`DurableHost.botSouls`: the gateway's resolves
+the resolver that host configures (`createDurableBots`' `souls`: the gateway's resolves
 each bot's home folder; a host without one leaves the section out), so it is
 byte-identical while the file is. Past 20,000 characters it is cut, with a
 note giving the file's length. Bots never use Durable `instructions`.
@@ -1590,8 +1768,7 @@ operator said or agreed to, asking about the rest (often its boundaries) rather
 than guessing. Once it knows enough, usually after a few exchanges, it saves
 SOUL.md with `write_soul` (suggested sections: who I am, what I look after,
 how I work, when I reach out, boundaries) and, in the same reply, says so,
-gives a short summary and says how to change it (the Soul tab of its panel, or
-telling it). Those last details come only in `write_soul`'s result, once the
+gives a short summary and says how to change it (by telling it). Those last details come only in `write_soul`'s result, once the
 file is written, so they stay out of SOUL.md.
 
 `set_profile({ name?, title?, shape?, ears?, color?, emoji? })`, beside it,
@@ -1602,8 +1779,9 @@ name). Its result says how the bot now looks, and that a face waits behind an
 emoji until the emoji is cleared. It
 goes through HUI's agent-tool handler, as `message_bot` does, and is refused in a
 run that took a message from a routine, a trigger or another bot (one that
-starts with `[routine: `, `[trigger: ` or `[from @`), the one that started it or
-any since (below): only the operator names a bot or changes its look.
+starts with `[routine: `, `[trigger: ` or `[from @`), or an imported bot's first
+turn (below), the one that started it or any since: only the operator names a
+bot or changes its look.
 
 **Every input of the run.** A bot's gated tools (`set_profile`, `write_soul`
 and the `routines` tool's `add` and `update`) judge the run they are called in
@@ -1636,17 +1814,19 @@ first save (there was no SOUL.md), that this ends the first conversation, so the
 reply says the soul was saved, sums it up and says how to change it; after a
 later one, to say what changed. Its replay is safe (the same soul written again
 is the same file).
-Only the operator's turns and HUI's kickoff may write it, as with `set_profile`:
-SOUL.md steers every later turn, so text that a routine, a trigger (from outside
-HUI) or another bot brought in must never become it. The host that runs the
+Only the operator's turns and HUI's kickoff of a new bot may write it, as with
+`set_profile`: SOUL.md steers every later turn, so text that a routine, a trigger
+(from outside HUI) or another bot brought in must never become it, and neither may
+an imported bot's first turn, which its template's soul steers before the operator
+has said a word. The host that runs the
 conversation checks, where the tool runs (a worker's host for a bot there):
 `botTurnOrigin` of the message that started the run (`DurableSession.runInput`),
 of every input the run took since (`DurableSession.runOrigins`, above) and of
 the newest one the conversation took, read from its store (a follow-up joins a
 running turn, as a message to a busy bot on a worker does there). If any came
-from a routine, a trigger or another bot, it refuses:
+from a routine, a trigger, another bot, a session or an import, it refuses:
 "Only the operator changes your soul, and this turn was started by a routine, a
-trigger or another bot. Ask the operator instead." It refuses as well when no
+trigger, another bot, a session or your import. Ask the operator instead." It refuses as well when no
 live chat follows the conversation on that host, since nothing there can tell
 who started the turn.
 Refusals (empty, too long, not a bot's chat, a host without a resolver, a turn
@@ -1663,6 +1843,12 @@ HUI just created you. This note is from HUI, not the operator, who will read you
 Clients show a user message whose first line is exactly `[HUI bot created]`
 as a note (`<name> was created`), never as the operator's message; previews
 (`lastMessage`) skip it, and `hui bot chat` prints `· <name> was created`.
+An imported bot's first turn is a kickoff too (its opener, or a HUI template's open
+points: see [Importing and exporting bots](#importing-and-exporting-bots)), with
+`from: template` on the line after its name (`BOT_IMPORTED_KICKOFF_LINE`). That turn
+is not the operator's: `botTurnOrigin` reads it as `{ kind: "imported" }` (a worker's
+host sends it in `runOrigins`; an older one reads it as a kickoff), and every gated
+tool refuses in it.
 A run that fails shows in the chat like any run's error; a chat that cannot
 start is reported as the diagnostic `bot_kickoff_failed`.
 
@@ -1670,8 +1856,8 @@ The `soul` flag of a view is read once, then again only when the chat's
 status or session record changed (a settled turn, in which the bot may have
 written SOUL.md), every 10 seconds (a hand edit) or right after HUI wrote it:
 the events stream recomputes the list every second. SOUL.md is reached through
-the `BotSouls` port of `server/bot-service.ts` (`localBotSouls` in
-`server/bot-souls.ts`), so a bot that runs elsewhere can route it.
+the `BotSouls` port of `server/bots/service.ts` (`localBotSouls` in
+`server/bots/souls.ts`), so a bot that runs elsewhere can route it.
 
 Bots from before SOUL.md had their persona as `instructions` in `bots.json` and
 in their conversation's Durable instructions. At each start the gateway gives
@@ -1698,7 +1884,7 @@ optional fields of the document's version 1: absent means nothing is off, so a
 document from before them needs no upgrade, and an older HUI reads the ones this
 one writes and ignores the lists (a rollback keeps every bot's chat). `bots.json`
 keeps a copy in each record for the roster and the bots stream, which reads no
-Durable state; it follows grants made in the chat (`DurableHost.botAccessRecorded`;
+Durable state; it follows grants made in the chat (`createDurableBots`' `recorded`;
 a worker's host reports them, [below](#bots-on-a-worker)), is repaired by every
 catalog read, and is checked against each chat's document: this gateway's bots at
 its start, a worker's bots at each connection to it (diagnostic
@@ -1735,7 +1921,7 @@ everything on by default: a bot restricted by hand gains newly installed tools.
 **Asking for more.** `request_access({ tools?, skills?, reason })` asks the
 operator to turn back on tools or skills that are off. It raises a session
 question in the chat (the chat's question card, `hui bot chat`, `needs-input`
-from `hui bot send --wait`, and the Tools tab's `request` all show it):
+from `hui bot send --wait`, and the panel's Tools & skills page's `request` all show it):
 
 ```text
 Allow access to bash (powerful) and the beta skill?
@@ -1745,9 +1931,10 @@ Asked during the routine "Morning digest".
 ```
 
 with the options `Allow` and `Deny`. The last line appears when a routine
-(`[routine: …]`), another bot (`[from @…]`) or HUI's kickoff started the turn,
+(`[routine: …]`), another bot (`[from @…]`), HUI's kickoff or an import's first
+turn (*Asked in its first turn after it was imported, before you wrote.*) started the turn,
 read from the run's input as `set_profile` reads it (`botTurnOrigin` in
-`shared/bots.ts`). Such a turn may ask, but only the operator answers: session
+`server/runtimes/turn-origins.ts`). Such a turn may ask, but only the operator answers: session
 questions are answered only through `POST /__hui/sessions/:id/question` (and the
 clients built on it), never by a message, a routine or another bot. `Allow`
 removes the items from the lists in one commit, offers the chat its tools again
@@ -1793,9 +1980,9 @@ Model and thinking changes stay allowed. The prompt route already refuses
 A bot's chat has several writers: its routines, other bots, the bot messages
 route and every client of the session routes. So that each sees a message
 another sent before the reply to it, the chat's session stream sends a
-`snapshot` as soon as it accepts a prompt (its transcript ends with that user
-message); steering already arrives that way when a turn takes it in. Ordinary
-sessions send no such frame. `hui bot chat` prints each user message it did
+`snapshot` ending with that user message before its run starts, as every
+session does (see the session events below); steering already arrives that way
+when a turn takes it in. `hui bot chat` prints each user message it did
 not send itself as a `> ` line, as the Bots tab shows it.
 
 ### Routines
@@ -1812,14 +1999,35 @@ chat or the task's timeout (`timeoutSeconds`, default 900) stops that turn. An
 archived bot's routine fails. Archiving disables a bot's routines; restoring
 leaves them disabled.
 
+**Recovery and retries.** Each new run keeps its original deadline (`deadlineAt`),
+an attempt count and a dispatch checkpoint before its prompt is sent. After a
+restart, a checkpointed bot routine observes that same delivery, not a new
+prompt. Durable uses a conversation-scoped request key to deduplicate the
+submission and reads its recorded outcome; cancelling targets that submission,
+including while it is queued behind another turn. Gateway shutdown detaches the
+observer without cancelling the runtime's resumable work. Older runtimes use
+conservative transcript matching; an ambiguous or missing delivery requires
+intervention rather than replay.
+
+Only an explicitly known **pre-dispatch** failure is automatically retried:
+currently a bot's worker being offline before its chat opens. There are at most
+three attempts, after 30 seconds and then two minutes, within the original
+deadline and a temporary task's end. A retry is the same run id and consumes no
+extra `runsLeft`. A pending retry survives restart and can be cancelled through
+the existing run-cancel route. A failure after dispatch is never a reason to
+send another prompt automatically. Quota/rate-limit, configuration, connection,
+transient-service, interrupted, timeout and unknown failures carry distinct
+explanations; classification alone never authorizes a retry. Bot Routines,
+Activity and Automations show the next retry or actionable *Needs attention*.
+
 **A bot's own routines.** Every bot's chat has a `routines` tool (SPEC.md,
 "Schedules are a CLI, and bots schedule their own routines"), in the
 `hui-bots-tools` extension beside `write_soul`, `set_profile` and
-`request_access` (`server/runtimes/durable-bot-routines.ts`). Unlike those, the
+`request_access` (`server/bots/durable-routines.ts`). Unlike those, the
 operator can turn it off: the catalog lists it as *Manage its own routines*, a
 normal switch in the Bots group, on by default, not powerful. It reaches HUI's
 agent-tool handler as the chat's session, from a worker's host too, where
-`server/bot-routines.ts` owns every rule:
+`server/bots/routines.ts` owns every rule:
 
 ```ts
 routines({
@@ -1846,35 +2054,25 @@ routines({
   any that joined it since, `runOrigins`: see **Every input of the run**), so a
   turn that took such a message is refused too, the first one naming the
   refusal; turns that only the operator, a routine or HUI's kickoff brought
-  input to may. `list` and `remove` work in any turn: they never make work.
+  input to may. An imported bot's first turn is refused too, until the operator
+  replies. `list` and `remove` work in any turn: they never make work.
 - **Limits.** Adding a routine, or resuming one, is refused while its chat has
   20 enabled routines (the operator's count too; the operator's own routes have
   no cap); `every` is at least a minute (cron fires at most once a minute
   anyway); names are unique among its routines.
 - **Recorded as its own.** What it adds carries `createdBy: { kind: "bot", botId,
-  handle }`; the Routines tab, Automations and `hui schedule` show *made by
+  handle }`; the panel's Routines page, Automations and `hui schedule` show *made by
   @handle*.
 - **Temporary routines** take `until` and/or `runs` ([Automation](#post-__huiautomationtasks)):
   HUI deletes the routine after either, by itself. The bot can remove one
   sooner, from that routine's own turn too: the routine goes and that turn
   finishes (its run completes as usual). Removing a routine whose run waits
   behind another turn withdraws that run first, so its message never arrives.
-- Bots off, it refuses like every bot tool (409 `BOTS_OFF_MESSAGE`); an archived
-  bot has none to manage. Refusals come back as the tool's error text, for the
+- An archived bot has none to manage. Refusals come back as the tool's error text, for the
   model to read.
 
-While bots are off ([above](#bots-are-a-preview-settings--labs--bots)) the
-executor skips a routine's run instead: it ends `skipped` (not `failed`), with
-`error` saying `Skipped because bots are off: turn them on in Settings → Labs →
-Bots. The routine is kept and runs at its next time once they are on.`
-(`BOTS_OFF_ROUTINE_MESSAGE`), and nothing reaches the chat. The task is
-neither disabled nor deleted. That is the scheduler's existing rule for a run
-its target can't take (as for a busy ordinary session): the time it came due is
-consumed and not run later, and once bots are on the routine runs at its next
-time. A once (`at`) routine that comes due while they are off is turned off by
-the scheduler, as every one-off task is once its time comes. Times missed while
-the gateway was down follow the start-up rule instead: each overdue task runs
-once when the scheduler starts.
+A routine that came due while the gateway was down follows the start-up rule:
+each overdue task runs once when the scheduler starts.
 
 ### Triggers
 
@@ -1936,8 +2134,8 @@ organization, wrote it) are not. Control characters (lines and tabs aside, in
 `details`) and bidirectional overrides are taken out. A bad report is 400 with
 what to fix. A known token's report answers 202 `{ status: "fired" | "held" |
 "ignored" }` (held: inside the cooldown or past the cap; ignored: nothing new
-that its filter passes). An unknown token is 404; bots off, a trigger that is
-off or a bot that is archived 409, also when that happened while the report
+that its filter passes). An unknown token is 404; a trigger that is off or a bot
+that is archived 409, also when that happened while the report
 came in, and HUI keeps nothing of a refused report (its body isn't read when
 the refusal comes first): the listener keeps its own place in what it watches
 and sends those events in a later report.
@@ -1991,6 +2189,18 @@ unique per bot in any case; a summary carries no brackets of its own.
 it as they refuse other bots' turns, and an access request asked in it says
 "Asked while handling the trigger …".
 
+The operator may select `delivery: "steer"` for compact status notifications.
+These carry the same marker, operator prompt and external-information warning,
+then event summaries, times and PR links only. Listener details and automatic
+GitHub reads are omitted. An idle bot starts a normal turn; a busy bot takes the
+notice through the existing steering path before its next model call, without
+aborting a tool. Blocking compaction may hold it as a follow-up, as with ordinary
+steering. This does not impose a queue bound or change cooldowns, caps or sender
+restrictions. The bot must read live evidence when needed. Missing `delivery`
+or `delivery: "followUp"` keeps the existing full-context behavior. The add form
+exposes compact steering and its trigger card names the selected mode. Templates
+preserve it on export/import; imported triggers still start disabled.
+
 **Cooldown and caps.** `cooldownSeconds` (0–86,400, default 300): an event
 within that long of the trigger's last delivery waits, and when the cooldown
 ends everything that waited goes out as one delivery that lists it; of a report
@@ -2004,26 +2214,41 @@ restart.
 
 **Runs.** Each delivery is a run: `fired` (one event), `coalesced` (several in
 one delivery). `skipped` records events that waited and then reached nobody:
-bots off, the bot archived, or the trigger turned off before they went.
+the bot archived, or the trigger turned off before they went.
 `failed` is a delivery the bot's chat refused otherwise (its worker offline,
 say), with the reason. A test's run carries `test: true`, a catch-up's
 `catchUp: true`.
 
 #### Routes
 
-Under `/__hui/bots`, with the `x-hui` guard and the 409 while bots are off;
+Under `/__hui/bots`, with the `x-hui` guard;
 `:id` is a bot's id or handle, `:trigger` a trigger's id or name (URL-encoded).
 Bodies are JSON up to 64 KiB; unknown fields are refused. 400 for input, 404 for
 an unknown bot or trigger, 409 for a state that refuses it, 500 for storage.
 
-| Route | Success | Behavior |
-| --- | --- | --- |
-| `GET /__hui/bots/:id/triggers` | 200 `BotTriggersList` | `{ triggers, runs, deliveries: { lastHour, perHour } }`: its triggers (with `pending: { events, until }` while some wait), its latest 50 runs, newest first, and the hour's deliveries against the cap. Archived bots too |
-| `POST /__hui/bots/:id/triggers` | 201 `BotTriggerCreated` | `{ name, source?, filter?, prompt?, enabled?, cooldownSeconds? }` (`prompt` ≤ 4,000 characters; `source`, when given, is `listener`: another is 400). Its `hook` comes this once. Archived bots are 409 |
-| `PATCH /__hui/bots/:id/triggers/:trigger` | 200 `{ trigger }` | `name`, `prompt` (`""` clears it), `enabled`, `cooldownSeconds`, `filter`: its keys replace the filter's, `null` or `false` clears one; no `source` (400). Turning it off skips what waited for it |
-| `DELETE /__hui/bots/:id/triggers/:trigger` | 200 `{ ok: true }` | With its runs, what waited for it and the ids it kept |
-| `POST /__hui/bots/:id/triggers/:trigger/test` | 200 `{ run }` | Delivers a sample event at once, marked as a test, outside the cooldown and the cap (neither moves); 409 while bots are off |
-| `POST /__hui/bots/:id/triggers/:trigger/token` | 200 `BotTriggerCreated` | Its new token, this once; the old URL stops working |
+### `GET /__hui/bots/:id/triggers`
+
+200 `BotTriggersList`. `{ triggers, runs, deliveries: { lastHour, perHour } }`: its triggers (with `pending: { events, until }` while some wait), its latest 50 runs, newest first, and the hour's deliveries against the cap. Archived bots too
+
+### `POST /__hui/bots/:id/triggers`
+
+201 `BotTriggerCreated`. `{ name, source?, filter?, prompt?, delivery?, enabled?, cooldownSeconds? }` (`prompt` ≤ 4,000 characters; `source`, when given, is `listener`: another is 400). Its `hook` comes this once. Archived bots are 409
+
+### `PATCH /__hui/bots/:id/triggers/:trigger`
+
+200 `{ trigger }`. `name`, `prompt` (`""` clears it), `delivery` (`followUp` or `steer`), `enabled`, `cooldownSeconds`, `filter`: its keys replace the filter's, `null` or `false` clears one; no `source` (400). Turning it off skips what waited for it
+
+### `DELETE /__hui/bots/:id/triggers/:trigger`
+
+200 `{ ok: true }`. With its runs, what waited for it and the ids it kept
+
+### `POST /__hui/bots/:id/triggers/:trigger/test`
+
+200 `{ run }`. Delivers a sample event at once, marked as a test, outside the cooldown and the cap (neither moves)
+
+### `POST /__hui/bots/:id/triggers/:trigger/token`
+
+200 `BotTriggerCreated`. Its new token, this once; the old URL stops working
 
 #### The bot's `triggers` tool
 
@@ -2035,40 +2260,109 @@ changes triggers: a trigger's URL holds a secret that would pass through the
 model, and what its listener reports can be the operator's own messages. The
 tool has no `add` or `update`, and its handler refuses any other action (400). A
 trigger a bot added while bots still could (`createdBy: "bot"`) is listed as
-such. The tool is an ordinary switch of the Tools tab under Bots, on by default
+such. The tool is an ordinary switch of the Tools & skills page under Bots, on by default
 and not powerful; turned off, the bridge refuses it as any tool that is off.
 
-While bots are off, the trigger routes and the URLs answer 409
-`BOTS_OFF_MESSAGE`; a report's body isn't read and nothing is recorded, so its
-listener sends those events again later. A cooldown that ends meanwhile is
-recorded as skipped.
+### Tagging bots
 
-### Bot-to-bot messages
+Agents and bots hand a bot work by tagging it with `message_bot({ to, message })`
+(`to` ≤ 100, `message` ≤ 20,000 characters), as they load a skill: each bot is
+described by its `description` (what it does and when to tag it; its `title`
+stands in without one) and `tagging` says who may tag it: `anyone` (absent, the
+default) whenever a task fits, `mention` only in a turn whose operator message
+names `@handle`, and `nobody` never.
 
 Every gateway's default Durable selection includes the `hui-bots` extension,
-whose prompt sections `bots` and `soul` (above) read the conversation's
-`hui.bot` document and render nothing without it. The tool `message_bot({ to, message })` (`to` ≤ 100,
-`message` ≤ 20,000 characters) lives in a second extension, `hui-bots-tools` (with `write_soul`, `set_profile`, `triggers`, `request_access`, `load_skill` and `routines`),
-installed but selected only by a bot's chat (`DurableSession.applyTools`), and
-refuses in any conversation without the document. Every other conversation's
-offered tools, system prompt and stored agent are unchanged. The section lists
-the bot itself and the other non-archived bots (handle, name, title, ordered by
-handle) and how to use the tool; it is byte-identical while that roster is
-unchanged. The same extension carries `write_soul` (above).
+whose prompt section `bots` is, in a bot's chat, who it is, the other bots it
+may tag and how, and, in any other conversation (a session's agent, a subagent
+included), the bots it may tag (`sessionBotsSection`), rendered when some bot
+takes its tags; `soul` (above) reads the conversation's
+`hui.bot` document and renders nothing without it. Both lists hold the
+non-archived bots other than `nobody` ones, one line each (`- @handle (name,
+title): description`, the description on one line), ordered by handle: those
+anyone may tag, then the `mention` ones under their own heading. They are
+byte-identical while that roster is unchanged. The section tells a session's
+agent and a bot alike that a bot the operator's message tags (`@handle`) is to
+get what the operator asks, with the context it needs: the operator tags through
+the chat's own agent, whose message goes to it as typed (the composer suggests
+bots after `@`, [below](#tagging-in-the-composer)).
 
-`message_bot` reaches HUI's agent-tool handler as the calling chat's session,
-which must be a non-archived bot's chat. Targets resolve by handle (`@`
-optional, any case), then exact name in any case; an unknown or shared name, an
-archived target and the bot itself are refused, unknown and shared names with
-the list of bots it can message. The message is delivered like an operator's
-message without a wait (prompt when idle, follow-up when busy), and the tool
-returns "Queued for @<handle>." once it is accepted. Loop guard: when the
-sender's current run started from `[from @x] …` (hop 1) or `[from @x · hop N]
-…`, the delivered text is `[from @<sender> · hop N+1] <message>`, otherwise
-`[from @<sender>] <message>`; beyond hop 3 the tool refuses. The run's
-originating input is the session's recovery journal (`runPrompt`). Each bot may
-send 30 bot messages per hour (gateway memory, a backstop). Refusals are tool
-errors the model reads.
+`message_bot` lives in two extensions, both installed and outside the default
+selection: `hui-bots-tools` (with `write_soul`, `set_profile`, `triggers`,
+`request_access`, `load_skill` and `routines`), which only a bot's chat selects,
+and `hui-bot-tag`, `message_bot` alone, which every other Durable conversation
+selects (`DurableSession.applyTools`). Sessions still on
+PI's SDK worker have neither. The tool forwards to HUI's agent-tool handler as
+the calling chat's session, which decides: a non-archived bot's chat, or any
+session. Targets resolve by
+handle (`@` optional, any case), then exact name in any case. A bot may also
+reply to an `agent:<session id>` return address, subject to the receipt checks
+below. For bot targets, an unknown or shared name, an archived target and the
+bot itself are refused, unknown and
+shared names with the list of bots the caller may tag. A `nobody` bot is refused
+("takes no tags"); a `mention` bot is refused unless the operator named
+`@handle` (`mentionsBot`: the handle whole, any case, not inside an address,
+a longer handle or a path) in one of the user messages of the caller's run: the
+one that started it (its `runPrompt`) and every one since in its transcript (a
+run the transcript doesn't show from its start: that message and the newest). A
+routine's, a trigger's, a bot's or a session's tag, a new bot's kickoff and what
+HUI writes itself (`[Subagent Task]`, `[Inter-session message …]` and a
+subagent's completion event) never count. A bot's subagents (sessions whose tree
+starts at a bot's chat) are refused: the bot tags, within its chain's hops. The message is delivered like an operator's message without a wait
+(prompt when idle, follow-up when busy), and the tool returns "Queued for
+@<handle>." once it is accepted. There is no automatic reply; the bot may
+explicitly send an update to the originating session's return address. From a
+bot the delivered text is `[from @<sender>] <message>`, or
+`[from @<sender> · hop N+1] <message>` when answering an attributed message.
+Beyond hop 3 the tool refuses. From a session it is
+`[from agent: <title> · reply-to agent:<session id>] <message>`
+(`agentTagPrefix`: the session's title on one line, at most 80 characters,
+without `[`, `]` or `·`); when the session is answering a bot message, the
+header also carries ` · hop N+1` before `]`. `hopOf` reads the hop from the
+message that started the caller's current run, from a bot or a session alike, so
+a session's tag from the turn a bot's reply started is the next hop; any later
+run (the operator's, a subagent's report, a routine, a trigger) starts at hop 1,
+with the hourly limit as the backstop. For the
+bot it reaches, a session's tag is not the operator (`BotTurnOrigin` `{ kind: "agent", title }`): `write_soul`,
+`set_profile` and the `routines` tool's add and update refuse in its turn, as for
+another bot's. The run's originating input is the session's recovery journal
+(`runPrompt`). Each bot, and each session tree (a session and its subagents),
+may send 30 tags per hour (gateway memory, a backstop). Refusals are tool errors
+the model reads.
+
+#### Replying to a calling agent
+
+A bot uses `message_bot({ to: "agent:<session id>", message })` to notify the
+agent that handed it work, not an arbitrary session. The gateway requires a
+non-archived bot sender and an attribution header with that exact return
+address in the bot's current `runPrompt` or its own transcript's user messages.
+`agentReplyTo` reads only the first header, never forwarded body text or an
+assistant quotation. Receipts use the existing transcript, not a separate
+routing table, and remain usable in later watcher turns. Old handoffs without
+a return address confer no route. The address is generated by the gateway,
+not chosen by the handoff body; it identifies the exact originating session,
+even when two sessions share a title.
+
+The recipient must still exist as a non-bot, non-archived session; a finished
+subagent is refused too. An idle agent is prompted and a busy one gets a
+follow-up through the same delivery path as a bot. The delivered prefix is the
+sending bot's `[from @handle]`, with its chain hop when applicable, so it never
+becomes an operator instruction. The tool returns `Queued for agent:<id>.`
+and `{ to: "agent:<id>", status: "sent" | "queued" }` once accepted, not a
+promise the caller has handled it. Missing or unavailable recipients fail
+visibly and the bot reports the undelivered notification in its own chat.
+Bots-off checks, hourly budgets and the three-hop limit apply unchanged;
+`sessions_send` remains confined to its existing session tree. Bot-to-bot
+replies still use handles and existing tagging policies.
+
+#### Tagging in the composer
+
+An `@` mention in any composer (a session's, a bot's chat, a
+new session's; not a session still on PI's SDK worker) lists the bots its text starts their handle or name with, any
+case, before the local paths it already lists: at most five, by handle, each with
+its face, `@handle`, name and title; never an archived bot, one nobody may tag or
+the bot whose chat it is. Choosing one inserts `@handle ` and closes the list.
+The message goes to the chat's agent unchanged.
 
 ### Bots on a worker
 
@@ -2084,7 +2378,7 @@ Creating one needs a live connection to the worker (503 naming it otherwise:
 "HUI is not connected to <worker>. Connect it in Settings → Workers, then
 create the bot again."). The gateway asks the worker's host to create the
 conversation there (`bot.create`), in the same one commit a local bot gets: the
-host runs `bot-conversations.ts` and `bot-memory.ts` against its own
+host runs `bots/conversations.ts` and `bots/memory.ts` against its own
 `DurableHost`. The host always makes the bot's home there, HUI's private folder
 for it, `<worker data dir>/bots/<id>` (mode 0700; usually
 `~/.local/share/hui-worker/bots/<id>`), with SOUL.md when `soul` is given, and the
@@ -2117,7 +2411,11 @@ at once after a create or a `PUT`), never a request per list.
 
 The host's `bots` prompt section comes from this gateway: the host asks it
 (`bot.section`), which answers only for a bot that runs on that worker, so a
-bot on a worker knows the whole roster and `message_bot` crosses both ways
+bot on a worker knows the whole roster and `message_bot` crosses both ways. A
+session on the worker gets its list of the bots it may tag the same way (`bot.section`
+without `botId`, asked of its own gateway), and is offered `hui-bot-tag` as every
+Durable session is;
+its tags reach the gateway the same way
 (its tool call reaches the gateway through the agent-tool bridge, as any HUI
 tool of a remote session). With no gateway attached the section is left out,
 as `message_bot` could not deliver anything then either. OptChat's compactor
@@ -2199,18 +2497,29 @@ chats' session records exist (409, as for any session on it).
 
 ### Importing and exporting bots
 
-A bot can be made from another platform's template, and exported as a file HUI
-imports again (`server/bot-template-import.ts`; the importers are pure functions in
-`server/bot-templates/`, the shared types in `shared/bot-templates.ts`). The routes
-are under `/__hui/bots`, so they answer 409 while bots are off like every bot
-route; `import` is a reserved handle, so no bot's `/__hui/bots/:id` is ever one of
-them.
+A bot can be made from another platform's template, and exported as a template
+someone else imports, reviewed for personal information first (importing:
+`server/bots/template-import.ts`, with the importers as pure functions in
+`server/bots/templates/`, their constants in `server/bots/templates/formats.ts` and
+the payloads in `server/api/bot-templates.ts`; exporting: `server/bots/export.ts`,
+its cleanup and reviewer in `server/bots/templates/cleanup.ts` and `review.ts`, and
+`bot.json` and `buildExport` in `server/bots/export-format.ts`, which the browser
+copies in `src/lib/bots/export-preview.ts`). The routes are under `/__hui/bots`; `import` is a reserved
+handle, so no bot's `/__hui/bots/:id` is ever one of them.
 
-| Route | Success | Behavior |
-| --- | --- | --- |
-| `POST /__hui/bots/import/preview` | 200 `BotImportPreview` | `{ source, pick?, worker? }`, at most 32 MB. Reads the source (fetching a Grok Bot page now, on this request only) and answers what creating its bot would do: `template` (what to send back), `bot` (name, the handle it will get, title, description, look, worker), `soul` (SOUL.md as it will be written), `opener`, `model`, `thinking`, `utilityModel`, `memories: { included, total }`, `skills` (each with the name it is written as and its `original`), `routines` (each with the Automation schedule HUI read from it, the source's `scheduleText` and `guessed` when a part was assumed), `integrations` (each with the HUI `tool` it maps to, absent: missing), `disabledTools`, `disabledSkills`, `dropped` and `notes` (one line each). A file with several agents (CrewAI, Letta, a folder of Claude Code subagents) adds `candidates` (`{ key, name, title? }`) and the shown `pick`; send `pick` to preview another. `worker` previews for a bot on that worker. Nothing is created |
-| `POST /__hui/bots/import` | 201 `BotImportResult` | `{ template, worker? }`, at most 24 MB: the `template` a preview returned, checked again field by field (types, lengths, list sizes) and planned again exactly as the preview was. Creates the bot (`POST /__hui/bots`'s path: its home folder, SOUL.md, its conversation with memory, its chat), then writes its own skills, then creates its routines; a failure in either deletes the new bot again and answers the error. Then a HUI export's turned-off skills, and the opener's first turn: their failures leave the bot and come back in `warnings`. Answers `{ bot, skills, routines, opener, warnings }` |
-| `GET /__hui/bots/:id/export[?memory=1]` | 200 `application/zip` | The bot as `<handle>.hui-bot.zip` (`content-disposition: attachment`, `no-store`, `nosniff`): `bot.json` (`BotExportManifest`: `format: "hui-bot"`, `version: 1`, its name, handle, title, description, look, model, thinking, utility model and voice, its routines with their exact schedules and whether they were on, `disabledTools`, `disabledSkills` and the names of its own skills), `SOUL.md`, `skills/<name>/SKILL.md` for each of its own skills and, with `memory=1`, `memory.md` (its memory's current view). Archived bots too; a bot on an offline worker is 503 |
+### `POST /__hui/bots/import/preview`
+
+200 `BotImportPreview`. `{ source, pick?, worker? }`, at most 32 MB. Reads the source (fetching a Grok Bot page now, on this request only) and answers what creating its bot would do: `template` (what to send back), `bot` (name, the handle it will get, title, description, look, worker), `soul` (SOUL.md as it will be written), `opener`, `model`, `thinking`, `utilityModel`, `memories: { included, total }`, `skills` (each with the name it is written as and its `original`), `routines` (each with the Automation schedule HUI read from it, the source's `scheduleText` and `guessed` when a part was assumed), `integrations` (each with the HUI `tool` it maps to, absent: missing), `disabledTools`, `disabledSkills`, `open` (a HUI template's open points, as SOUL.md's *Not agreed yet* will list them), `needs` (what it needs to work, one line each), `triggers` (each `{ name, filter, prompt?, delivery?, cooldownSeconds }`, created disabled), `dropped` and `notes` (one line each); a skill of a HUI template has its `files` (`{ path, text }`, in full). A file with several agents (CrewAI, Letta, a folder of Claude Code subagents) adds `candidates` (`{ key, name, title? }`) and the shown `pick`; send `pick` to preview another. `worker` previews for a bot on that worker. Nothing is created
+
+### `POST /__hui/bots/import`
+
+201 `BotImportResult`. `{ template, worker? }`, at most 24 MB: the `template` a preview returned, checked again field by field (types, lengths, list sizes) and planned again exactly as the preview was. Creates the bot (`POST /__hui/bots`'s path: its home folder, SOUL.md, its conversation with memory, its chat), then writes its own skills (with their files), then creates its routines and then its triggers, all disabled; a failure in any of them deletes the new bot again (its triggers go with it) and answers the error. Then a HUI template's turned-off skills, and its first turn (its open points, or the opener): their failures leave the bot and come back in `warnings`. Answers `{ bot, skills, routines, opener, warnings }` (`opener`: a first turn started)
+
+### `POST /__hui/bots/:id/export/review`
+
+200 `BotExportReview`. No body. Reads what of the bot would travel, cleans it and has Settings' utility model read it ([Exporting](#exporting-a-bot-as-a-template), below), then keeps the answer as the bot's latest review until the gateway restarts (a new review replaces it). Up to about six minutes. Archived bots too; a bot without SOUL.md (still in its first conversation) is 409, a bot on an offline worker 503
+
+`POST /__hui/bots/:id/export` answers 200 `application/zip`. `{ review, picks?, added? }`, at most 256 KB: the review's `id`; `added`, at most 50 passages the reviewer missed, `{ quote, group: remove \| ask \| confirm, becomes? }` (`becomes`: what a removed one becomes, or what the new owner gives for an asked one), each becoming change `a1`, `a2`… as `withAdditions` makes it (the passage must stand, four characters or more, in a text part of the review, spacing forgiven, in a part that takes its group, and not be a change already; `becomes` must hold nothing the cleanup would change; otherwise 400); and `picks`, a group for each change, script or need the operator moved (`{ "c1": "keep", "f1": "remove", "n1": "remove" }`; a change takes `keep`, `remove`, `ask` or `confirm` (one in the profile, set before the first chat, only `keep` or `remove`), a script `keep`, `remove` or `confirm`, a need `keep` or `remove`; an unknown id or group is 400). Answers `buildExport(review, picks)` as `<name>.hui-bot.zip` (`content-disposition: attachment`, `no-store`, `nosniff`): the files the dialog showed. 409 when the review is gone or replaced, or when anything the export holds changed since it (the review runs again). `GET` is 405
 
 `source` is one of `{ kind: "file", name, data }` (the file's bytes in base64, at
 most 8 MB decoded), `{ kind: "files", files: [{ path, data }] }` (a folder: at most
@@ -2230,7 +2539,7 @@ nothing is ever written from a source but the bot's own files below.
 | Letta agent file | JSON with `agents` (blocks and tools by id beside them), or one agent with `system` and `core_memory`/`llm_config` | The `persona` block (the soul), the system prompt under *Instructions* unless it is Letta's stock prompt, the `human` block and custom blocks (memories), tools (integrations; their code is never imported; Letta's memory and messaging tools are left out), `llm_config` (the model). The message history is skipped |
 | Character card | V2/V3 JSON (`spec`), V1 fields, or a PNG's `ccv3` (first) or `chara` text chunk | `system_prompt` (its `{{original}}` dropped), `description`, `personality` and `scenario` (the soul), `first_mes` (the opener), the character book's enabled entries (memories), `nickname` (title); `{{char}}` is the bot's name and `{{user}}` Settings' profile name (else "the operator", "you" in the opener). Example messages, alternate greetings, post-history instructions, creator notes and the image are left out |
 | CrewAI agents.yaml | a YAML mapping of agents with `role`, `goal` or `backstory` (each agent a candidate) | `role` (the title), `goal` and `backstory` (the soul), `llm` (the model), `tools` (integrations); CrewAI's `{placeholders}` are kept and noted |
-| HUI export | `bot.json` with `format: "hui-bot"` | Everything the export holds (above); its memory joins what it already knows |
+| HUI template | `bot.json` with `format: "hui-bot"` | Version 2 (below): its profile, SOUL.md, skills with their files, routines (a cron runs in this gateway's time zone), triggers, turned-off lists, open points and needs. Version 1 (an exact copy from before): the same without the last four, plus its handle and `memory.md`, which joins what it already knows |
 | Plain text | anything else | The text is the soul; a short first heading names the bot |
 
 What creating does with a template, the same plan for the preview and the create:
@@ -2243,23 +2552,28 @@ What creating does with a template, the same plan for the preview and the create
   while they fit in its 20,000 characters (the rest are listed as left out).
   OptChat's memory is the chat's own log, a projection of its Durable entries,
   so nothing else can seed it; in SOUL.md the bot reads them on every request
-  and the operator edits them in the Soul tab.
+  and the operator changes them by telling it or with `hui bot soul`.
 - **Opener.** The bot's first turn: a kickoff (`botOpenerKickoffText`: the
   `[HUI bot created]` marker, so the chat shows "<name> was created", never the
   operator's bubble) that asks it to send the opener as written. Its answer is a
   real message of its chat, in its memory like every other; a message written into
   the chat by HUI would never reach OptChat's log. It costs one turn of its model.
 - **Skills** are written to the bot's home folder, `<bots dir>/<id>/skills/<name>/SKILL.md`
-  (front matter with `name` and `description`, then the instructions; a skill's
-  supporting files are not imported), on the machine its chat runs on (on a
-  worker, through its host's `bot.skills.*` requests; an older worker that lacks
-  them gets none, listed as left out).
+  (front matter with `name` and `description`, then the instructions), with a HUI
+  template's files beside it (other formats' supporting files are not imported;
+  never a second `SKILL.md` in another case, nor two paths that differ only by case),
+  each written atomically, owner-only (mode 0600: a script arrives without
+  permission to run), never through a link, on the machine its chat runs on (on
+  a worker, through its host's `bot.skills.*` requests, whose skills carry
+  `files` only when its `hello` lists `bot-skill-files`; an older worker gets
+  SKILL.md alone, its files listed as left out, and one without `bot-skills`
+  none).
   Only that bot's chat loads them: `DurableHost.skillDirsFor` adds its own folder
   to its directory's skills wherever skills are read (its prompt, `/skill:`,
   `load_skill`, its catalog, where they show as *Its own skills*). A name a skill
   of its directory already has gets `-2` (the directory's would win the name).
   They are on, like every skill of a bot: they are text the preview showed in
-  full, they widen no tool, and each can be turned off in the Tools tab.
+  full, they widen no tool, and each can be turned off on the Tools & skills page.
 - **Routines** are Automation tasks aimed at its chat, created **disabled**. A
   schedule is read as a cron expression (`cron <expr> [zone]` too), `at <time>`,
   an interval (`every 30m`, `hourly`) or a phrase (`daily at 9:00`, `weekdays at
@@ -2276,6 +2590,22 @@ What creating does with a template, the same plan for the preview and the create
   and `subagents`, TodoWrite → `progress_card`) and turn the rest of the tools every
   chat has off; a HUI export turns its own list off. An import never turns on
   anything a new bot doesn't have.
+- **A HUI template's points.** `{{user}}` becomes Settings' profile name (*the
+  operator* without one) in its name, title, description, Markdown (SOUL.md, its
+  skills' Markdown and text files), routines' and triggers' prompts and open
+  points; never in a script or a trigger's filter. Its open points close SOUL.md
+  under `## Not agreed yet` (`notAgreedSection`): what to do once the operator has
+  answered, then one line per point, `- Ask (where): question` or `- Confirm
+  (where, only the operator can change it): question “excerpt”`. Their room comes
+  first: the persona is cut to fit SOUL.md's 20,000 characters, and the points take
+  at most half of it (any beyond are left out). Its first turn is a kickoff
+  (`botTemplateKickoffText`: the marker, the name, `from: template`) that asks the
+  bot to greet the operator and start on the points, without tools; like the
+  opener's, that turn is not the operator's. On a worker whose `hello` lacks
+  `bot-skill-files` (an older one, whose host would read that turn as the
+  operator's) no such turn runs: the bot goes through the points once the operator
+  writes. Its triggers are made disabled through
+  the triggers' route (`source: "listener"`), so each gets its URL from **New URL**.
 - **Model.** The template's model is kept only when this gateway resolves it:
   the exact `provider/id`, a bare id, or Claude Code's `sonnet`/`opus`/`haiku` (the
   newest such model); otherwise the bot starts on the gateway's default.
@@ -2283,6 +2613,120 @@ What creating does with a template, the same plan for the preview and the create
 Errors: 400 for a source or template HUI can't read (the message names what it
 reads), 502 when x.ai can't be reached or refuses the page (the message
 suggests pasting), and otherwise as the bot routes above.
+
+#### Exporting a bot as a template
+
+What an export reads is exactly what can travel: the bot's name, title,
+description and look; its model and utility model by bare id (`provider/` left
+out), thinking level and voice; SOUL.md; each of its own skills' folders (SKILL.md
+and the text files beside it, depth 4, at most 50 files, 256 KB each and 2 MB a
+skill; hidden files and folders, `node_modules`, `__pycache__`, logs, links and
+binaries stay behind, each listed with why, and so does a skill whose name, or a
+file whose path, holds a word of the operator's name or the machine's, which can't
+be rewritten: `personalIn`); its routines (a one-time `at` routine stays behind; a
+cron loses its time zone; their timeouts stay behind); its triggers (name, filter,
+prompt and cooldown; never the token, its hint or who made it); and the built-in
+tools and its own skills it turned off, by name (an extension's tools and its
+directory's skills stay behind, counted). Never its memory, chat, handle, home or
+working directory.
+
+**The cleanup** (`cleanText`) runs first, on every part: the operator's names
+(Settings' profile name, the account's full name, read from the directory service
+on macOS or the password entry on Linux, and a `first.last` user name when that full
+name bears it out, as `dani.fernandez` with *Daniel Fernandez*: `nameFromUsername`),
+each of two words or more whole, any case, and each word of three letters or more as
+written (one with a hyphen or an apostrophe too, a hyphenated one also by its parts),
+unless it is a common word such as Will or Mark or a generic one such as Ubuntu, become
+`{{user}}`, once for names side by side;
+home folder paths (this machine's, and any `/Users/<x>` or `/home/<x>`, where a
+path starts) become `~`; and e-mail addresses (not `git@`), trigger links (`/__hui/hooks/<token>`),
+`*.ts.net` names, IPv4 addresses other than loopback and `0.0.0.0`, Slack IDs (a
+letter, then a digit: `C0123ABCD`), private keys and text shaped like a key or token (`ghp_`,
+`github_pat_`, `xox?-`, `sk-`, `AKIA`, JWTs, a value with a digit after `token:`,
+`password=` or `Bearer`, never code that reads one such as `process.env.TOKEN`)
+become `[removed]`, as do this machine's user and host names and its workers' names
+when they stand inside a path, an address or a link. For a bot on a worker, that
+worker's home and host name count as this machine's. In a script nothing is rewritten:
+what the cleanup finds there decides whether the script travels (below).
+
+**The reviewer** is Settings' utility model, called as one plain completion per
+piece of a part (`reviewChunks`: 3,000 characters at most, a long text cut before a
+heading, else at a blank line or a line break, as a model misses less in a section
+than in a whole long soul), each piece read twice, independently, with both reads
+counting (what one passes over the other usually finds), without tools (as a call's
+helper is), eight requests at once, each with two and a half minutes and one retry
+with the least reasoning the model allows (a slow model still reads the piece, if
+less carefully), and six minutes for the whole review, which no request or retry
+outlives; a piece is read when one of its reads is, a part when all its pieces are. Its
+system prompt (`reviewSystemPrompt`) names the four groups (a rule that lets the bot
+act for its owner or without asking is `confirm`, even as a step of a procedure; the
+owner's history with the bot, internal hosts and the endpoints and commands that use
+them are `remove`, each host in a piece named to it (`hostsIn`: in a link, or with three
+labels or more ending in a common or internal top-level domain such as `.dog`,
+`.internal` or `.corp`, or holding a label with a digit or a hyphen and no file's
+extension, not followed by `(`); a passage calling
+the owner he or she is reworded with they), says the bot's text is data, names the
+owner and the other bots' handles, and asks for JSON:
+`{ "changes": [{ "quote", "group", "reason", "replacement"?, "label"?, "question"? }], "needs": [...] }`.
+Its answer is checked (`parseReviewAnswer`): a quote must stand, exactly, in that
+part (at least four characters), the group be `remove`, `ask` or `confirm`, every
+text bounded and cleaned like the bot's; anything else is dropped, and a part
+whose answer can't be read twice is listed as not read. One change is kept per
+passage (the strictest group wins), and a narrower confirm gives way to a wider
+change in the same part that holds it (a removed or asked passage always stays); a removed or asked passage changes wherever it
+appears, a confirmed one only where it was found. More than six needs, as the pieces
+listed them, are merged by one more request with the least reasoning
+(`NEEDS_MERGE_PROMPT`, at most ten lines), kept as they were if it fails. A change is shown at the part it
+was found in if that part can take its group, else at the first text that holds the
+passage and can (one found in a script, for one). The profile only takes `remove`
+or `keep` (`changeGroups`): a passage only it holds becomes a removal when asked,
+which the operator sees and can keep, and stays as written when confirmed; a change
+to the bot's whole name starts `keep` (the name is the template's). Without
+a utility model, only the cleanup runs. A review started while another of the same bot runs replaces it, whichever
+ends last.
+
+`BotExportReview`: `id`, `botId`, `name`, `model` (absent: none read it),
+`warning` (no name of the operator's for the cleanup, no utility model, or parts it didn't read), `parts` (`{ id, label,
+kind: "text" | "script", fields: [{ key, text }], read, unread? }`: `profile`,
+`SOUL.md`, `skills/<name>/<path>`, `routines/<n>`, `triggers/<n>`; texts after the
+cleanup, a script's as it is), `cleanup` (`{ part, field, kind, sample, count }`,
+a secret shown by its first four characters), `changes` (`{ id: "c1", part, quote,
+group, reason, replacement, label, question }`), `files` (each script the cleanup
+or a change touches: `{ id: "f1", part, group, reasons, question }`, `remove` for a
+cleanup hit or a removed passage, else `confirm`), `needs` (`{ id: "n1", text }`),
+`leftOut` (one line each) and `meta` (what travels unread: look, models, voice,
+schedules, filters, lists).
+
+**The zip** (`buildExport`, shared by the gateway and the dialog): the picked
+`remove` changes become their `replacement` and `ask` ones `[ask: <label>]`, in one
+pass over each text (quotes that overlap become one span, replaced whole; a passage
+taken out with nothing in its place leaves no gap: brackets or quotes it fills go
+with it when they stand alone (a call's, an index's or a link's stay), a whole
+sentence takes its full stop, a clause the space before it and an "and" or "or"
+joining it to the end of its sentence, and a list item left with its marker alone
+goes, line and all). What the reviewer (or the operator, adding) wrote travels only
+checked against the picks: a replacement or label that
+repeats a removed or asked passage gives way (to nothing, or *your own value*,
+numbered when there are several), and questions, excerpts (tidied, then shortened),
+where and needs get the picks' replacements (a passage taken out shows as
+`[removed]`), then `[removed]` for the passage in any other case or spacing. The
+build also says what each picked change comes to (`outcomes`), which the dialog
+shows. Each
+`ask` or `confirm` pick is an open point (`BotOpenPoint`: `{ kind, where, question,
+excerpt? (confirm), operator? (a trigger's) }`; moved out of the reviewer's group,
+it asks what fits the new one, never quoting an asked passage; passages asked as the
+same blank, by label in any case, are one point naming every place, a trigger's
+apart as only the operator changes it), and so is each
+script picked `confirm`. The profile, set before the first chat, never holds a mark: a passage asked elsewhere leaves it like a removed one, and a name the picks remove whole travels as *Bot*. A trigger whose filter value the cleanup or a change touched
+travels without `match`, with an open point for the operator. `bot.json` is
+`BotExportManifest`: `format: "hui-bot"`, `version: 2`, `bot` (name, title?,
+description?, avatar?, model?, thinking?, memoryModel?, memoryThinking?, voice?, tagging?),
+`routines` (`{ name, description?, prompt, schedule: { kind: "every", everyMs } |
+{ kind: "cron", expression } }`), `triggers`, `disabledTools`,
+`disabledSkills` (names), `skills` (names), `open` and `needs`; then `SOUL.md` and
+`skills/<name>/…`, scripts picked `remove` left out. No export date: every entry is
+dated 1980-01-01 (a local date would tell the time zone), and the file is named
+from the bot's final name (`botExportFileName`, `{{user}}` left out).
 
 ## Routes
 
@@ -2450,14 +2894,17 @@ empty answer, the branch uses the first meaningful words of the operator
 `title` or the first prompt line. This step is reported as the `naming`
 worktree phase before any Git progress. An operator `title` is never replaced.
 
-`model` and `thinking` are optional initial session preferences selected in New
+`model`, `thinking` and `fast` are optional initial session preferences selected in New
 Session. `model` uses canonical `provider/id` form: the first slash separates the
 provider from the complete model ID, which may contain further slashes (for
 example, `vercel-ai-gateway/anthropic/claude-opus-5.5`). Neither part may be empty
 or contain whitespace. `thinking` accepts `off`,
-`minimal`, `low`, `medium`, `high`, or `xhigh`. Without `model`, the session
-uses `settings.models.primary` when one is set, otherwise PI's default. Both are persisted before the
-runtime starts and are passed to PI on its first launch as well as later reopen.
+`minimal`, `low`, `medium`, `high`, `xhigh`, `max` or `ultra`; PI clamps it to the levels
+the model has (see `POST /__hui/sessions/:id/thinking` for `ultra`). `fast` is a boolean (default false; see
+`POST /__hui/sessions/:id/fast`). Without `model`, the session
+uses `settings.models.primary` when one is set, otherwise PI's default. All are persisted before the
+runtime starts; `model` and `thinking` are passed to PI on its first launch as well as later reopen,
+and HUI turns `fast` on as soon as the runtime has started.
 
 `worktree` is optional and defaults to false. `baseRef` optionally selects any
 local branch, known remote branch or commit resolvable by Git. When `worktree`
@@ -2502,6 +2949,27 @@ the same routes, `DELETE` included, answer 409. Attachment, Jira, suggestion
 and change routes answer 404 until the record exists. A gateway restart forgets
 unfinished sessions. Parallel creations that pick the same branch name take the
 next free suffix.
+
+### `GET /__hui/sessions/search`
+
+Transcript search for the Sessions page. `?q=` is 2-200 characters; anything
+else answers 400. The gateway reads every session's conversation where it is
+stored, without starting a runtime: its own Durable store, a PI session file,
+or, for a session on a connected remote worker, that worker's host (one
+`sessions.search` request per worker, answered within 60 seconds; the search
+never connects a worker). Bots' chats and subagents are left out. A message
+matches when the text the chat shows for it contains `q`, case-insensitively:
+assistant text and user text without inlined skills or the attachment
+manifest. A Durable conversation is read from its latest reset on, without its
+system, extension and summary entries; a PI file is read whole, abandoned
+branches included.
+
+Answers `{ hits: { id, snippet, matches }[], unsearched: { worker, error }[] }`:
+one hit per matching session with its newest matching message cut around the
+match and the number of matching messages, and each host that could not be
+searched (a worker that is not connected, does not answer or runs a release
+without the request, or this machine when its Durable store does not open)
+with the reason. A session whose conversation cannot be read is left out.
 
 ### `GET /__hui/sessions/events`
 
@@ -2575,7 +3043,9 @@ appears.
 ```
 
 Responds `{ "ok": true }` once pi has *accepted* the prompt, not when the turn
-finishes.
+finishes. A prompt, steer or follow-up accepted into an archived session
+restores it and its subagents, as `PATCH { "archived": false }` does; a bot's
+chat stays archived until its bot is restored.
 
 `requestId` (optional, 1 to 100 letters, digits or `. : _ -`; anything else is a
 400) makes a resend safe. The gateway remembers, per session, what it did with
@@ -2669,6 +3139,12 @@ cached command catalog so newly added skills and commands appear.
 Uses the prompt body and attachment rules. Queues an instruction before PI's
 next model call while the current run is active.
 
+### `POST /__hui/sessions/:id/queue`
+
+Edits the follow-up queue using an `operation` of `edit`, `remove`, `move` or
+`steer` and an `itemId`. Editing also sends `text`; moving sends `toIndex`.
+Returns `{ ok: true }` after the operation, or the existing 400 or 409 error.
+
 ### `POST /__hui/sessions/:id/follow-up`
 
 Uses the prompt body and attachment rules. Queues work for after the current
@@ -2679,11 +3155,48 @@ entry into the live transcript before the next model response. Slow turns and
 reconnecting browsers therefore retain the user instruction that caused them;
 PI's refreshed history replaces the projection at settlement.
 
-### `GET|POST /__hui/sessions/:id/thinking`
+### `GET /__hui/sessions/:id/thinking`
+### `POST /__hui/sessions/:id/thinking`
 
 GET returns `{ "level": string | null }`. POST accepts `{ "level": "off" |
-"minimal" | "low" | "medium" | "high" | "xhigh" }`, applies it live and
-persists the session preference.
+"minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra" }`, applies it live and
+persists the session preference. The composer offers only the model's
+`thinkingLevels`. Switching to a model without the level fits it to that model
+(the next level up it has, else its highest; `event: thinking_level` says which).
+The registry keeps the chosen level, and a Durable session switched back to a
+model that has it uses it again.
+
+`ultra` is HUI's, after OpenClaw: the model is sent its highest level (PI's
+`max`, clamped), and while the session stays on it each request's system prompt
+carries a `hui_ultra` section telling the agent to plan the work, carry it
+through and verify it before replying, to make easy or reversible choices itself
+and ask only before actions that are hard to undo or reach other people (or
+that the operator's instructions say to ask about), and, when `sessions_spawn`
+is offered, to hand independent investigation, implementation and verification
+to subagents in parallel (bounded objectives, results synthesized; simple or
+tightly coupled work stays local). The session's usual subagent limits apply,
+and a child it spawns without a level of its own gets `max`, not `ultra`.
+GET and `event: thinking_level` report `ultra`; PI extensions see the level the
+model is sent. Only Durable sessions offer it: a PI SDK session given `ultra`
+is sent its highest level without the section and reports that level. A bot's
+chat keeps its bot's PI levels: it offers no `ultra` and refuses it (400).
+
+### `POST /__hui/sessions/:id/fast`
+
+Accepts `{ "fast": boolean }`, applies it live, persists it with the session
+(`fast: true` in the registry) and answers `{ "fast": boolean }`; every viewer
+gets `event: fast` with `{ "fast": boolean }`. While it is on, each of the
+session's model requests to a model with `fast` asks for its provider's fast
+mode: Anthropic's `speed: "fast"` with the `fast-mode-2026-02-01` beta, or
+OpenAI's `service_tier: "priority"` (a tier the request already names is kept).
+Requests to other models are unchanged, and a run Durable resumes by itself
+while the store opens sends its first request before HUI turns fast mode back
+on. A provider or proxy that does not offer
+the mode may refuse the request or serve it at standard speed; PI prices
+OpenAI's priority tier, but HUI's cost estimate does not include Anthropic's
+fast-mode premium. 400 when the runtime cannot change speed (PI SDK sessions)
+or the session is not running; 500 when the registry write fails, after the
+session went back to its previous speed.
 
 ### `POST /__hui/sessions/:id/question`
 
@@ -2773,12 +3286,19 @@ data: { "provider": "openai", "id": "gpt-5.6", "name": "GPT-5.6" }
 
 event: thinking_level
 data: { "level": "high" }
+
+event: fast
+data: { "fast": true }
 ```
 
 While a turn is live, HUI keeps a replay projection of user messages, thinking,
 tool cards and text deltas. A reconnecting stream receives that projection in
-its snapshot. At `settled`, PI's refreshed transcript normally replaces the
-projection as the authoritative durable history and a final snapshot is emitted.
+its snapshot. Each prompt the session accepts, whoever sent it (a client, a
+routine, a subagent's result, an automation), is sent first as a `snapshot`
+ending with that user message, before the `running` status and the run's
+events; a prompt the runtime refuses is removed again with another snapshot.
+At `settled`, PI's refreshed transcript normally replaces the projection as
+the authoritative durable history and a final snapshot is emitted.
 That snapshot also carries PI's `get_session_stats` context usage plus the
 input, output and reported cost summed from the latest run's assistant messages
 and tool results (PI attributes nested tool and model calls to the calling tool's
@@ -2792,6 +3312,11 @@ the just-completed turn does not disappear.
 
 The stream stays open across turns, sends a comment heartbeat so proxies do not
 close it, and ends with `event: closed` when the runtime exits.
+
+Each frame is a `SessionStreamFrame` (`server/api/session-events.ts`, generated browser types in
+`src/api/schema/session-events.ts`): the SSE `event:` name and `data:` payload here, `{ "event", "data" }` as one JSON
+message on the session WebSocket. Runtime events arrive as transmitted (`SessionEvent`): `history` never leaves the
+gateway and `error` carries only its `message`.
 
 Session views can include `"interrupted": true` and `"unread": true`. `"background": true` means a running watcher of that session, or a running
 subagent anywhere below it, is still working; the sidebar shows such a session as running
@@ -2820,7 +3345,7 @@ browsers allow only six HTTP/1.1 connections per origin and a few split panes
 would otherwise stall every other request. Like terminal and browser streams,
 the upgrade also requires a same-origin `Origin` and an allowed `Host`, and it
 is refused with 403 otherwise. Each text message is
-`{ "event": "snapshot" | "transcript" | "event" | "status" | "model" | "thinking_level" | "closed", "data": … }`
+`{ "event": "snapshot" | "transcript" | "event" | "status" | "model" | "thinking_level" | "fast" | "closed", "data": … }`
 with the SSE payloads above, beginning with the snapshot. The server negotiates
 `permessage-deflate` (messages of at least 1 KiB, no context takeover in either
 direction), so the snapshot's transcript crosses a slow link compressed; a
@@ -2857,8 +3382,9 @@ prevents the UI from continuing to display the durable-but-no-longer-live model.
 
 ### `POST /__hui/sessions/:id/abort`
 
-Stops the turn in flight without deleting or closing the session. Responds
-`{ "ok": true }`; starting sessions return 409.
+Stops the turn in flight without deleting or closing the session, and cancels
+the session's queued and running collected subagents (Swarm) even when the turn
+refuses to stop. Responds `{ "ok": true }`; starting sessions return 409.
 
 ### `POST /__hui/sessions/:id/rewind`
 
@@ -2974,18 +3500,25 @@ Returns the whole scheduler snapshot:
 `{ "scheduler": { "enabled": true, "activeRuns": number, "nextWakeAt": string | null }, "tasks": AutomationTask[], "runs": AutomationRun[] }`.
 The scheduler and its store are HUI-owned (`~/.config/hui/automation.json`); PI
 has no scheduler contract to reuse. A malformed store is reported and never
-replaced by a later mutation. Each task (`src/lib/automation-types.ts`) has
+replaced by a later mutation. Each task (`AutomationTask` in `server/api/automation.ts`) has
 `id`, `name`, `description`, `sessionId`, `prompt`, `schedule`, `enabled`,
 `timeoutSeconds`, `createdAt`, `updatedAt` and `nextRunAt`, and three optional
 fields, absent from tasks written before them (which load unchanged; a value
 that isn't valid is left out rather than failing the store):
 
 - `createdBy`: `{ "kind": "operator" }` for a task made through these routes (the
-  Automations page, a bot's Routines tab, `hui schedule`, `hui bot routine`), or
+  Automations page, a bot's Routines page, `hui schedule`, `hui bot routine`), or
   `{ "kind": "bot", "botId", "handle" }` for one a bot made with its
   [`routines`](#routines) tool. A body never sets it.
 - `until`: a temporary task's end, ISO.
 - `runsLeft`: a temporary task's runs left.
+
+Runs retain their existing statuses. Optional additive fields are `attempt`
+(one-based), `deadlineAt` (ISO), `retryAt` (ISO while safely waiting for another
+attempt), `failure: { kind, needsAttention }`, and `delivery: { text, before,
+requestId? }` (the persisted dispatch checkpoint, not a public mutation input).
+Old records remain readable without these fields. The store version remains 1;
+there is no separate scheduler, migration or abandoned state.
 
 ### `POST /__hui/automation/tasks`
 
@@ -3006,17 +3539,20 @@ stored as `runsLeft`). HUI deletes it by itself after either:
   `null` once none is left before it).
 - **After its last run.** Each run HUI starts counts, by hand or scheduled, and
   is taken from `runsLeft` as it starts; a run that ends `skipped` (its target
-  couldn't take it, or bots were off) gives it back. Once `runsLeft` is 0
+  couldn't take it) gives it back. Once `runsLeft` is 0
   nothing more is planned, and the task goes when that run ends (whatever its
   outcome). A run by hand of a task with none left is a 409.
 - **Across a restart**: the scheduler's start deletes a task whose `until`
-  passed while the gateway was down, and one whose last run the restart cut
-  short (that run is recorded `failed` as usual).
+  passed while the gateway was down. A checkpointed last run is reconciled before
+  its task is removed; a safe pending retry keeps its run count. An older run
+  without a checkpoint cannot be reconciled and is marked `failed`, requiring
+  inspection rather than a blind replay.
 
 Deleting is one write of the store, so a temporary task never runs again once
 it is due to go. Its runs stay in the history.
 
-### `PUT|DELETE /__hui/automation/tasks/:id`
+### `PUT /__hui/automation/tasks/:id`
+### `DELETE /__hui/automation/tasks/:id`
 
 `PUT` takes the same body as creation and rewrites the task, recomputing
 `nextRunAt` (`null` when `enabled` is false). `createdBy` stays. `until` and
@@ -3025,16 +3561,16 @@ client that doesn't know them (the enable switch, an older build) keeps a task's
 limits. `DELETE` removes it. Both respond `{ "snapshot" }`. An unknown id
 returns 404; deleting a task whose run is still in flight returns 409 (a bot
 removing its own routine from that routine's turn is the one exception, above).
+Changing an in-flight task's target, name or prompt also returns 409: stop its
+run first, so a pending retry cannot silently become a different occurrence.
+Pausing or changing future scheduling/limits remains allowed.
 
 `hui schedule` (alias `schedules`) drives these routes from a terminal for every
 task: `list [--bot <bot> | --session <session>]`, `show`, `add`, `edit` (only the
 flags given; `--bot` or `--session` moves a task, `--until ""` and `--runs ""`
 clear the limits), `pause`, `resume`, `run` and `remove`, naming a task by id or
 exact name and a session by id or exact title (from `GET /__hui/sessions`).
-`hui bot routine …` runs on the same code. While bots are off, anything that
-names a bot, a bot's chat or a bot's routine prints the gateway's
-`GET /__hui/bots` refusal and exits 1, and `list` leaves bots' routines out, as
-Automations does; sessions' schedules work regardless.
+`hui bot routine …` runs on the same code.
 
 ### `POST /__hui/automation/tasks/:id/run`
 
@@ -3111,6 +3647,35 @@ reports wait in memory and are retried with backoff (5–60 s), or at once when 
 `/__hui/` request succeeds; a page reload discards them. Cross-origin
 `Script error.`, ResizeObserver loop notices and aborted requests are ignored.
 
+### `GET /__hui/themes`
+
+Returns `ThemesResponse`, the merged built-in and user theme list. Each `ThemeRef`
+has its id, name and gateway file URL. A user theme wins when its id matches a
+built-in theme.
+
+### `POST /__hui/themes/import`
+
+Accepts `ThemeImportRequest` with a tweakcn URL and returns `ThemeImportResponse`
+with the imported id and refreshed theme list. Import errors return 400.
+
+### `GET /__hui/themes/file/:key`
+
+Returns the theme author's JSON document for a discovered theme key. The
+`ThemeFile` shape is an open JSON object because the gateway sends the author's
+fields unchanged. Mapping and contrast adjustment happen when HUI applies the theme. An unknown key returns 404.
+
+### `GET /__hui/settings`
+
+Returns the normalized HUI `Settings` document, including `BrowserSettings`
+and `VscodeSettings`. Missing or malformed saved settings use the defaults.
+
+### `PUT /__hui/settings`
+
+Normalizes and saves the supplied settings, then returns the saved `Settings`.
+Missing or invalid fields use their defaults rather than the previous values.
+The gateway applies the settings to its running services. Neither route changes
+PI's configuration.
+
 ### HUI-owned presentation state
 
 `PUT /__hui/settings` also persists the validated `#rrggbb` accent override,
@@ -3121,9 +3686,7 @@ OpenClaw-compatible HUI chat preferences (`messageWidth`,
 `collapseTaskProgress`, `sendShortcut` and `githubEmbeds`),
 [`power`](#macos-power), the Git workspace `branchPrefix` (`feature/` by default),
 Profile presentation fields and reversible Labs flags (`labs`:
-`denseObservability`, `detailedDebug` and `bots`, each off unless explicitly
-`true`). `labs.bots` is more than presentation: the gateway reads it too, and
-bots are dormant while it is off ([Bots are a preview](#bots-are-a-preview-settings--labs--bots)).
+`denseObservability` and `detailedDebug`, each off unless explicitly `true`).
 These values affect HUI only. They never change PI configuration, provider
 identity, runtime permissions or transcripts.
 
@@ -3198,6 +3761,15 @@ The gateway chooses the session's recorded `cwd`; callers cannot override it.
 | Same | POST | `{ action: "input", data }`, `{ action: "resize", cols, rows }`, or `{ action: "close" }` |
 | `/__hui/sessions/:owner/terminals/:id/connect` | POST | `{ url }`, a one-use WebSocket capability valid for 15 seconds |
 
+### `GET /__hui/sessions/:owner/terminals`
+### `POST /__hui/sessions/:owner/terminals`
+### `GET /__hui/sessions/:owner/terminals/:id`
+### `POST /__hui/sessions/:owner/terminals/:id`
+### `POST /__hui/sessions/:owner/terminals/:id/connect`
+
+The table above describes these routes. `TerminalsResponse`, `TerminalResponse`, `TerminalSnapshot`,
+`TerminalOperationRequest`, `TerminalOperationResponse` and `TerminalConnectResponse` describe their JSON bodies.
+
 `TerminalView` contains `id`, `ownerSessionId`, `title`, initial `cwd`, `cols`,
 `rows`, `status` (`running` or `exited`), `createdAt`, and optional `exitCode`.
 `cwd` is the launch directory, not a promise about a later shell `cd`.
@@ -3212,7 +3784,8 @@ only exception mechanism, not an unguarded create/input route. Tickets are not
 stored in browser layout, logs or tool output. Production and Vite share the
 same transport. Binary or malformed client messages never execute input.
 
-The wire format is defined in `shared/terminal-stream.ts`. PTY output travels as
+JSON control messages are described in `server/api/terminals.ts`; the browser parser lives in
+`src/api/terminals.ts`. PTY output travels as
 **binary** messages holding the raw UTF-8 bytes the shell wrote, in order, with
 no JSON envelope or escaping; the browser sets `binaryType = "arraybuffer"` and
 hands the bytes to Gespenst (Ghostty's VT), which decodes UTF-8 itself (a code point may span
@@ -3283,14 +3856,23 @@ changed mode or executable, or turning the tool off, stops a running browser.
 
 All routes use the `x-hui` guard.
 
-| Route | Method | Result |
-| --- | --- | --- |
-| `/__hui/browser` | GET | `BrowserStatus` |
-| Same | POST | `{ action: "start" \| "stop" }`, then `BrowserStatus` |
-| `/__hui/browser/tabs/:tabId/preview` | GET | `{ image: "data:image/jpeg;base64,…" }` for one open tab |
-| `/__hui/sessions/:id/browser/connect` | POST | `{ url: "/__hui/browser-stream?ticket=…" }` for that conversation's live view |
+### `GET /__hui/browser`
 
-`BrowserStatus` (`shared/browser.ts`) reports the saved `enabled`, `headless`
+Returns `BrowserStatus`.
+
+### `POST /__hui/browser`
+
+`BrowserControl` `{ action: "start" | "stop" }`, then `BrowserStatus`.
+
+### `GET /__hui/browser/tabs/:tab/preview`
+
+`BrowserPreview` `{ image: "data:image/jpeg;base64,…" }` for one open tab.
+
+### `POST /__hui/sessions/:id/browser/connect`
+
+`BrowserViewConnection` `{ url: "/__hui/browser-stream?ticket=…" }` for that conversation's live view.
+
+`BrowserStatus` (`server/api/browser.ts`, generated browser types in `src/api/schema/browser.ts`) reports the saved `enabled`, `headless`
 and `executablePath`, the resolved `executable` (`path`, `name`, `source:
 configured | detected`) or `executableError`, `state` (`stopped`, `starting`,
 `running`, `stopping`), the running `mode` (`headless` or `windowed`),
@@ -3300,6 +3882,8 @@ start while the tool is off or no executable is usable returns 409; launch
 failures return 502 with the browser's reason. A preview of an unknown tab
 returns 404, and a background tab in a visible window that cannot be captured
 without switching to it returns 409.
+
+### `WS /__hui/browser-stream`
 
 The live-view ticket is single-use, expires after 15 seconds and is bound to
 one conversation (unknown conversations return 404). The WebSocket upgrade at
@@ -3373,20 +3957,45 @@ these routes. They use the existing `x-hui: 1` guard (the raw route included:
 previews are fetched as blobs, never pointed at by an element) and a registered
 HUI session; the gateway chooses the session's recorded `cwd`. Every `path` is
 relative to it, `/`-separated, with `""` for the root. Shapes live in
-`shared/files.ts`.
+`server/api/files.ts` and the generated `src/api/schema/files.ts`.
 
-| Route | Method | Result |
-| --- | --- | --- |
-| `/__hui/sessions/:id/files` | GET | `FilesInfo`: `{ available: true, root, name }` (`root` with `~` for home) or `{ available: false, reason }` |
-| `/__hui/sessions/:id/files/list?path=` | GET | `{ path, entries: FileEntry[], truncated }`: one folder, folders first, at most 2,000 entries |
-| `/__hui/sessions/:id/files/search?q=` | GET | `{ query, entries, truncated, source: "git" \| "walk" }`, at most 100 files |
-| `/__hui/sessions/:id/files/file?path=` | GET | `FileRead` and an `ETag` header |
-| Same | PUT | `{ content }` with `If-Match: "<etag>"` → `FileSaved` `{ path, etag, size, mtime }` |
-| `/__hui/sessions/:id/files/raw?path=` | GET | The file's bytes, at most 64 MiB |
-| `/__hui/sessions/:id/files/entry` | POST | `{ path, kind: "file" \| "directory" }` → 201 `{ entry }`, empty and never replacing |
-| `/__hui/sessions/:id/files/entry?path=[&recursive=1]` | DELETE | `{ deleted: { path, kind } }` |
-| `/__hui/sessions/:id/files/upload?dir=&name=[&overwrite=1]` | POST | Raw body, at most 64 MiB → 201 `{ entry }` |
-| `/__hui/sessions/:id/files/resolve` | POST | `{ paths: string[] }` (at most 100, each at most 1,024 characters) → `{ entries: ({ path, kind: "file" \| "directory" } \| null)[] }`, one per path in order |
+### `GET /__hui/sessions/:id/files`
+
+`FilesInfo`: `{ available: true, root, name }` (`root` with `~` for home) or `{ available: false, reason }`.
+
+### `GET /__hui/sessions/:id/files/list?path=`
+
+`FilesListing`: `{ path, entries: FileEntry[], truncated }`, one folder, folders first, at most 2,000 entries.
+
+### `GET /__hui/sessions/:id/files/search?q=`
+
+`FilesSearch`: `{ query, entries, truncated, source: "git" | "walk" }`, at most 100 files.
+
+### `GET /__hui/sessions/:id/files/file?path=`
+
+`FileRead` and an `ETag` header.
+
+### `PUT /__hui/sessions/:id/files/file?path=`
+
+`FileSaveRequest` `{ content }` with `If-Match: "<etag>"` → `FileSaved` `{ path, etag, size, mtime }`.
+
+### `POST /__hui/sessions/:id/files/entry`
+
+`FileCreateRequest` `{ path, kind: "file" | "directory" }` → 201 `FileEntryResponse` `{ entry }`, empty and never replacing.
+
+### `DELETE /__hui/sessions/:id/files/entry?path=[&recursive=1]`
+
+`FileDeleted`: `{ deleted: { path, kind } }`.
+
+### `POST /__hui/sessions/:id/files/upload?dir=&name=[&overwrite=1]`
+
+Raw body, at most 64 MiB → 201 `FileEntryResponse` `{ entry }`. The request bytes are outside the JSON schema.
+
+### `POST /__hui/sessions/:id/files/resolve`
+
+`FilesResolveRequest` `{ paths: string[] }` (at most 100, each at most 1,024 characters) → `FilesResolve` `{ entries: ({ path, kind: "file" | "directory" } | null)[] }`, one per path in order.
+
+`GET /__hui/sessions/:id/files/raw?path=` returns the file's bytes, at most 64 MiB; this response is outside the JSON schema.
 
 `resolve` answers which paths the agent wrote in the chat exist inside the root,
 so the chat can link them to the Files view. A path may be relative (`./` and
@@ -3451,13 +4060,19 @@ refreshes on it.
 The Diff view reads the conversation's Git checkout through these routes, with
 the same guard, session lookup and root as the Files view (the recorded `cwd`,
 opened through `realpath`; a remote worker's conversation answers 409 `code:
-"remote"`). Shapes live in `shared/diff.ts`; Git runs in `server/git-diff.ts`.
+"remote"`). Shapes live in `server/api/diff.ts` and the generated `src/api/schema/diff.ts`; Git runs in `server/git/diff.ts`.
 
-| Route | Method | Result |
-| --- | --- | --- |
-| `/__hui/sessions/:id/diff` | GET | `DiffInfo`: `{ available: false, reason, code: "remote" \| "not-repo" \| "missing" \| "git" }` or `{ available: true, root, subdirectory, branch?, detached, unborn, head?, uncommitted, lastCommit?, parent?, branches, defaultBranch?, comparisons }` |
-| `/__hui/sessions/:id/diff/changes?compare=[&parent=][&uncommitted=0]` | GET | `DiffChanges`: `{ comparison, base, head, includesUncommitted, files: DiffFile[], additions, deletions, truncated, filesOmitted, untrackedOmitted }` |
-| `/__hui/sessions/:id/diff/file?compare=…&path=[&from=]` | GET | `{ file: DiffFile \| null }`: one file of the same comparison (`from` is a rename's old path) |
+### `GET /__hui/sessions/:id/diff`
+
+`DiffInfo`: `{ available: false, reason, code: "remote" | "not-repo" | "missing" | "git" }` or `{ available: true, root, subdirectory, branch?, detached, unborn, head?, uncommitted, lastCommit?, parent?, branches, defaultBranch?, comparisons }`.
+
+### `GET /__hui/sessions/:id/diff/changes?compare=[&parent=][&uncommitted=0]`
+
+`DiffChanges`: `{ comparison, base, head, includesUncommitted, files: DiffFile[], additions, deletions, truncated, filesOmitted, untrackedOmitted }`.
+
+### `GET /__hui/sessions/:id/diff/file?compare=…&path=[&from=]`
+
+`DiffFileChanges`: `{ file: DiffFile | null }`, one file of the same comparison (`from` is a rename's old path).
 
 `compare` is one of `uncommitted` (working tree and index against HEAD, untracked
 files included; against the empty tree before the first commit), `last-commit`
@@ -3552,13 +4167,26 @@ the running server; a revoked license also withdraws every ticket and cookie.
 | `/__hui/vscode/enter?ticket=…` | GET | the ticket | 303 to `/__hui/vscode/?folder=<cwd>` with the cookie |
 | `/__hui/vscode/…` (HTTP and WebSocket) | any | the cookie | Proxied to the running server |
 
+### `GET /__hui/vscode-server`
+
+Returns `VscodeStatus` with the local providers, setup choices and process state.
+
+### `POST /__hui/vscode-server`
+
+Takes `VscodeActionRequest` (`{ action }`) and returns the updated `VscodeStatus`.
+
 Actions: `stop`; `accept-license` (writes `licenseAcceptedAt` now) and
 `revoke-license` (clears it and stops a running serve-web); `install` (starts the
 openvscode-server install and answers at once), `cancel-install`, `uninstall`
 (stops a running managed server, then deletes every install directory and
 leftover). Any other action is 400.
 
-`VscodeStatus` (`shared/vscode.ts`) holds `platform`, `enabled`,
+### `POST /__hui/sessions/:id/vscode/connect`
+
+Takes `VscodeConnectRequest` (`{ theme? }`) and returns `VscodeConnection` (200),
+or `VscodePending` (202) while the server starts. Refusals return `VscodeFailure`.
+
+`VscodeStatus` (`server/api/vscode.ts`) holds `platform`, `enabled`,
 `configuredExecutable`, `preference`, `providers` (`{ kind, flavor, path, name,
 version, commit? }` in preference order), `problems` (visible reasons for
 candidates that do not fit), `active` (what the next open runs, or `null`),
@@ -3652,12 +4280,12 @@ killed 2 seconds later if still there.
 
 **openvscode-server install.** Linux only, for `process.arch` `x64`, `arm64` or
 `arm` (asset `armhf`). HUI pins one release (`OPENVSCODE_SERVER_RELEASE` in
-`server/vscode-install.ts`: 1.109.5, with the size and SHA-256 of each asset) and
+`server/vscode/install.ts`: 1.109.5, with the size and SHA-256 of each asset) and
 downloads
 `https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v<v>/openvscode-server-v<v>-linux-<arch>.tar.gz`
 (`HUI_OPENVSCODE_SERVER_MIRROR` replaces the base for a mirror serving the same
 files) with Node's HTTP client and an agent built from the gateway's
-`HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` (Node 22.21+ and 24.5+), following up to five
+`HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` (Node 24.5+), following up to five
 redirects, into `<install dir>/.download-<id>.tar.gz`. A body larger or shorter
 than the pinned size, or with another SHA-256, is refused. `tar -xzf
 --no-same-owner` unpacks it into `.staging-<id>`; the executable must exist and
@@ -3684,11 +4312,20 @@ cards appear newest first as an optional `suggestions: TaskSuggestion[]`
 `snapshot` event, omitted when empty. Operator routes (all require `x-hui`,
 scoped to the owning session; unknown session or card → 404):
 
-| Route | Result |
-| --- | --- |
-| `DELETE /__hui/sessions/:id/suggestions/:suggestionId` | Dismisses the card, returns `{ suggestions }` |
-| `POST /__hui/sessions/:id/suggestions/:suggestionId/backlog` | Saves the card as a local [backlog](#kanban-backlog) task (title, problem, fix, `cwd`, group OTHER), removes the card and returns `{ taskId, suggestions }`. Refused while the card is starting |
-| `POST /__hui/sessions/:id/suggestions/:suggestionId/start` `{ mode? }` | `mode` is `session` (default), `worktree` or `current`, matching OpenClaw's start menu. `session` creates a session in the card's `cwd` with its title, the source session's group and runtime; `worktree` does the same through *Create in workspace* (requires a Git checkout; the branch uses the configured prefix); `current` sends the card to the recording session itself (prompt when idle, otherwise steer, falling back to a queued follow-up) and returns that session. A new session waits up to 30 seconds for the runtime to be idle, prompts it with `# <title>`, `## Problem` and `## Proposed fix` sections (an unknown fix asks the session to confirm the root cause before changing code), then removes the card and returns `{ session, suggestions }`. A concurrent start or agent dismissal is refused while one is in flight. On failure the card stays pending; a session that was already created is kept, not deleted |
+### `DELETE /__hui/sessions/:id/suggestions/:sid`
+
+Dismisses the card, returns `{ suggestions }`
+
+### `POST /__hui/sessions/:id/suggestions/:sid/backlog`
+
+Saves the card as a local [backlog](#kanban-backlog) task (title, problem, fix, `cwd`, group OTHER), removes the card and returns `{ taskId, suggestions }`. Refused while the card is starting
+
+### `POST /__hui/sessions/:id/suggestions/:sid/start`
+
+Body: `{ mode? }`.
+
+`mode` is `session` (default), `worktree` or `current`, matching OpenClaw's start menu. `session` creates a session in the card's `cwd` with its title, the source session's group and runtime; `worktree` does the same through *Create in workspace* (requires a Git checkout; the branch uses the configured prefix); `current` sends the card to the recording session itself (prompt when idle, otherwise steer, falling back to a queued follow-up) and returns that session. A new session waits up to 30 seconds for the runtime to be idle, prompts it with `# <title>`, `## Problem` and `## Proposed fix` sections (an unknown fix asks the session to confirm the root cause before changing code), then removes the card and returns `{ session, suggestions }`. A concurrent start or agent dismissal is refused while one is in flight. On failure the card stays pending; a session that was already created is kept, not deleted
+
 
 The card shows **Create Jira task** with a ▾ menu (Create Jira task, Add to
 backlog) while Jira is connected, and a single **Add to backlog** otherwise.
@@ -3702,35 +4339,54 @@ utility model only proposes a parent.
 A regular PI session can start a long-running watch with the HUI `watcher`
 tool: HUI runs the command detached in its own process group, appends its
 output to a HUI-owned log and has the wrapper record the exit status beside it.
-The watcher outlives the turn and the gateway; deleting its conversation stops
-and forgets it.
+The watcher outlives the turn and the gateway, and its shell: it runs while a
+process that started with it runs in its process group. Deleting its
+conversation stops and forgets it.
 
 | Tool | Contract |
 |---|---|
-| `watcher { action: "start", purpose ≤200, command ≤4000, target? ≤500, outcome? ≤200 }` | Records the watcher against the calling session and starts it in the session's working directory. `target` must be an http(s) URL when present. Returns the `Watcher` view. At most 10 watchers per conversation |
+| `watcher { action: "start", purpose ≤200, command ≤4000, target? ≤500, outcome? ≤200, keepRunning? }` | Records the watcher against the calling session and starts it in the session's working directory. `target` must be an http(s) URL when present; `keepRunning` must be a boolean. Returns the `Watcher` view. At most 10 watchers per conversation, settled ones included |
 | `watcher { action: "list" }` | `{ watchers: Watcher[] }` of the calling session, newest first |
-| `watcher { action: "stop", id }` | Signals the watcher's process group (`SIGTERM`, `SIGKILL` after 2s), records `stopped` and returns the view. A settled watcher is returned unchanged |
-| `watcher { action: "restart", id }` | Runs the recorded command again after clearing the exit record; refused while the watcher is running |
+| `watcher { action: "stop", id }` | Signals the watcher's process group (`SIGTERM`, `SIGKILL` after 2s), records `stopped` (also when the shell recorded 143 or 137 as it died) and returns the view. A settled watcher is returned unchanged |
+| `watcher { action: "restart", id }` | Runs the recorded command again after clearing the exit record; refused while the watcher is running, and when a non-empty `command`, `purpose`, `target` or `outcome` or a true `keepRunning` is passed |
+| `watcher { action: "dismiss", id }` | Removes a settled watcher, its log and its exit record, like the operator's `DELETE`; returns `{ id, status: "dismissed" }`. Refused while the watcher is running |
 | `watcher { action: "log", id, lines? }` | `{ id, lines, truncated }`: at most `lines` (default 100, max 400) from the end of the log, reading at most 256 KiB |
 
 Operator routes (all require `x-hui`, scoped to the owning session; unknown
 session or watcher → 404, a running watcher for `restart` or `DELETE` → 409):
 
-| Route | Result |
-| --- | --- |
-| `POST /__hui/sessions/:id/watchers/:watcherId/stop` | Stops the watcher, returns `{ watchers }` |
-| `POST /__hui/sessions/:id/watchers/:watcherId/restart` | Restarts a settled watcher, returns `{ watchers }` |
-| `GET /__hui/sessions/:id/watchers/:watcherId/log?lines=` | Returns the bounded log tail |
-| `DELETE /__hui/sessions/:id/watchers/:watcherId` | Removes a settled watcher, its log and its exit record; returns `{ watchers }` |
+### `POST /__hui/sessions/:id/watchers/:wid/stop`
+
+Stops the watcher, returns `{ watchers }`
+
+### `POST /__hui/sessions/:id/watchers/:wid/restart`
+
+Restarts a settled watcher, returns `{ watchers }`
+
+### `GET /__hui/sessions/:id/watchers/:wid/log`
+
+Returns the bounded log tail
+
+### `DELETE /__hui/sessions/:id/watchers/:wid`
+
+Removes a settled watcher, its log and its exit record; returns `{ watchers }`
+
 
 The session snapshot/SSE `snapshot` event carries an optional `watchers: Watcher[]`
 (omitted when empty). The view is `{ id, purpose, target, outcome, command,
-logPath, state, pid, exitCode?, startedAt, endedAt?, lastLine }`; `state` is
-`running`, `done`, `failed`, `stopped` or `dead`. The registry is
-`~/.config/hui/watchers.json`; logs and exit records live under
-`~/.config/hui/watchers/`. State is derived on read and on the gateway's poll,
-which re-emits the session snapshot when a watcher's state or latest log line
-changes.
+logPath, state, pid, exitCode?, startedAt, endedAt?, lastLine, keepRunning? }`;
+`state` is `running`, `done`, `failed`, `stopped` or `dead`. The registry is
+`~/.config/hui/watchers.json` (records carry `keepRunning: true` when set);
+logs and exit records live under `~/.config/hui/watchers/`. State is derived on
+read and on the gateway's poll, which re-emits the session snapshot when a
+watcher's state or latest log line changes. `running` means the recorded PID is
+the process HUI started (its age matches the start time within 20 seconds), or
+that process is gone and a process of its group whose age matches still runs.
+A `keepRunning` watcher read `dead` on a poll, the first of which runs ten
+seconds after the gateway starts, starts again in place with a new PID and
+start time, then its log gets `[HUI] Started again at <time>: its processes
+were gone with no exit status.` `done`, `failed` and `stopped` watchers, and
+one whose working directory is gone, are left as they are.
 
 ### Secret requests
 
@@ -3765,15 +4421,28 @@ A session asks the operator structured questions with the HUI
 
 | Tool | Contract |
 |---|---|
-| `ask_user_question { questions }` | 1–4 questions `{ header ≤16, question ≤500, options, multiSelect? }`, each with 2–4 options `{ label ≤60, description ≤500, preview? ≤2500 }` (so four full questions fit the PI child bridge's 64 KiB request). Text is trimmed; header, question and label are required. Question texts and option labels within a question are unique; `Other`, `Type something.` and `Next` are reserved labels; previews are for single-select questions only. A call breaking these fails with a reason and shows nothing. Waits until the operator answers or cancels, or the call is aborted (Stop, a PI child that went away, a gateway stop, a transport giving up after 24 hours). Returns `QuestionnaireResult`; the tool text reads `User has answered your questions: "<question>"="<answers>". … You can now continue with the user's answers in mind.`, with `selected preview: <markdown>` after a chosen option that has one, or `User declined to answer questions` |
+| `ask_user_question { questions }` | 1–4 questions `{ header ≤16, question ≤500, options, multiSelect? }`, each with 2–4 options `{ label ≤60, description ≤500, preview? ≤2500 }` (so four full questions fit the PI child bridge's 64 KiB request). Text is trimmed; header, question and label are required. Question texts and option labels within a question are unique; `Other`, `Type something.` and `Next` are reserved labels; previews are for single-select questions only. A call breaking these fails with a reason and shows nothing. Waits until the operator answers or cancels, the question timeout passes, or the call is aborted (Stop, a PI child that went away, a gateway stop, a transport giving up after 24 hours). Returns `QuestionnaireResult`; the tool text reads `User has answered your questions: "<question>"="<answers>". … You can now continue with the user's answers in mind.`, with `selected preview: <markdown>` after a chosen option that has one, `User declined to answer questions`, or after a timeout `No answer within <N> minutes; the operator may be away. Continue with your recommended option, keep going with the rest of the work, and in your final reply list the decisions that still need the operator.` |
 
 ```ts
 type QuestionnaireQuestion = { header: string; question: string; multiSelect: boolean; options: { label: string; description: string; preview?: string }[] };
 // One answered question: chosen labels in option order, then the typed text.
 type QuestionnaireAnswer = { header: string; question: string; selected: string[]; preview?: string };
-// cancelled: the operator declined, or answered nothing.
-type QuestionnaireResult = { cancelled: boolean; answers: QuestionnaireAnswer[] };
+// cancelled: the operator declined, or answered nothing. timedOut: nobody answered
+// within the question timeout, timeoutMinutes; such a result is also cancelled,
+// without answers, so a reader that predates it sees a decline.
+type QuestionnaireResult = { cancelled: boolean; answers: QuestionnaireAnswer[]; timedOut?: true; timeoutMinutes?: number };
 ```
+
+The question timeout is `Settings.questions.timeoutMinutes` (Settings → Tools →
+Questions → *Question timeout*): `0` (Off, the default) or 5, 10, 15, 30 or 60;
+anything else normalizes to `0`. The gateway reads it when a call arrives, so a
+change applies to questions asked after it. With a timeout, a card nobody
+answers in that many minutes leaves the session's `questions` like an answered
+one and the call returns `{ cancelled: true, answers: [], timedOut: true,
+timeoutMinutes }`. The transcript then shows the call as expired, with the
+questions and options of its own input, instead of a summary of answers. Off
+waits as before. The timeout covers every session, bots' chats and sessions on
+a remote worker included, since their questions all wait on the gateway.
 
 A pending questionnaire is gateway memory, scoped to its session, and joins
 the snapshot's `questions` as `{ id, method: "questionnaire", title, questions }`
@@ -3818,16 +4487,50 @@ loaded transcript) or attached to a local task are skipped. An unconfigured or
 failing Jira yields local items plus the `jira` state; it is never an error
 response. All routes require `x-hui`; unknown items are 404.
 
-| Route | Result |
-| --- | --- |
-| `GET /__hui/backlog[?refresh=1]` | `BacklogView`; `refresh=1` bypasses the Jira cache |
-| `PATCH /__hui/backlog/items/:id` `{ group }` | Changes only the item's group (a Jira item must still be listed) and returns the `BacklogView` |
-| `DELETE /__hui/backlog/items/local:<uuid>` | Removes a local task, returns the `BacklogView`. Jira items cannot be deleted (405) |
-| `POST /__hui/backlog/items/:id/start` `{ cwd, worktree, branchName?, baseRef?, stage, group }` | `stage` is a session stage (not `backlog`). Creates a session through the same path as `POST /__hui/sessions` (title = item title, runtime PI, optional worktree/base ref) with an operator placement in `stage`, waits up to 30 seconds for the runtime, prompts it with `# KEY: summary`, the Jira link and `## Description` (Jira) or `# title`, `## Problem`, `## Proposed fix` (local), then links the Jira key to the session and removes a local task. Returns `{ session, backlog }`. A concurrent start of the same item is refused; on failure the item stays and a created session is kept |
-| `POST /__hui/backlog/items/:id/branch-name` `{ cwd }` | Suggests the part of a new worktree branch after the configured `branchPrefix` and returns `{ name, source }`. `cwd` must be an existing directory (resolved like the start route; 400 otherwise). With a utility model (`settings.models.utility`, 20-second timeout) the task's title, Jira summary and description or problem and fix (at most 4,000 characters) become a 2–4 word kebab-case description; the answer is normalized (prefix, path segments, Jira keys, quotes and leading type words such as `feature`/`fix`/`chore` removed, at most 40 characters) and `source` is `model`. Without a utility model, on failure or an empty answer, `source` is `fallback` and `name` is the title's first meaningful words. Creates nothing |
-| `POST /__hui/backlog/items/local:<uuid>/jira/draft` `{ project? }` | Parent candidates and a draft from the task's problem and fix, like the session draft route |
-| `POST /__hui/backlog/items/local:<uuid>/jira` `{ project, parent, summary, description, assignToMe? }` | Creates and assigns a work item like the session route, attaches its key to the task and returns `{ issue, backlog, warning? }` |
-| `POST /__hui/backlog/items/local:<uuid>/jira/link` `{ key }` | Verifies the item with Jira, attaches it to the task and returns `{ issue, backlog }`. A task already holding a key is a 400 |
+### `GET /__hui/backlog`
+
+`BacklogView`; `refresh=1` bypasses the Jira cache
+
+### `PATCH /__hui/backlog/items/:id`
+
+Body: `{ group }`.
+
+Changes only the item's group (a Jira item must still be listed) and returns the `BacklogView`
+
+### `DELETE /__hui/backlog/items/:id`
+
+Removes a local task, returns the `BacklogView`. Jira items cannot be deleted (405)
+
+### `POST /__hui/backlog/items/:id/start`
+
+Body: `{ cwd, worktree, branchName?, baseRef?, stage, group }`.
+
+`stage` is a session stage (not `backlog`). Creates a session through the same path as `POST /__hui/sessions` (title = item title, runtime PI, optional worktree/base ref) with an operator placement in `stage`, waits up to 30 seconds for the runtime, prompts it with `# KEY: summary`, the Jira link and `## Description` (Jira) or `# title`, `## Problem`, `## Proposed fix` (local), then links the Jira key to the session and removes a local task. Returns `{ session, backlog }`. A concurrent start of the same item is refused; on failure the item stays and a created session is kept
+
+### `POST /__hui/backlog/items/:id/branch-name`
+
+Body: `{ cwd }`.
+
+Suggests the part of a new worktree branch after the configured `branchPrefix` and returns `{ name, source }`. `cwd` must be an existing directory (resolved like the start route; 400 otherwise). With a utility model (`settings.models.utility`, 20-second timeout) the task's title, Jira summary and description or problem and fix (at most 4,000 characters) become a 2–4 word kebab-case description; the answer is normalized (prefix, path segments, Jira keys, quotes and leading type words such as `feature`/`fix`/`chore` removed, at most 40 characters) and `source` is `model`. Without a utility model, on failure or an empty answer, `source` is `fallback` and `name` is the title's first meaningful words. Creates nothing
+
+### `POST /__hui/backlog/items/:id/jira/draft`
+
+Body: `{ project? }`.
+
+Parent candidates and a draft from the task's problem and fix, like the session draft route
+
+### `POST /__hui/backlog/items/:id/jira`
+
+Body: `{ project, parent, summary, description, assignToMe? }`.
+
+Creates and assigns a work item like the session route, attaches its key to the task and returns `{ issue, backlog, warning? }`
+
+### `POST /__hui/backlog/items/:id/jira/link`
+
+Body: `{ key }`.
+
+Verifies the item with Jira, attaches it to the task and returns `{ issue, backlog }`. A task already holding a key is a 400
+
 
 ### Task progress
 
@@ -3873,11 +4576,12 @@ The reference is projected from the live runtime transcript: only a tool call
 whose command runs `gh pr create` (or a tool named like `create_pull_request`)
 and whose output contains a pull request URL counts; URLs merely mentioned in
 prose or `gh pr view` output do not. `state`, `title` and `body` come from the
-shared [GitHub link previews](#github-link-previews) (`gh api` with the Settings
-→ Integrations → GitHub login), so badges and chat embeds agree. Lookups run in
-the background (two at a time) and are cached in server memory: open and draft
-PRs refresh after 60 seconds, merged or closed after 15 minutes, failures after
-5 minutes. A listing never waits for GitHub; until a lookup succeeds the
+shared [GitHub link previews](#github-link-previews) (`gh api graphql` with the
+Settings → Integrations → GitHub login), so badges and chat embeds agree. Lookups
+run in the background, every due one at once so a listing's badges batch into
+as few `gh` calls as the previews allow, and are cached in server memory: open
+and draft PRs refresh after 60 seconds, merged or closed after 15 minutes,
+failures after 5 minutes. A listing never waits for GitHub; until a lookup succeeds the
 optional fields are absent, and a failed refresh keeps the last confirmed facts.
 Nothing is written to the registry. Like progress, PRs reappear after a gateway
 restart once the session's runtime restores its transcript.
@@ -3909,17 +4613,51 @@ URLs on the connected site, cached in memory (60 seconds, 15 minutes when done,
 
 Connection routes (all require `x-hui`):
 
-| Route | Result |
-| --- | --- |
-| `GET /__hui/jira` | `JiraConnection` `{ configured, site, email, tokenSet, defaultProject, accountName? }`; never the token |
-| `PUT /__hui/jira` `{ site, email, token, defaultProject }` | Verifies with `GET /rest/api/3/myself`, then stores. An empty `token` keeps the stored one for the same site and email. 400 for invalid input, 502 when Jira rejects or is unreachable |
-| `PATCH /__hui/jira` `{ defaultProject }` | Changes the default project |
-| `DELETE /__hui/jira` | Removes the connection file |
-| `GET /__hui/jira/projects?query=` | `{ projects: { key, name }[], total }`. Without `query`, the first 100 projects by name; with `query` (≤100 chars), Jira's own key/name search (50 results). Pickers load the first page, the saved default, and search remotely as the operator types, so sites with thousands of projects stay reachable |
-| `GET /__hui/jira/issues?query=` | `{ issues: JiraIssueMatch[] }` (`{ key, url, summary, status?, statusCategory?, issueType? }`). Empty query: recently viewed (`issue in issueHistory()`). A key or `/browse/KEY-N` URL resolves that item exactly (missing → empty). Other text uses `text ~ "…*"` with the literal escaped; Jira 400s become an empty list. ≤200 chars, 20 results |
-| `POST /__hui/sessions/:id/jira/link` `{ key }` | Verifies the item with Jira, appends `{ key, url }` to the record (moving an existing link to newest) and returns `{ issue, session }` |
-| `POST /__hui/sessions/:id/jira/draft` `{ project?, suggestionId? }` | `{ draft: JiraDraft }`: parent candidates (open items one hierarchy level above the project's Task type), agent-chosen `parent`, `summary`, Markdown `description`, `model?`, `note?`, and `parentChoice?` (`suggested` when the model chose the parent or deliberately none, `unmatched` with `rejectedParent` when it named a key outside the candidates, `none-available` when the project has no candidates, `not-drafted` for a local draft, `omitted` when the answer had no parent field; such an answer is retried once). The transcript context is a bounded digest anchored on the session goal: the first operator request, later user messages, files changed by successful edit/write tools and the most recent conversation, with HUI's Continue, resume and subagent-event prompts removed. Utility calls use the cheapest reasoning level the model is actually sent: `off` where PI sends an explicit disabled value, otherwise the lowest level in the model's `thinkingLevelMap` (a gateway entry named `<provider>/<model>` without a map borrows that catalog model's map). Each draft makes at most two 25 s attempts: an attempt that ends without text, stalls or returns malformed JSON is retried once, while a provider-reported error is final. A failed model call returns the provider's error in `note` with a local draft built from the goal. With `suggestionId` the draft context is that pending suggestion's problem and fix instead of the transcript; 404 when it is no longer pending |
-| `POST /__hui/sessions/:id/jira` `{ project, parent, summary, description, assignToMe?, suggestionId? }` | Creates the work item (Task, or the first standard type), assigns it to the connected account unless `assignToMe: false` (`PUT …/assignee` with the `accountId` from `/myself`, stored server-side), appends it to the record and returns `{ issue, session, warning? }`. An assignment refusal keeps the created item and returns `warning`. With `suggestionId`, a successful create also removes that suggestion card (already gone is not an error) |
+### `GET /__hui/jira`
+
+`JiraConnection` `{ configured, site, email, tokenSet, defaultProject, accountName? }`; never the token
+
+### `PUT /__hui/jira`
+
+Request `{ site, email, token, defaultProject }`.
+
+Verifies with `GET /rest/api/3/myself`, then stores. An empty `token` keeps the stored one for the same site and email. 400 for invalid input, 502 when Jira rejects or is unreachable
+
+### `PATCH /__hui/jira`
+
+Request `{ defaultProject }`.
+
+Changes the default project
+
+### `DELETE /__hui/jira`
+
+Removes the connection file
+
+### `GET /__hui/jira/projects`
+
+`{ projects: { key, name }[], total }`. Without `query`, the first 100 projects by name; with `query` (≤100 chars), Jira's own key/name search (50 results). Pickers load the first page, the saved default, and search remotely as the operator types, so sites with thousands of projects stay reachable
+
+### `GET /__hui/jira/issues`
+
+`{ issues: JiraIssueMatch[] }` (`{ key, url, summary, status?, statusCategory?, issueType? }`). Empty query: recently viewed (`issue in issueHistory()`). A key or `/browse/KEY-N` URL resolves that item exactly (missing → empty). Other text uses `text ~ "…*"` with the literal escaped; Jira 400s become an empty list. ≤200 chars, 20 results
+
+### `POST /__hui/sessions/:id/jira/link`
+
+Request `{ key }`.
+
+Verifies the item with Jira, appends `{ key, url }` to the record (moving an existing link to newest) and returns `{ issue, session }`
+
+### `POST /__hui/sessions/:id/jira/draft`
+
+Request `{ project?, suggestionId? }`.
+
+`{ draft: JiraDraft }`: parent candidates (open items one hierarchy level above the project's Task type), agent-chosen `parent`, `summary`, Markdown `description`, `model?`, `note?`, and `parentChoice?` (`suggested` when the model chose the parent or deliberately none, `unmatched` with `rejectedParent` when it named a key outside the candidates, `none-available` when the project has no candidates, `not-drafted` for a local draft, `omitted` when the answer had no parent field; such an answer is retried once). The transcript context is a bounded digest anchored on the session goal: the first operator request, later user messages, files changed by successful edit/write tools and the most recent conversation, with HUI's Continue, resume and subagent-event prompts removed. Utility calls use the cheapest reasoning level the model is actually sent: `off` where PI sends an explicit disabled value, otherwise the lowest level in the model's `thinkingLevelMap` (a gateway entry named `<provider>/<model>` without a map borrows that catalog model's map). Each draft makes at most two 25 s attempts: an attempt that ends without text, stalls or returns malformed JSON is retried once, while a provider-reported error is final. A failed model call returns the provider's error in `note` with a local draft built from the goal. With `suggestionId` the draft context is that pending suggestion's problem and fix instead of the transcript; 404 when it is no longer pending
+
+### `POST /__hui/sessions/:id/jira`
+
+Request `{ project, parent, summary, description, assignToMe?, suggestionId? }`.
+
+Creates the work item (Task, or the first standard type), assigns it to the connected account unless `assignToMe: false` (`PUT …/assignee` with the `accountId` from `/myself`, stored server-side), appends it to the record and returns `{ issue, session, warning? }`. An assignment refusal keeps the created item and returns `warning`. With `suggestionId`, a successful create also removes that suggestion card (already gone is not an error)
 
 The connection lives in `~/.config/hui/jira.json` (mode 0600) and accepts only
 `https://<name>.atlassian.net` or `.jira.com` sites. Credentials are sent with
@@ -3952,11 +4690,17 @@ type GitHubConnection = {
 };
 ```
 
-| Route | Behaviour |
-| --- | --- |
-| `GET /__hui/github` | Runs `gh --version` and `gh auth status --hostname github.com --json hosts` (the active account). While a login is pending, the last probe is reused so polling stays local |
-| `POST /__hui/github/login` | 409 with the "GitHub CLI (gh) is required" message when `gh` is missing, or when `GH_TOKEN`/`GITHUB_TOKEN` in the gateway environment would shadow a login. Otherwise spawns `gh auth login --hostname github.com --web --skip-ssh-key` (plus `--git-protocol` set to the value of `gh config get git_protocol`, so an existing ssh choice survives) and returns once the one-time code is parsed (`phase: "pending"`, `verificationUri` fixed to `https://github.com/login/device`). A second POST while pending returns the same login |
-| `DELETE /__hui/github/login` | Stops a pending login (SIGTERM) and returns to `idle`; also dismisses a `failed` result |
+### `GET /__hui/github`
+
+Runs `gh --version` and `gh auth status --hostname github.com --json hosts` (the active account). While a login is pending, the last probe is reused so polling stays local
+
+### `POST /__hui/github/login`
+
+409 with the "GitHub CLI (gh) is required" message when `gh` is missing, or when `GH_TOKEN`/`GITHUB_TOKEN` in the gateway environment would shadow a login. Otherwise spawns `gh auth login --hostname github.com --web --skip-ssh-key` (plus `--git-protocol` set to the value of `gh config get git_protocol`, so an existing ssh choice survives) and returns once the one-time code is parsed (`phase: "pending"`, `verificationUri` fixed to `https://github.com/login/device`). A second POST while pending returns the same login
+
+### `DELETE /__hui/github/login`
+
+Stops a pending login (SIGTERM) and returns to `idle`; also dismisses a `failed` result
 
 At most one login runs per gateway. When `gh` exits 0 the status is re-probed
 and the login returns to `idle` with `status: "connected"`; a non-zero exit
@@ -3971,9 +4715,11 @@ called without `--show-token` and only `login`, `host`, `scopes` and
 The Contributions page (`/contributions`) charts a year of commits and pull
 requests of every account `gh auth status` lists for github.com.
 
-| Route | Behaviour |
-| --- | --- |
-| `GET /__hui/github/contributions[?year=YYYY][&refresh=1]` | `GitHubContributions`; 400 for a year outside 2008 to the current year at UTC+14 (the latest any browser can be in); 502 with `gh`'s message when the account list cannot be read (for example "GitHub CLI (gh) is required") |
+### `GET /__hui/github/contributions`
+
+Optional query parameters are `year=YYYY` and `refresh=1`.
+
+`GitHubContributions`; 400 for a year outside 2008 to the current year at UTC+14 (the latest any browser can be in); 502 with `gh`'s message when the account list cannot be read (for example "GitHub CLI (gh) is required")
 
 ```ts
 type GitHubContributions = {
@@ -4015,9 +4761,11 @@ Week requests seven local activity days and Day requests one, each starting at
 5 AM and ending at 5 AM after the last date. Date arithmetic uses local calendar
 days, not fixed 24-hour offsets, to retain those boundaries across clock changes.
 
-| Route | Behaviour |
-| --- | --- |
-| `GET /__hui/session-activity?from=<ms>&to=<ms>` | `SessionActivity` for `[from, to)`, epoch milliseconds; 400 unless both are decimal digit strings (at most 15) with `to` after `from` and at most 31 days apart |
+### `GET /__hui/session-activity`
+
+Query parameters are `from=<ms>` and `to=<ms>`.
+
+`SessionActivity` for `[from, to)`, epoch milliseconds; 400 unless both are decimal digit strings (at most 15) with `to` after `from` and at most 31 days apart
 
 ```ts
 type SessionActivity = {
@@ -4065,17 +4813,21 @@ selection is browser-only state and does not change the API response shape.
 
 ### GitHub link previews
 
-Chat messages (user and assistant) unfurl GitHub references after the message
-text, like Slack: at most **three** per message, in reading order, deduplicated
-(`owner/repo#N` and its URL are one item). `github.com/<owner>/<repo>` (and deeper
+The latest user message (the operator's, or one HUI delivered from a bot, a
+session, a routine or a trigger) and the latest assistant message unfurl GitHub
+references after the message text; older messages keep their links and request
+nothing. Like Slack, at most **three** per message, in reading order,
+deduplicated (`owner/repo#N` and its URL are one item). `github.com/<owner>/<repo>` (and deeper
 repository pages), `…/pull/N`, `…/issues/N` and `owner/repo#N` shorthand count;
 references inside inline or fenced code, GitHub site pages (`/settings`,
 `/login`, …) and other hosts do not. A streaming message unfurls once its text has
 been stable for 800 ms.
 
-| Route | Behaviour |
-| --- | --- |
-| `GET /__hui/github/previews?url=…` (1–3 `url`) | `{ previews: GitHubPreviewResult[] }` in request order; 400 for more URLs or a non-GitHub URL |
+### `GET /__hui/github/previews`
+
+Request (1–3 `url`).
+
+`{ previews: GitHubPreviewResult[] }` in request order; 400 for more URLs or a non-GitHub URL
 
 ```ts
 type GitHubPreviewResult = { url: string; preview?: GitHubPreview; error?: "not_found" | "signed_out" | "cli_missing" | "unavailable" };
@@ -4084,15 +4836,32 @@ type GitHubPreviewResult = { url: string; preview?: GitHubPreview; error?: "not_
 //              | issue { repository, number, title, state, stateReason?, author?, comments, labels, body? }
 ```
 
-Each lookup is one read-only `gh api` call (`repos/:o/:r`, `…/pulls/:n`, or
-`…/issues/:n` followed by `…/pulls/:n` when the issue is a pull request) with the
-gateway's GitHub CLI login, so private repositories the account can read preview
-too. `gh` output never reaches the browser; failures map to the coarse `error`.
+Lookups that arrive within 20 ms of the first waiting one, from any request or
+PR badge, share one read-only `gh api graphql --input -` call with the gateway's
+GitHub CLI login: one aliased `repository(owner:, name:)` per item, with
+`issueOrPullRequest(number:)` for numbered ones, so a pull URL that names an
+issue previews the issue and an issue URL or `owner/repo#N` that names a pull
+request previews the pull request. A call carries at most 25 items and at most
+two run at once; lookups that wait for a free call go out together in the next.
+Private repositories the account can read preview too. An item GitHub cannot
+resolve is `not_found` while the rest of its call still previews; a call that
+fails as a whole fails each of its items with the same `error`. What the active
+account cannot preview goes, in one call per account, to each other github.com
+account `gh` is signed in to (`gh auth status`), in the order `gh` lists them,
+until one previews it; an item none of them previews keeps the active account's
+`error`. Such an account's token comes from `gh auth token --user` and goes only
+into that `gh` child's `GH_TOKEN`; it is never logged, cached or sent to the
+browser. The account list is read only when the active account misses something
+and is kept for 10 minutes, or until the next GitHub sign-in; a failed read is
+not kept. `gh` output never
+reaches the browser; failures map to the coarse `error`. A pull request's
+`comments` counts its conversation comments and review threads.
 Results are cached in gateway memory: open PRs 60 s, open issues 2 min,
 repositories 10 min, settled items 15 min, `not_found` 5 min, `unavailable` 60 s,
-`signed_out`/`cli_missing` 15 s; concurrent requests for one item share a call
-and at most four `gh` calls run at once. A successful GitHub sign-in clears
-cached failures. The browser keeps results for 60 s (failures 30 s) per page.
+`signed_out`/`cli_missing` 15 s; every spelling of one item (`owner/repo#N`, its
+issue or pull URL) shares one lookup and its cached result. A successful GitHub
+sign-in clears cached failures. The browser keeps
+results for 60 s (failures 30 s) per page.
 Every card is a link to the item on GitHub and shows the reason when no preview
 is available. Hovering or keyboard-focusing a pull request card opens the same
 hovercard as the session PR badges, with the full Markdown description.
@@ -4102,17 +4871,179 @@ it) is the opt-out, exposed as Settings → Appearance → Chat → *GitHub link
 previews*. When off, no preview is requested or rendered; PR badges keep using
 the lookup.
 
+### Datadog link previews
+
+The same two messages as [GitHub link previews](#github-link-previews) unfurl
+Datadog links after the message text, after the GitHub cards; older messages keep
+their links and request nothing. At most **three** per message (their own cap),
+in reading order, one per URL. An HTTPS link without port or credentials on a
+host under `datadoghq.com`, `datadoghq.eu`, `datad0g.com` or `ddog-gov.com`
+counts when it is a share link (`/s/<a>/<b>`) or a dashboard
+(`/dashboard/<xxx-xxx-xxx>[/…]`); `tile_focus` or `fullscreen_widget` makes it a
+widget link. Brackets in a query
+(`tpl_var_env[0]=prod`) stay part of the link. Links inside inline or fenced code
+and every other Datadog page do not count. A streaming message unfurls once its
+text has been stable for 800 ms.
+
+### `GET /__hui/datadog/previews`
+
+Request (1–3 `url`, ≤ 4,000 characters each).
+
+`{ previews: DatadogPreviewResult[] }` in request order; 400 for more URLs or a link that is not a share or dashboard link
+
+```ts
+type DatadogPreviewResult = {
+  url: string;
+  preview?: {
+    kind: "share" | "widget" | "dashboard";
+    url: string; title: string;
+    detail?: string;        // a widget's dashboard title, or a dashboard's description
+    org?: string;           // the org that answered ("" for pup's default session)
+    from?: number; to?: number; relative?: boolean;  // a widget's range, epoch ms
+    image?: string;         // data:image/…;base64,…
+  };
+  error?: "not_found" | "signed_out" | "no_org" | "cli_missing" | "unavailable";
+  signIn?: { name: string; site: string };  // with signed_out: the org to sign in to
+};
+```
+
+- **Share links** are public pages. The gateway reads the page's `og:title` and
+  `og:image` itself, only from the public app hosts (`app.datadoghq.com`,
+  `app.datadoghq.eu`, `us3`/`us5.datadoghq.com`, `ap1`/`ap2.datadoghq.com`,
+  `app.ddog-gov.com`, `us2.ddog-gov.com`, `app.datad0g.com`, `dd.datad0g.com`) or a
+  configured org's site; any other host is `no_org`. A 404 or a page without a
+  title is `not_found`.
+- **Dashboard links** try the [configured orgs](#datadog-orgs) whose site equals
+  the link host, in list order, with `pup dashboards get <id>`: a 404 or 403 moves
+  to the next org. "authentication expired" or a 401 runs `pup auth refresh` for
+  that org once and retries; still failing, or "authentication required", marks
+  the org signed out and moves on. No org for the host is `no_org`. When every org
+  failed, the result is `signed_out` (the first signed-out org in `signIn`) if one
+  was signed out, else `unavailable` if one failed otherwise, else `not_found`. A
+  widget found in the dashboard (inside groups too) becomes a `widget` preview:
+  its title (or the dashboard's), the dashboard title as `detail`, the org and the
+  time range. A link without a widget, or whose widget is gone, is a `dashboard`
+  preview with the description as `detail`.
+- **Time range**: `fullscreen_start_ts`/`fullscreen_end_ts` for full-screen
+  links, else `from_ts`/`to_ts`, used as-is (also with `live=true`) so the card
+  shows what the sender saw; without one, the past hour at lookup time
+  (`relative: true`). The browser shows it in local time.
+- **Template variables** are replaced in every string of the widget definition,
+  title included, never in raw JSON text. Values come from the link
+  (`tpl_var_<name>`, `tpl_var_<name>[i]`), else the dashboard's `defaults`, else
+  its `default`, else `*`. `$name` becomes `prefix:value` (the value when the
+  variable has no prefix), `(prefix:a OR prefix:b)` for several values and `*` for
+  none or `*`; `$name.value` becomes the first value. Longer names match first, so
+  `$env` never eats `$environment`; unknown `$words` stay.
+- **Graphs**: `pup api v1/graph/snapshot` with the substituted definition and the
+  range in seconds; the gateway polls the returned snapshot URL every 500 ms for
+  up to 10 s until it answers an image. Note, free text, image, iframe, group and
+  powerpack widgets are not drawn. A snapshot that fails (a session without the
+  scope answers 403), never finishes or answers anything but pending JSON or an
+  image leaves the widget preview without `image`, and the card says "Datadog
+  could not draw this widget." Datadog keeps each snapshot at an unguessable
+  public URL, the mechanism of its own sharing and Slack app; HUI never sends that
+  URL to the browser.
+- **Fetching**: share pages ≤ 1 MB and images ≤ 2 MB, 10 s each, HTTPS on an
+  allowed host, at most two redirects, each re-checked against the same hosts.
+  Images (snapshots and `og:image`, any host under a Datadog domain) count only
+  when their bytes start like PNG, JPEG, GIF or WebP, and reach the browser as
+  `data:` URLs.
+- **pup** runs as `pup … -o json --no-agent --read-only [--org=<name>]` with
+  `DD_SITE` set to the org's pup site (`app.<x>` becomes `<x>`; other hosts such
+  as `us3.datadoghq.com` or `dd.datad0g.com` stay), without `DD_API_KEY`,
+  `DD_APP_KEY`, `DD_ACCESS_TOKEN`, `DD_ORG`, `DD_OUTPUT`, `PUP_OUTPUT`, `PUP_FILTER`
+  or `PUP_AGENT_MODE`, stdin closed, 15 s and 16 MB per call, at most four at once.
+  Its output never reaches the browser; failures map to the coarse `error`.
+- **Caching**: a lookup has 25 s (the browser waits 40 s for the batch), then is
+  `unavailable`. Results stay in gateway memory: share, dashboard and fixed-range
+  widget previews 1 h; `relative` ones and widgets Datadog did not draw 5 min;
+  `not_found` 5 min, `unavailable` 60 s, `signed_out`/`no_org`/`cli_missing`
+  15 s; at most 100 results and 64 MB of images; concurrent requests for one link
+  share a lookup. A successful sign-in or an org change clears the cache. The
+  browser keeps at most 60 results per page for 5 min (failures 30 s), draws a
+  card it has seen before with its last answer at once and refreshes it in place,
+  and forgets them all when a sign-in succeeds or an org is added or removed.
+
+A card is an article, not a link: its title links to Datadog, its graph is a
+button that opens the [media viewer](#rich-markdown-embeds), and a `signed_out`
+card has **Sign in to <org>**, which posts `/__hui/datadog/login` (or, on a 409,
+waits on the sign-in already running for that org), polls `GET /__hui/datadog`
+every 1.5 s until that org's sign-in ends, and reloads every Datadog card on the
+page once the org shows `connected`. A failure shows pup's reason on the card; a
+cancel or another org's sign-in is not a success. The same reload, and a refresh
+of an open Settings page, follow a sign-in finished anywhere and an org added or
+removed in Settings.
+
+`Settings.chat.datadogEmbeds` (default `true`; only an explicit `false` disables
+it) is the opt-out, exposed as Settings → Appearance → Chat → *Datadog link
+previews*. When off, no preview is requested or rendered.
+
+### Datadog orgs
+
+Settings → Integrations → Datadog lists the orgs HUI reads dashboard links
+through. An org is a pup session name (empty: pup's default session for that
+site) and the Datadog host its links use. HUI keeps the list in
+`~/.config/hui/datadog.json` (`{ version: 1, orgs: [{ name, site }] }`, mode
+0600, atomic rename) and owns no Datadog credential: pup keeps its tokens. A file
+HUI cannot read, or with another `version`, fails these routes with 500 (previews
+then find no org) and is never overwritten. `HUI_PUP_CLI` overrides the
+executable for E2E, and `HUI_DATADOG_TEST_ORIGIN` admits one exact extra origin
+for share pages and images (as `HUI_JIRA_TEST_ORIGIN` does for Jira), so the demo
+videos can serve their graph locally.
+
+```ts
+type DatadogConnection = {
+  cli: { installed: false } | { installed: true; version: string };
+  orgs: { name: string; site: string; status: "connected" | "signed_out" | "unknown" }[];
+  pupOrgs: { name: string; site: string }[];  // pup's own sessions, for suggestions
+  login:
+    | { phase: "idle" }
+    | { phase: "pending"; org: { name: string; site: string }; url?: string; expiresAt: number }
+    | { phase: "failed"; org: { name: string; site: string }; message: string };
+};
+```
+
+### `GET /__hui/datadog`
+
+Runs `pup --version` (remembered once pup answers) and `pup auth list`. An org is `connected` when pup has its session (same name, `null` for the default one, and site) with status `valid`, or `expired` with a refresh token pup renews on its next call; otherwise `signed_out`. `unknown` when pup is missing or its list fails. A lookup that ended signed out keeps the org `signed_out` until a sign-in or a lookup through it succeeds
+
+### `POST /__hui/datadog/orgs`
+
+Request `{ name?, site? }`.
+
+Adds an org: `name` trimmed, ≤ 100 characters, no control characters; `site` a host or HTTPS URL under a Datadog domain without port (default `app.datadoghq.com`; a bare `datadoghq.com` means `app.datadoghq.com`). 400 invalid, 409 duplicate name and site. When the new org is `signed_out` and no sign-in runs, starts its sign-in
+
+### `DELETE /__hui/datadog/orgs`
+
+Query parameters are `name=…` and `site=…`.
+
+Removes an org from HUI; pup keeps its session. 404 when unknown
+
+### `POST /__hui/datadog/login`
+
+Request `{ name, site }`.
+
+Runs `pup auth login [--org=<name>] --site=<pup site> --no-agent` for a configured org (404 otherwise) and returns at once with `phase: "pending"`; `url` appears once pup prints its sign-in page (`If the browser doesn't open, visit: …`, a Datadog URL). pup opens the browser on the gateway's machine and waits for its localhost callback, so a browser elsewhere cannot finish it. 409 while another sign-in runs, 400 without pup
+
+### `DELETE /__hui/datadog/login`
+
+Stops a pending sign-in (SIGTERM) and returns to `idle`; also dismisses a `failed` one
+
+One sign-in runs per gateway, without `--read-only` (that would narrow the scopes
+of the operator's own session). Exit 0 returns to `idle` and clears the org's
+signed-out mark and the cached previews; a non-zero exit is `failed` with the
+last line pup printed (ANSI removed, ≤ 300 characters). HUI stops a sign-in after
+6 minutes (pup gives up on its callback after 5) and when the gateway stops.
+
 ### GPT-Live calls
 
 A call with a bot (HUI-18) is a full-duplex WebRTC session between the browser and GPT-Live
 (`gpt-live-1-codex`), over the ChatGPT login HUI keeps for the `openai-codex`
-provider. Calls are with bots only: while bots are off (Settings → Labs → Bots)
-every call route, `GET /__hui/calls` included, answers 409 with the bots' message,
-turning them off ends the calls HUI holds, and a browser whose heartbeat gets
-that answer ends its call saying so ([Bots are a preview](#bots-are-a-preview-settings--labs--bots)). This is the route ChatGPT's own voice mode uses, not a public API: it may
+provider. Calls are with bots only. This is the route ChatGPT's own voice mode uses, not a public API: it may
 change. The gateway sets each call up and keeps the credential; the browser
 carries the audio and the call's data channel (`oai-events`) and never sees a
-token or an account id. Shared types are in `shared/calls.ts`:
+token or an account id. The payloads are in `server/api/calls.ts`:
 
 ```ts
 type GptLiveVoice = "cove" | "arbor" | "breeze" | "ember" | "juniper" | "maple" | "sol" | "spruce" | "vale"; // cove: GPT-Live's default
@@ -4133,7 +5064,7 @@ type CallTaskResult = { status: "answered" | "failed" | "needs-input" | "timeout
 ```
 
 A bot's `voice.language` is one of the 100 language codes of Whisper
-(`whisper/tokenizer.py`), `VOICE_LANGUAGES` in `shared/voice.ts`: ISO 639-1 codes plus
+(`whisper/tokenizer.py`), `VOICE_LANGUAGES` in `server/bots/voice-languages.ts`: ISO 639-1 codes plus
 `haw` (Hawaiian), `yue` (Cantonese) and Javanese as Whisper's `jw`, accepted in any
 case and stored lowercase; anything else is 400 at every boundary (the routes,
 `bots.json` drops it, the CLI). The call's instructions ask GPT-Live to speak it,
@@ -4145,15 +5076,39 @@ model and has one tool, which asks the bot. A **call helper** answers it on the
 bot's utility model; work that needs tools goes to the bot's own chat; and the
 call ends as **one record** in the chat.
 
-| Route | Behavior |
-|---|---|
-| `GET /__hui/calls` | `CallsStatus`. The account is the first signed-in ChatGPT account not waiting for its quota, the order model turns use; `waitingUntil` when every one waits |
-| `POST /__hui/bots/:id/calls` `{ sdp }` | 201 `CallStarted`. Refused with 409 for an archived bot. The offer is at most 64 KB, a session description with audio and no video (400 otherwise). The gateway builds the session (below), posts `{ sdp, session }` to `https://chatgpt.com/backend-api/codex/realtime/calls?intent=quicksilver&architecture=avas` with `Authorization: Bearer <access>`, `chatgpt-account-id`, `OpenAI-Alpha: quicksilver=v2`, fresh `session-id`, `thread-id` and `x-session-id`, and `originator: pi` (30 s timeout, no redirects), and returns only the answer SDP and HUI's own call id. A 401, 403 or 429 hands the call to the next account; when every account refuses, or ChatGPT fails, the answer is 502 `{ error, upstreamStatus }` with a message written for the browser (401: sign in again; 403: not available on this account or plan, or the voice refused; 429: the voice limit reached). ChatGPT's own body goes only to diagnostics, redacted. No ChatGPT login, or every account waiting, is 409; a third concurrent call is 429 |
-| `POST /__hui/bots/:id/calls/:callId/lines` `{ lines: [{ role, text, at? }] }` | `{ kept }`. What was said, in order: 1–40 lines of 1–4,000 characters; `at` (ms) is when it was said, the gateway's now when missing or implausible. The lines stay with the call in the gateway (its newest 400) until it ends; nothing reaches the chat per line |
-| `POST /__hui/bots/:id/calls/:callId/delegations` `{ id, request }` | `CallDelegationResult`. `id` is GPT-Live's delegation item, `request` its text (≤ 4,000 characters, one line). The request goes through one seam (`CallDelegate` in `server/call-routes.ts`, implemented in `server/call-helper.ts`): the bot's **call helper**, one completion on the bot's utility model at low thinking (below), from the bot's SOUL.md (or a note that it has none yet), its OptChat view (its newest 16 KB), the call so far and the request. It never waits for or queues behind the bot's own turn. `answered`: `speak` is its answer (≤ 1,800 characters). When the request needs tools, files, current information or an action, the helper hands it off: `[call task] <task>` goes to the bot's chat as any message (a prompt, or a follow-up behind a running turn) on the bot's own model, and the result is `handed-off` with the task's id. The helper has 25 s per question (`timeout` past it: GPT-Live says it is taking long and offers to hand it off) and answers 6 questions per call; past them every request is handed off, and a call hands off at most 4 tasks (`limit`). `failed` says why no model answered. A client that leaves ends the wait |
-| `POST /__hui/bots/:id/calls/:callId/tasks/:task` | `CallTaskResult` once the handed-off task's own run ends (never the reply of a turn it queued behind): its reply without markdown and at most 1,800 characters, or what to tell the user when it failed, needs an answer in the chat or is still running after 600 s. The browser gives it to GPT-Live as the delegation's speakable answer if the call is still up; either way the reply stays in the chat. 404 once the call ended |
-| `POST /__hui/bots/:id/calls/:callId/heartbeat` | `{ ok: true }`. A call that sends nothing for 90 s (the browser vanished) ends and is recorded; 404 afterwards |
-| `DELETE /__hui/bots/:id/calls/:callId` | `{ ended }`: the slot frees and the call is recorded. The browser writes its last lines first, then closes its connection to ChatGPT after `{ type: "session.close" }` on the data channel. A call also ends after 15 minutes |
+### `GET /__hui/calls`
+
+`CallsStatus`. The account is the first signed-in ChatGPT account not waiting for its quota, the order model turns use; `waitingUntil` when every one waits
+
+### `POST /__hui/bots/:id/calls`
+
+Request `{ sdp }`.
+
+201 `CallStarted`. Refused with 409 for an archived bot. The offer is at most 64 KB, a session description with audio and no video (400 otherwise). The gateway builds the session (below), posts `{ sdp, session }` to `https://chatgpt.com/backend-api/codex/realtime/calls?intent=quicksilver&architecture=avas` with `Authorization: Bearer <access>`, `chatgpt-account-id`, `OpenAI-Alpha: quicksilver=v2`, fresh `session-id`, `thread-id` and `x-session-id`, and `originator: pi` (30 s timeout, no redirects), and returns only the answer SDP and HUI's own call id. A 401, 403 or 429 hands the call to the next account; when every account refuses, or ChatGPT fails, the answer is 502 `{ error, upstreamStatus }` with a message written for the browser (401: sign in again; 403: not available on this account or plan, or the voice refused; 429: the voice limit reached). ChatGPT's own body goes only to diagnostics, redacted. No ChatGPT login, or every account waiting, is 409; a third concurrent call is 429
+
+### `POST /__hui/bots/:id/calls/:callId/lines`
+
+Request `{ lines: [{ role, text, at? }] }`.
+
+`{ kept }`. What was said, in order: 1–40 lines of 1–4,000 characters; `at` (ms) is when it was said, the gateway's now when missing or implausible. The lines stay with the call in the gateway (its newest 400) until it ends; nothing reaches the chat per line
+
+### `POST /__hui/bots/:id/calls/:callId/delegations`
+
+Request `{ id, request }`.
+
+`CallDelegationResult`. `id` is GPT-Live's delegation item, `request` its text (≤ 4,000 characters, one line). The request goes through one seam (`CallDelegate` in `server/routes/calls.ts`, implemented in `server/bots/call-helper.ts`): the bot's **call helper**, one completion on the bot's utility model at low thinking (below), from the bot's SOUL.md (or a note that it has none yet), its OptChat view (its newest 16 KB), the call so far and the request. It never waits for or queues behind the bot's own turn. `answered`: `speak` is its answer (≤ 1,800 characters). When the request needs tools, files, current information or an action, the helper hands it off: `[call task] <task>` goes to the bot's chat as any message (a prompt, or a follow-up behind a running turn) on the bot's own model, and the result is `handed-off` with the task's id. The helper has 25 s per question (`timeout` past it: GPT-Live says it is taking long and offers to hand it off) and answers 6 questions per call; past them every request is handed off, and a call hands off at most 4 tasks (`limit`). `failed` says why no model answered. A client that leaves ends the wait
+
+### `POST /__hui/bots/:id/calls/:callId/tasks/:task`
+
+`CallTaskResult` once the handed-off task's own run ends (never the reply of a turn it queued behind): its reply without markdown and at most 1,800 characters, or what to tell the user when it failed, needs an answer in the chat or is still running after 600 s. The browser gives it to GPT-Live as the delegation's speakable answer if the call is still up; either way the reply stays in the chat. 404 once the call ended
+
+### `POST /__hui/bots/:id/calls/:callId/heartbeat`
+
+`{ ok: true }`. A call that sends nothing for 90 s (the browser vanished) ends and is recorded; 404 afterwards
+
+### `DELETE /__hui/bots/:id/calls/:callId`
+
+`{ ended }`: the slot frees and the call is recorded. The browser writes its last lines first, then closes its connection to ChatGPT after `{ type: "session.close" }` on the data channel. A call also ends after 15 minutes
 
 **The record.** When a call ends (hang-up, 90 s without a heartbeat, or 15
 minutes) the bot's utility model writes a summary in the bot's language, at most

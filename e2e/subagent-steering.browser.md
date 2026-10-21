@@ -6,7 +6,7 @@ provider in disposable HUI/PI directories. No operator sessions were modified.
 ## Reproduction
 
 Use the isolated setup in [chat-composer.browser.md](chat-composer.browser.md).
-Start `e2e/pi-provider-fixture.mjs` and HUI, then use the Browser tool:
+Start `e2e/fixtures/pi-provider-fixture.mjs` and HUI, then use the Browser tool:
 
 1. Create a session through the visible project/prompt controls, using the
    disposable workspace and `E2E_SUBAGENTS_STEERING`.
@@ -29,7 +29,7 @@ Keep fresh screenshots outside Git and include them in the PR description.
 
 ## Automated coverage and limits
 
-`server/subagents.test.ts` covers idle delivery, active/waiting steering,
+`server/agent-tools/subagents.test.ts` covers idle delivery, active/waiting steering,
 preservation of a pending question, refused/unsupported steering, settlement
 during rejection, and avoiding duplicate follow-ups or parent aborts. Fallback
 routing is verified at the session-service boundary, not Browser-driven fault

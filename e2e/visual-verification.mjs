@@ -3,18 +3,18 @@
 import { spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, existsSync } from "node:fs";
 import { copyFile, lstat, mkdir, mkdtemp, readFile, readlink, realpath, rename, writeFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { connect } from "node:net";
 import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const help = `HUI visual verification (run from the checkout being reviewed)
 
-  node e2e/visual-verification.mjs launch --branch <expected-branch> [--pi-sessions] [--quota-fixture | --jira-fixture | --github-fixture | --activity-fixture]
+  node e2e/visual-verification.mjs launch --branch <expected-branch> [--pi-sessions] [--fast-fixture] [--quota-fixture | --jira-fixture | --github-fixture | --datadog-fixture | --activity-fixture | --demo]
   node e2e/visual-verification.mjs doctor --receipt <absolute-receipt.json>
   node e2e/visual-verification.mjs cleanup --receipt <absolute-receipt.json>
 
@@ -202,14 +202,15 @@ export async function launch(expectedBranch) {
   const relativeDir = relative(checkout.root, dir);
   if (relativeDir === "" || (!relativeDir.startsWith("..") && !isAbsolute(relativeDir))) throw new Error("Temporary artifacts must be outside the checkout.");
   const artifacts = join(dir, "artifacts");
-  const workspace = join(dir, "workspace");
+  // --demo shows the workspace path on screen, so it gets a short one.
+  const workspace = process.argv.includes("--demo") ? await mkdtemp("/tmp/acme-") : join(dir, "workspace");
   const agentDir = join(dir, "agent");
   for (const path of [artifacts, workspace, join(agentDir, "extensions"), join(agentDir, "skills", "sdk-fixture")]) await mkdir(path, { recursive: true });
   await writeFile(join(workspace, "fixture.txt"), "Real SDK browser fixture\n");
   await writeFile(join(agentDir, "skills", "sdk-fixture", "SKILL.md"), "---\nname: sdk-fixture\ndescription: SDK browser skill enablement fixture.\n---\nUse only for fixture skill checks.\n");
-  await copyFile(join(repo, "e2e/question-extension.ts"), join(agentDir, "extensions/question.ts"));
-  await copyFile(join(repo, "e2e/slash-commands-extension.ts"), join(agentDir, "extensions/commands.ts"));
-  await copyFile(join(repo, "e2e/compaction-extension.ts"), join(agentDir, "extensions/compaction.ts"));
+  await copyFile(join(repo, "e2e/fixtures/question-extension.ts"), join(agentDir, "extensions/question.ts"));
+  await copyFile(join(repo, "e2e/fixtures/slash-commands-extension.ts"), join(agentDir, "extensions/commands.ts"));
+  await copyFile(join(repo, "e2e/fixtures/compaction-extension.ts"), join(agentDir, "extensions/compaction.ts"));
   const receiptPath = join(dir, "receipt.json");
   const receipt = { version: 1, state: "starting", runId: randomUUID(), token: randomUUID(), runnerPid: process.pid, checkout, workspace, artifacts, receipt: receiptPath, startedAt: new Date().toISOString() };
   const save = async () => {
@@ -255,7 +256,7 @@ export async function launch(expectedBranch) {
   function start(script, extraEnv, ipc = false) {
     if (stopping) throw new Error("Fixture startup was cancelled.");
     const child = spawn(process.execPath, [join(repo, "e2e", script)], { cwd: repo, env: { ...env, ...extraEnv }, stdio: ["ignore", "pipe", "pipe", ...(ipc ? ["ipc"] : [])] });
-    const log = createWriteStream(join(artifacts, `${script}.log`), { mode: 0o600 });
+    const log = createWriteStream(join(artifacts, `${basename(script)}.log`), { mode: 0o600 });
     child.stdout.pipe(log, { end: false });
     child.stderr.pipe(log, { end: false });
     child.once("close", () => log.end());
@@ -270,7 +271,9 @@ export async function launch(expectedBranch) {
     return child;
   }
   try {
-    const provider = start("pi-provider-fixture.mjs", { HUI_E2E_PROVIDER_PORT: "0", HUI_E2E_WORKSPACE: workspace, HUI_E2E_PROVIDER_LOG: join(artifacts, "provider.jsonl") });
+    // --demo: the scripted model and seeded world of the demo videos (e2e/demo), with the fake GitHub CLI.
+    const demo = process.argv.includes("--demo");
+    const provider = start(demo ? "demo/provider.ts" : "fixtures/pi-provider-fixture.mjs", { HUI_E2E_PROVIDER_PORT: "0", HUI_E2E_WORKSPACE: workspace, HUI_E2E_PROVIDER_LOG: join(artifacts, "provider.jsonl") });
     receipt.providerPid = provider.pid;
     receipt.providerUrl = await ready(provider, (done) => {
       let output = "";
@@ -283,7 +286,14 @@ export async function launch(expectedBranch) {
     // below every launcher session on Durable would compact by itself after a few turns.
     await writeFile(join(agentDir, "models.json"), JSON.stringify({ providers: { "hui-e2e": {
       baseUrl: receipt.providerUrl, api: "anthropic-messages", headers: { "x-client-session-id": "${PI_CLIENT_SESSION_ID}" }, apiKey: "e2e-not-a-secret",
-      models: [{ id: "fixture", name: "HUI SDK Fixture", reasoning: true, input: ["text", "image"], contextWindow: 200000, maxTokens: 4096, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }],
+      models: [
+        { id: "fixture", name: demo ? "Demo model" : "HUI SDK Fixture", reasoning: true, input: ["text", "image"], contextWindow: 200000, maxTokens: 4096, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
+        // --fast-fixture: a Claude Opus 5.5 id, so the composer offers Maximum effort and Speed (fast mode).
+        ...process.argv.includes("--fast-fixture") ? [{
+          id: "claude-opus-5-5", name: "Opus fixture", reasoning: true, input: ["text"], contextWindow: 200000, maxTokens: 4096, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          thinkingLevelMap: { off: null, minimal: null, low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" },
+        }] : [],
+      ],
     } } }));
     // A small kept window lets /compact and /fixture-compact summarize a few short turns.
     await writeFile(join(agentDir, "settings.json"), JSON.stringify({ defaultProvider: "hui-e2e", defaultModel: "fixture", defaultThinkingLevel: "high", compaction: { keepRecentTokens: 400 } }));
@@ -291,9 +301,9 @@ export async function launch(expectedBranch) {
     // New sessions run on Durable, including PI extensions; journeys checking PI-worker semantics opt in.
     if (process.argv.includes("--pi-sessions")) serverEnv.HUI_SESSION_RUNTIME = "pi";
     if (process.argv.includes("--jira-fixture")) {
-      // Local Jira Cloud subset (e2e/jira-fixture.mjs), connected with its
+      // Local Jira Cloud subset (e2e/fixtures/jira-fixture.mjs), connected with its
       // public test credentials; the fixture model is also the utility model.
-      const jira = start("jira-fixture.mjs", { HUI_E2E_JIRA_PORT: "0" });
+      const jira = start("fixtures/jira-fixture.mjs", { HUI_E2E_JIRA_PORT: "0" });
       receipt.jiraUrl = await ready(jira, (done) => {
         let output = "";
         const onData = (data) => { output += data; const url = output.match(/http:\/\/127\.0\.0\.1:\d+/u)?.[0]; if (url) done(url); };
@@ -312,8 +322,8 @@ export async function launch(expectedBranch) {
         session("e2e-jira-docs", "Docs cleanup"),
       ] }));
     }
-    if (process.argv.includes("--github-fixture")) {
-      // Fake gh (e2e/github-cli-fixture.mjs) signed in to two synthetic accounts
+    if (process.argv.includes("--github-fixture") || demo) {
+      // Fake gh (e2e/fixtures/github-cli-fixture.mjs) signed in to two synthetic accounts
       // with deterministic commits and pull requests since they were created.
       const gh = join(dir, "gh");
       await mkdir(gh, { recursive: true });
@@ -335,11 +345,45 @@ export async function launch(expectedBranch) {
         "hui-e2e": activity("2022-03-14T09:00:00Z", 14, 1, 0.55),
         "hui-e2e-personal": activity("2019-08-02T18:00:00Z", 2, 9, 0.15),
       }));
-      Object.assign(serverEnv, { HUI_GITHUB_CLI: join(repo, "e2e", "github-cli-fixture.mjs"), HUI_FAKE_GH_DIR: gh });
+      Object.assign(serverEnv, { HUI_GITHUB_CLI: join(repo, "e2e", "fixtures", "github-cli-fixture.mjs"), HUI_FAKE_GH_DIR: gh });
+    }
+    if (process.argv.includes("--datadog-fixture") || demo) {
+      // Fake pup (e2e/fixtures/pup-cli-fixture.mjs). E2E: `e2e-prod` is signed in, `e2e-stale` needs a sign-in, one dashboard
+      // each, snapshots answer 403 (no image). The demo: Acme's org and its signup dashboard, whose graph the
+      // recorder draws and the demo provider serves (HUI_DATADOG_TEST_ORIGIN admits it). Share links still read the
+      // real public Datadog page.
+      const pup = join(dir, "pup");
+      await mkdir(pup, { recursive: true });
+      const session = (org, status = "valid", hasRefresh = true) => ({ org, site: "datadoghq.com", status, has_refresh: hasRefresh });
+      await writeFile(join(pup, "sessions.json"), JSON.stringify(demo ? [session("acme")] : [session("e2e-prod"), session("e2e-stale", "expired", false)]));
+      await writeFile(join(pup, "dashboards.json"), JSON.stringify(demo ? { acme: { "sgn-fnl-acm": {
+        title: "Signup funnel", widgets: [{ id: 1001, definition: { type: "timeseries", title: "Trial signups per minute" } }],
+      } } } : { "e2e-prod": { "abc-123-xyz": {
+        title: "Checkout service", description: "Latency and errors of the checkout service.", template_variables: [{ name: "env", prefix: "env", defaults: ["prod"] }],
+        widgets: [{ id: 42, definition: { type: "timeseries", title: "p99 latency in $env", requests: [{ queries: [{ data_source: "metrics", name: "a", query: "p99:checkout.latency{$env}" }], formulas: [{ formula: "a" }] }] } }],
+      } }, "e2e-stale": { "stl-123-xyz": {
+        title: "Legacy checkout", description: "Before the migration.", template_variables: [],
+        widgets: [{ id: 7, definition: { type: "timeseries", title: "Legacy error rate", requests: [{ q: "sum:legacy.errors{*}" }] } }],
+      } } }));
+      if (demo) {
+        await writeFile(join(pup, "snapshot.json"), JSON.stringify({ snapshot_url: `${receipt.providerUrl}/demo/datadog-graph.png` }));
+        serverEnv.HUI_DATADOG_TEST_ORIGIN = receipt.providerUrl;
+      }
+      Object.assign(serverEnv, { HUI_PUP_CLI: join(repo, "e2e", "fixtures", "pup-cli-fixture.mjs"), HUI_FAKE_PUP_DIR: pup });
+    }
+    if (demo) {
+      serverEnv.HUI_DEMO_STAGE = join(repo, "e2e", "demo", "stage.html");
+      // Terminals open a plain zsh with a short prompt, not the operator's own shell setup.
+      serverEnv.ZDOTDIR = join(dir, "zdotdir");
+      await mkdir(serverEnv.ZDOTDIR, { recursive: true });
+      await writeFile(join(serverEnv.ZDOTDIR, ".zshrc"), "PROMPT='%F{blue}%1~%f %F{magenta}❯%f '\nunsetopt PROMPT_SP\nHISTFILE=/dev/null\n");
+      if (existsSync("/bin/zsh")) serverEnv.SHELL = "/bin/zsh";
+      execFileSync(process.execPath, [join(repo, "e2e", "demo", "seed.ts")], { cwd: repo, stdio: ["ignore", "ignore", "inherit"],
+        env: { ...env, HUI_E2E_WORKSPACE: workspace, HUI_FAKE_GH_DIR: join(dir, "gh"), ...(process.env.HUI_DEMO_CACHE ? { HUI_DEMO_CACHE: process.env.HUI_DEMO_CACHE } : {}) } });
     }
     if (process.argv.includes("--activity-fixture")) {
       // Two weeks of synthetic Durable sessions for Contributions → Calendar.
-      execFileSync(process.execPath, [join(repo, "e2e", "activity-fixture.ts")], { cwd: repo, env: { ...env, HUI_E2E_WORKSPACE: workspace }, stdio: ["ignore", "ignore", "inherit"] });
+      execFileSync(process.execPath, [join(repo, "e2e", "fixtures", "activity-fixture.ts")], { cwd: repo, env: { ...env, HUI_E2E_WORKSPACE: workspace }, stdio: ["ignore", "ignore", "inherit"] });
     }
     const server = start("visual-verification-server.mjs", {
       ...serverEnv,
@@ -371,7 +415,7 @@ async function main() {
   const [command, ...args] = process.argv.slice(2);
   if (!command || command === "--help" || args.includes("--help")) return process.stdout.write(help);
   // Trailing launch options; `launch` reads them from argv.
-  if (command === "launch") while (["--pi-sessions", "--quota-fixture", "--jira-fixture", "--github-fixture", "--activity-fixture"].includes(args.at(-1))) args.pop();
+  if (command === "launch") while (["--pi-sessions", "--fast-fixture", "--quota-fixture", "--jira-fixture", "--github-fixture", "--datadog-fixture", "--activity-fixture", "--demo"].includes(args.at(-1))) args.pop();
   const option = command === "launch" ? "--branch" : "--receipt";
   if (!["launch", "doctor", "cleanup"].includes(command) || args.length !== 2 || args[0] !== option) throw new Error("Invalid arguments. Run with --help.");
   if (command === "launch") return launch(args[1]);

@@ -1,22 +1,16 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 import { agoLabel, COOLDOWN_CHOICES, whenLabel } from "./bot-triggers.ts";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const between = (source: string, start: string, end: string) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
 
-test("Triggers is a section of the Routines tab, after the routines, self-contained with its own controller and styles", () => {
+test("triggers show on the overview and have a page of their own, self-contained with their own controller and styles", () => {
   const panel = read("./bots.ts");
-  assert.match(panel, /import \{ renderBotTriggers, type BotTriggersProps \} from "\.\/bot-triggers\.ts";/u);
   assert.match(panel, /triggers: Omit<BotTriggersProps, "bot" \| "now">;/u);
-  assert.match(between(panel, "function renderPanelTab(", "export function renderBotPanel("), /case "routines": return html`\$\{renderRoutinesTab\(props\)\}\$\{renderBotTriggers\(\{ bot: props\.bot, now: Date\.now\(\), \.\.\.props\.triggers \}\)\}`;/u);
-  const app = read("../hui-app.ts");
-  assert.match(app, /private botTriggers = new BotTriggersController\(this, \{ visible: \(\) => this\.botPanelVisible\(\) && this\.botPanel\.tab === "routines" \}\);/u);
-  assert.match(app, /this\.botTools\.reset\(target\.id\);\n\s+this\.botTriggers\.reset\(target\.id\);/u, "another bot starts clean");
-  assert.match(app, /this\.botTriggers\.sync\(visible && this\.botPanel\.tab === "routines" \? this\.activeBot\(\) : undefined\);/u, "read while the tab shows");
-  assert.match(app, /triggers: this\.botTriggers\.props\(bot\),/u);
-  assert.match(app, /this\.followBotTools\(\);\n\s+this\.followBotTriggers\(\);/u, "on every bots frame: a bot loaded after the tab opened, or woken");
+  assert.match(between(panel, "function renderPanelView(", "/* ── size"), /case "triggers": return renderBotTriggers\(\{ bot: props\.bot, now: Date\.now\(\), \.\.\.props\.triggers, adding: props\.openedFrom === "triggers-add" \}\);/u, "the overview's + opens the page on its add form");
+  assert.match(between(panel, "function renderTriggersSummary(", "function renderActivity("), /renderSettingsToggle\(`Enable \$\{trigger\.name\}`, trigger\.enabled, \(checked\) => props\.triggers\.onToggle\(trigger, checked\), state\.pending\)/u, "each one switches on the overview too");
   assert.match(read("./bot-triggers.ts"), /loadViewAssets\(\(\) => import\("\.\.\/styles\/bot-triggers\.css"\)\);/u);
 });
 

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { writeClipboardImage, writeClipboardText } from "./clipboard.ts";
 
 test("uses the modern clipboard API when it is available", async () => {

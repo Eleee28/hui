@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { html } from "lit";
 import { panelSelectorOptions } from "./panel-selector.ts";
 

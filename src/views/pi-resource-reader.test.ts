@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 
 const source = readFileSync(new URL("./pi-resource-reader.ts", import.meta.url), "utf8");
 const css = readFileSync(new URL("../styles/app.css", import.meta.url), "utf8");

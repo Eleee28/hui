@@ -1,0 +1,47 @@
+{
+  "codes": [
+    {
+      "input": " EN ",
+      "expected": "en"
+    },
+    {
+      "input": "jw",
+      "expected": "jw"
+    },
+    {
+      "input": "yue",
+      "expected": "yue"
+    },
+    {
+      "input": "english",
+      "expected": null
+    },
+    {
+      "input": 1,
+      "expected": null
+    }
+  ],
+  "whisperNames": [
+    {
+      "input": "en",
+      "expected": "English"
+    },
+    {
+      "input": "ht",
+      "expected": "Haitian Creole"
+    },
+    {
+      "input": "yue",
+      "expected": "Cantonese"
+    }
+  ],
+  "platformNames": [
+    {
+      "input": "bn",
+      "names": {
+        "bn": "Bangla"
+      },
+      "expected": "Bangla"
+    }
+  ]
+}

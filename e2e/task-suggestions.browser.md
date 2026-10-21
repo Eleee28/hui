@@ -2,8 +2,8 @@
 
 Verified on 2026-09-25 with the OpenClaw Browser tool against the real HUI
 gateway (Vite, port 5311), real PI and two local fixtures: the deterministic
-Anthropic-protocol provider (`e2e/pi-provider-fixture.mjs`, also the utility
-model) and the Jira REST v3 subset (`e2e/jira-fixture.mjs`, port 43332). No
+Anthropic-protocol provider (`e2e/fixtures/pi-provider-fixture.mjs`, also the utility
+model) and the Jira REST v3 subset (`e2e/fixtures/jira-fixture.mjs`, port 43332). No
 operator transcript, credential or Atlassian account was used.
 
 ## Reproduce

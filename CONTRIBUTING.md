@@ -64,10 +64,10 @@ npm run test:package
 ```
 
 The Test workflow runs `npm run typecheck` and `npm test` on every pull request
-and push to `main`, on Node 22 (the oldest version `engines` allows, and the one
-the Nightly uses) and Node 24. `npm test` fails and names a test that runs longer
-than five minutes, and on Node 22 also a test file that does, instead of waiting
-for it.
+and push to `main`, on Node 24, the only version `engines` allows. `npm test` runs the suite with Vitest and fails,
+naming it, a test or hook that runs longer than five minutes instead of waiting
+for it. The workflow reports every run to Datadog Test Optimization, using the
+repository's `DD_API_KEY` secret.
 
 User-visible changes also need a real Browser-tool E2E check. Documentation-only
 changes need at least `git diff --check` and verification that commands and links
@@ -235,6 +235,13 @@ version relative to the PR base, it:
 4. uploads a `<tag>-package` Actions artifact with the `.tgz`, SHA-256 sidecar and
    changelog. The changelog is also available in the planning job summary and a
    separate artifact, even if packaging fails.
+
+When the release adds user-visible features, it also gets a demo video of them,
+filmed with `e2e/demo/record.ts` as the
+[release video skill](.agents/skills/hui-release-video/SKILL.md) describes: new
+clips land in their own PR first, and each feature's clip goes into the
+version-bump PR's description and, once published, the GitHub Release notes. Releases with only
+fixes or maintenance say so instead.
 
 Review the changelog and download the candidate package from the PR's Actions
 run before approving. Commit subjects are listed chronologically with commit

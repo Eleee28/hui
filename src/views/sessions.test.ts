@@ -1,20 +1,20 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 import { formatBootDuration, formatRuntimeMemory, groupSessionRows, matchingSessions } from "./sessions.ts";
-import type { SessionGroup } from "../lib/sessions-store.ts";
+import type { SessionGroup } from "../api/sessions.ts";
 
 const groups: SessionGroup[] = [
   {
     label: "client work",
     sessions: [
-      { id: "a", title: "Fix login", group: "client work", cwd: "/repo/app", tool: "pi", status: "idle", createdAt: "", updatedAt: "" },
+      { id: "a", title: "Fix login", group: "client work", cwd: "/repo/app", tool: "pi", status: "idle", displayCwd: "", stage: "investigation", stageOrigin: "default", createdAt: "", updatedAt: "" },
     ],
   },
   {
     label: "infra",
     sessions: [
-      { id: "b", title: "Deploy", group: "infra", cwd: "/repo/ops", tool: "pi", status: "running", archived: true, createdAt: "", updatedAt: "" },
+      { id: "b", title: "Deploy", group: "infra", cwd: "/repo/ops", tool: "pi", status: "running", archived: true, displayCwd: "", stage: "investigation", stageOrigin: "default", createdAt: "", updatedAt: "" },
     ],
   },
 ];
@@ -41,7 +41,7 @@ test("runtime telemetry uses compact truthful units", () => {
 
 test("the status filter narrows rows and Running includes starting sessions", () => {
   const withStarting: SessionGroup[] = [...groups, {
-    label: "", sessions: [{ id: "c", title: "Boot", group: "", cwd: "/repo/app", tool: "pi", status: "starting", createdAt: "", updatedAt: "" }],
+    label: "", sessions: [{ id: "c", title: "Boot", group: "", cwd: "/repo/app", tool: "pi", status: "starting", displayCwd: "", stage: "investigation", stageOrigin: "default", createdAt: "", updatedAt: "" }],
   }];
   assert.deepEqual(matchingSessions(withStarting, "", "all", "running").map(({ session }) => session.id), ["b", "c"]);
   assert.deepEqual(matchingSessions(withStarting, "", "all", "idle").map(({ session }) => session.id), ["a"]);
@@ -51,7 +51,7 @@ test("the status filter narrows rows and Running includes starting sessions", ()
 test("rows group by custom group or project directory in first-seen order", () => {
   const rows = [
     ...matchingSessions(groups, ""),
-    { group: "client work", session: { id: "c", title: "Docs", group: "client work", cwd: "/repo/ops", tool: "pi", status: "idle" as const, createdAt: "", updatedAt: "" } },
+    { group: "client work", session: { id: "c", title: "Docs", group: "client work", cwd: "/repo/ops", tool: "pi", status: "idle" as const, displayCwd: "", stage: "investigation" as const, stageOrigin: "default" as const, createdAt: "", updatedAt: "" } },
   ];
   assert.equal(groupSessionRows(rows, "none"), undefined);
   assert.deepEqual(groupSessionRows(rows, "group")?.map(({ label, rows }) => [label, rows.map(({ session }) => session.id)]),

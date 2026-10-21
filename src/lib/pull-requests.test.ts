@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
-import { pullRequestAccessibleLabel, pullRequestReference, type SessionPullRequest } from "../../shared/pull-requests.ts";
+import { pullRequestAccessibleLabel, pullRequestReference } from "./pull-requests.ts";
+import type { SessionPullRequest } from "../api/schema/github.ts";
 
 const pr = (number: number, patch: Partial<SessionPullRequest> = {}): SessionPullRequest => ({
   repository: "acme/web", number, url: `https://github.com/acme/web/pull/${number}`, ...patch,

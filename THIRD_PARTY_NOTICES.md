@@ -36,9 +36,9 @@ tab-list accessibility adapter are also ported from 2026.9.5. HUI keeps its
 own registration, English labels, navigation, persistence and PI callbacks.
 Agent widgets port OpenClaw 2026.9.6's `show_widget`: its fragment contract,
 widget theme token names, base stylesheet and helper classes, CDN allowlist and
-inline-script scanner (`shared/widgets.ts`, `server/runtimes/widget-code.mjs`),
+inline-script scanner (`src/lib/widgets.ts`, `server/runtimes/widget-code.mjs`),
 and the two-frame sandbox page after its MCP App sandbox host
-(`server/widget-sandbox.ts`). HUI parses scripts with V8 instead of acorn and
+(`server/agent-tools/widget-sandbox.ts`). HUI parses scripts with V8 instead of acorn and
 uses its own bridges. The bundled `visualize` skill is adapted from OpenClaw's
 skill of the same name.
 
@@ -86,11 +86,11 @@ the same commit: its vocabulary
 (`CONTEXT.md`: Files, Files view, File draft, Markdown display mode, Files
 navigator); the File draft's serialized saves, conflict and retained-draft
 rules and its localStorage backup (`src/file-draft.ts`,
-`src/client/file-editor.ts` → `src/lib/file-draft.ts`); the separator-preserving
+`src/client/file-editor.ts` → `src/lib/files/draft.ts`); the separator-preserving
 editor text helpers, copied with their tests (`src/editable-text.ts` →
 `src/lib/editable-text.ts`); the CodeMirror extension set, highlight mapping
 and language loading (`src/client/file-editor.ts`,
-`src/client/editor-language.ts` → `src/lib/file-editor.ts`, with the language
+`src/client/editor-language.ts` → `src/lib/files/editor.ts`, with the language
 loading now in `src/lib/code-languages.ts`, which the Diff view shares); and the read,
 save, upload and delete rules of `src/server/editable-file.ts` and
 `src/server/files.ts` (`server/files.ts`). HUI reimplements the view in Lit,
@@ -104,24 +104,24 @@ no start page, hidden secondary side bar, AI chat off) from
 `packages/vscode/src/server/proxy.ts`, and the frame's "Starting VS Code"
 presentation from `packages/vscode/src/server/render.ts` and
 `packages/vscode/src/client/style.css`. HUI's versions are
-`server/vscode-proxy.ts` and `src/components/vscode-view.ts` with
+`server/vscode/proxy.ts` and `src/components/vscode-view.ts` with
 `src/styles/vscode-view.css`.
 
 HUI's shared terminal adapts AgentsInTheCloud's Gespenst terminal client at the
 same commit: the web-link lookup over Gespenst's buffer cells
-(`packages/observable-terminal/src/client/links.ts` → `src/lib/terminal-links.ts`,
+(`packages/observable-terminal/src/client/links.ts` → `src/lib/terminal/links.ts`,
 limited to http and https links); the key bar's keys, Control mapping and
 Control latch (`src/client/key-bar.ts` and `src/server/key-bar.ts` →
-`src/lib/terminal-keys.ts`); touch scrolling with its glide and tap focus
+`src/lib/terminal/keys.ts`); touch scrolling with its glide and tap focus
 (`packages/cli-agent/src/client/index.ts` and `TerminalTouchFocus` in
-`src/client/index.ts` → `src/lib/terminal-touch.ts`); the 16px input font that
+`src/client/index.ts` → `src/lib/terminal/touch.ts`); the 16px input font that
 keeps iOS from zooming (`src/client/style.css`); and, in
 `src/components/terminal-pane.ts`, measuring only visible hosts before a PTY
 resize, the serialized theme updates that repaint by reapplying the theme, the
 link pointer handling, the selection clearing on a plain click and the native
 Ctrl+V paste. Its Gespenst patch (`patches/@gespenst%2Fcore@0.1.1.patch`, skip
 fits of a 0×0 host) is reimplemented in HUI as `skipHiddenFits` in
-`src/lib/terminal-fit.ts` instead of patching the package.
+`src/lib/terminal/fit.ts` instead of patching the package.
 
 Source: https://github.com/lucasmeijer/AgentsInTheCloud
 

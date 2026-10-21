@@ -16,14 +16,14 @@ conversation that fails to load says so and offers a retry.
    ```sh
    D=$(mktemp -d); export XDG_CONFIG_HOME=$D/config XDG_DATA_HOME=$D/data XDG_CACHE_HOME=$D/cache \
      PI_CODING_AGENT_DIR=$D/agent PI_OFFLINE=1 HUI_PI_BACKEND=sdk HUI_E2E_WORKSPACE=$D/workspace
-   mkdir -p $D/agent && node e2e/long-session-fixture.ts
+   mkdir -p $D/agent && node e2e/fixtures/long-session-fixture.ts
    node bin/hui.mjs gateway run --host 127.0.0.1 --port 43331
    ```
 3. In another shell, put a slow link in front of it (300 ms round trip,
    1.6 Mbit/s down, 800 kbit/s up; `--rtt-ms 600 --down-kbps 300` for a bad one):
 
    ```sh
-   node e2e/slow-link-proxy.mjs --target 127.0.0.1:43331 --port 43432
+   node e2e/fixtures/slow-link-proxy.mjs --target 127.0.0.1:43331 --port 43432
    ```
 4. With the Browser tool, open `http://localhost:43432/sessions/e2e-long-session`
    in a new labeled tab (a port not visited before, so nothing is cached). Read

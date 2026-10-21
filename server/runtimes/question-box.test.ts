@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { QuestionBox, QuestionsClosedError } from "./question-box.ts";
 import type { RuntimeQuestion } from "./types.ts";
 

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 import { HOVERCARD_GAP, hovercardPlacement } from "./hovercard-placement.ts";
 

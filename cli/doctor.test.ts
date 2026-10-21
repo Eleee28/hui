@@ -4,8 +4,7 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, test } from "node:test";
-import { normalizeSettings } from "../src/lib/settings.ts";
+import { afterAll, test } from "vitest";
 
 // HUI's directory, the Durable store and PI's agent directory resolve at import time, and PI finds skills in
 // ~/.agents/skills: never the operator's own.
@@ -18,7 +17,7 @@ process.env["HOME"] = root;
 process.env["XDG_CONFIG_HOME"] = join(root, "config");
 process.env["HUI_DURABLE_DIR"] = store;
 process.env["PI_CODING_AGENT_DIR"] = agentDir;
-after(() => rm(root, { recursive: true, force: true }));
+afterAll(() => rm(root, { recursive: true, force: true }));
 await mkdir(agentDir, { recursive: true });
 await mkdir(workspace, { recursive: true });
 await writeFile(join(agentDir, "models.json"), JSON.stringify({ providers: { "hui-e2e": {
@@ -28,8 +27,9 @@ await writeFile(join(agentDir, "models.json"), JSON.stringify({ providers: { "hu
   }],
 } } }));
 await writeFile(join(agentDir, "settings.json"), JSON.stringify({ defaultProvider: "hui-e2e", defaultModel: "fixture" }));
+const { normalizeSettings } = await import("../server/hui-settings.ts");
 const { formatDoctorReport, runDoctor } = await import("./doctor.ts");
-const { readRegistry, writeRegistry } = await import("../server/sessions.ts");
+const { readRegistry, writeRegistry } = await import("../server/sessions/sessions.ts");
 const { DurableHost } = await import("../server/runtimes/durable-host.ts");
 const { startDurable } = await import("../server/runtimes/durable.ts");
 
@@ -73,10 +73,12 @@ const piCheck = (report: Awaited<ReturnType<typeof runDoctor>>) => report.checks
 const statuses = (report: Awaited<ReturnType<typeof runDoctor>>) => piCheck(report).items.map((item) => [item.id, item.status]);
 
 function inspector() {
-  return new DurableHost({
+  const host = new DurableHost({
     dir: store, agentDir, readSettings: async () => normalizeSettings(undefined),
     invokeTool: async () => ({}), lookupCaller: async () => undefined, resume: false,
   });
+  host.configureDurableBots(null);
+  return host;
 }
 
 test("the report lists sessions still on PI, changes nothing, and --fix waits for the gateway to stop", async () => {
@@ -151,7 +153,7 @@ test("a rerun after a fix that never reached the registry reuses the earlier cop
 test("--fix refuses a store another gateway owns and changes nothing", async (t) => {
   await setup();
   const owner = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60_000)"], { stdio: "ignore" });
-  t.after(() => { owner.kill(); });
+  t.onTestFinished(() => { owner.kill(); });
   await mkdir(store, { recursive: true });
   await writeFile(join(store, "harness.lock"), String(owner.pid));
   const registry = await readFile(registryFile, "utf8");

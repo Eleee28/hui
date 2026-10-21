@@ -17,10 +17,10 @@ page-error logs before beginning.
 
 ## Desktop journey (1440x900)
 
-1. Open `/` and assert **Primary navigation** lists exactly Worktrees,
-   Automations, Plugins, Skills and Settings, in that order, with no Home entry.
-   Assert the sidebar header holds **New session** then **Search sessions** on
-   the left, **Collapse sidebar** on the right, and no Settings button.
+1. Open `/` and assert **Primary navigation** lists exactly Contributions,
+   Kanban, Sessions and Settings, in that order, with no Home entry.
+   Assert the sidebar header holds only **Collapse sidebar**, with no Settings
+   button.
 2. Assert all 26 retained capability buttons are present. Assert Agents,
    Approval, Approvals, Apps, Channels, Cloud Workers, Custodian, Device,
    Devices, Lobsterdex, Meetings and Portals are absent.
@@ -44,8 +44,8 @@ Repeat at 390x844 and at landscape 844x390:
 
 1. Open `/`; assert **Open navigation** is present and the sidebar is not in
    the accessibility tree.
-2. Open the drawer, select **Skills**, and assert the drawer closes while the
-   route becomes `/skills`.
+2. Open the drawer, select **Sessions**, and assert the drawer closes while the
+   route becomes `/sessions`.
 3. Reopen the drawer and press Escape. Assert it closes and focus returns to
    **Open navigation**.
 4. Open `/settings/models`; assert **Open settings navigation** is present.

@@ -1,16 +1,15 @@
 /**
- * A bot's Tools tab (HUI-18): "Available tools", every one on until the
+ * A bot's Tools & skills page (HUI-18): "Available tools", every one on until the
  * operator turns it off, grouped as Files, Shell, HUI, each extension by its
  * source, and Bots; then its skills, searchable once there are many; an access
  * request waiting in its chat, answerable here as in the chat; and what is
- * always on. Rendering only: `BotToolsController` (`lib/bot-tools.ts`) owns the
- * state and the requests.
+ * always on. Rendering only: `BotToolsController`
+ * (`controllers/bot-tools-controller.ts`) owns the state and the requests.
  */
 import { html, nothing } from "lit";
 import { live } from "lit/directives/live.js";
-import type { BotView } from "../lib/bots.ts";
-import { BOT_ACCESS_ANSWERS } from "../../shared/bots.ts";
-import { botToolsSummary, groupBotTools, matchingSkills, SKILL_SEARCH_MIN, type BotToolsActions, type BotToolsState } from "../lib/bot-tools.ts";
+import { BOT_ACCESS_ANSWERS, type BotView } from "../lib/bots/bots.ts";
+import { botToolsSummary, groupBotTools, matchingSkills, SKILL_SEARCH_MIN, type BotToolsActions, type BotToolsState } from "../lib/bots/tools.ts";
 import { renderSettingsToggle } from "./settings-toggle.ts";
 import { loadViewAssets } from "../lib/view-assets.ts";
 

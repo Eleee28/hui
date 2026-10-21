@@ -1,13 +1,6 @@
 // OpenClaw v2026.9.5 picker contract (MIT), rendered by HUI's light-DOM port.
 import { html } from "lit";
-
-export type PickerOption = {
-  value: string;
-  label: string;
-  description?: string;
-  labelStyle?: string;
-  disabled?: boolean;
-};
+import type { PickerOption } from "../lib/picker-options.ts";
 
 export type PickerParams<Option extends PickerOption = PickerOption> = {
   id?: string;

@@ -9,15 +9,11 @@
  * paths. Touch pointers keep the native tap-to-open behavior only.
  */
 import { html, nothing } from "lit";
-import { renderMarkdown } from "../lib/markdown.ts";
+import { renderMarkdown } from "../lib/markdown/markdown.ts";
 import { icons } from "./openclaw/icons.ts";
 import { BadgeHovercardController } from "./badge-hovercard.ts";
-import {
-  pullRequestReference,
-  pullRequestStateLabel,
-  type PullRequestState,
-  type SessionPullRequest,
-} from "../../shared/pull-requests.ts";
+import { pullRequestReference, pullRequestStateLabel } from "../lib/pull-requests.ts";
+import type { PullRequestState, SessionPullRequest } from "../api/schema/github.ts";
 
 export const PULL_REQUEST_BADGE_SELECTOR = "a.session-pr-badge";
 

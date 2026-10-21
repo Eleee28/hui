@@ -2,7 +2,7 @@
  * Model search and launch-model resolution for the pickers. PI owns the model catalog and its default; this
  * module only matches entries and decides which available model a new session starts with.
  */
-import type { RuntimeModel } from "./sessions-store.ts";
+import type { RuntimeModel } from "../api/sessions.ts";
 
 export function modelSearchText(model: RuntimeModel): string {
   return `${model.name} ${model.id} ${model.provider} ${model.provider}/${model.id}`.toLowerCase();

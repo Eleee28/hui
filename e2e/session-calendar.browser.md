@@ -1,7 +1,7 @@
 # Contributions → Calendar
 
 Run against `node e2e/visual-verification.mjs launch --branch <branch>
---activity-fixture`. `e2e/activity-fixture.ts` seeds the isolated store before
+--activity-fixture`. `e2e/fixtures/activity-fixture.ts` seeds the isolated store before
 the gateway starts: ten synthetic Durable sessions worked through the week
 before the current one, in five projects (directories under the workspace:
 checkout-api, ios-app, marketing-site, evals, infra) and five sidebar groups
@@ -66,4 +66,4 @@ which the calendar leaves out. No operator session or PI transcript is read.
    at 1440×900 and 390×844; also check the card at 844×390.
 
 `?from=` empty, `1e3`, `0x10`, negative or more than 31 days apart return 400
-(`server/session-activity.test.ts`).
+(`server/sessions/activity.test.ts`).

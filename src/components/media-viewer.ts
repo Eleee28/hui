@@ -8,6 +8,7 @@ import { HuiElement } from "../lit/hui-element.ts";
 import { icons } from "../lib/icons.ts";
 import { writeClipboardImage, writeClipboardText } from "../lib/clipboard.ts";
 import { ensureModal } from "../lib/modal-dialog.ts";
+import { fetchBlob } from "../api/files.ts";
 import {
   ZOOM_STEP,
   centeredTransform,
@@ -47,12 +48,6 @@ const viewerIcons = {
 
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
-}
-
-async function fetchBlob(src: string): Promise<Blob> {
-  const response = await fetch(src);
-  if (!response.ok) throw new Error(`The image could not be downloaded (HTTP ${response.status}).`);
-  return response.blob();
 }
 
 async function loadImage(src: string): Promise<HTMLImageElement> {

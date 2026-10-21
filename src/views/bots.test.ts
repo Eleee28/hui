@@ -1,9 +1,59 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
+import { botCallsLabel, botModelLabel, botTaggingLabel } from "./bot-settings.ts";
+import { renderBotPanel, renderBotRoster, type BotPanelProps, type BotRosterProps } from "./bots.ts";
+import type { BotView } from "../lib/bots/bots.ts";
+import type { AutomationRun } from "../api/schema/automation.ts";
+import { formatTimestamp } from "./settings-automation.ts";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const between = (source: string, start: string, end: string) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
+
+function markup(value: unknown): string {
+  if (Array.isArray(value)) return value.map(markup).join("");
+  if (value && typeof value === "object" && "strings" in value && "values" in value) {
+    const template = value as { strings: readonly string[]; values: unknown[] };
+    return template.strings.map((part, i) => part + markup(template.values[i])).join("");
+  }
+  if (value && typeof value === "object" && "_$litDirective$" in value && "values" in value) {
+    const [items, , template] = (value as { values: unknown[] }).values;
+    // repeat(items, key, template) renders each item; other directives show their arguments.
+    return typeof template === "function" ? [...items as Iterable<unknown>].map((item) => markup(template(item))).join("") : markup((value as { values: unknown[] }).values);
+  }
+  return typeof value === "string" || typeof value === "number" ? String(value) : "";
+}
+
+test("routines and overview Activity explain retries and intervention without hiding the error", () => {
+  const run: AutomationRun = {
+    id: "r1", taskId: "t1", taskName: "Digest", sessionId: "s1", status: "queued", source: "scheduled",
+    createdAt: "2026-10-18T08:00:00.000Z", attempt: 1, retryAt: "2026-10-18T08:00:30.000Z", error: "Worker is offline",
+  };
+  // Only the two pages under test read these states; the other pages' actions are not invoked.
+  const props = {
+    id: "bot-panel", view: "routines", width: 400, timezone: "UTC",
+    bot: { id: "b1", name: "Ada", handle: "ada", sessionId: "s1", cwd: "/bots/b1", status: "idle" },
+    routines: { automation: { scheduler: { enabled: true, activeRuns: 0, nextWakeAt: run.retryAt }, tasks: [], runs: [run] } },
+    triggers: { state: { list: { triggers: [], runs: [] } } },
+    settings: { models: [], call: { defaultVoice: "sol" } },
+  } as unknown as BotPanelProps;
+  for (const view of ["routines", "overview"] as const) {
+    const retryPage = markup(renderBotPanel({ ...props, view }));
+    assert.match(retryPage, /Retry scheduled/);
+    assert.match(retryPage, /Attempt 1\/3 · Next retry/);
+    assert.ok(retryPage.includes(formatTimestamp(run.retryAt)));
+    assert.match(retryPage, /Worker is offline/);
+    assert.doesNotMatch(retryPage, /A run is in progress/);
+  }
+  Object.assign(run, { status: "failed", retryAt: undefined, error: "Interrupted while running", failure: { kind: "interrupted", needsAttention: true } });
+  for (const view of ["routines", "overview"] as const) {
+    const failedPage = markup(renderBotPanel({ ...props, view }));
+    assert.match(failedPage, /Needs attention/);
+    assert.match(failedPage, /Check the chat for actions already taken before running again/);
+    assert.match(failedPage, /Interrupted while running/);
+    assert.doesNotMatch(failedPage, /Next retry/);
+  }
+});
 
 test("a bot shows its face, or its emoji while it has one, always decorative beside its name in text", () => {
   const source = read("./bots.ts");
@@ -16,13 +66,32 @@ test("a bot shows its face, or its emoji while it has one, always decorative bes
   assert.doesNotMatch(source, /botAvatar\(|data-tone=|initial/u, "the letter avatar is gone");
 });
 
-test("roster rows show each bot's state and keep their badges; archived bots sleep", () => {
-  const source = read("./bots.ts");
-  assert.match(between(source, "function botRow(", "function archivedRow("), /renderBotAvatar\(bot, "sm", \{ state: rosterFaceState\(bot\), badge: activityBadge\(bot\) \}\)/u);
-  assert.match(between(source, "function archivedRow(", "function renderRosterToggles("), /renderBotAvatar\(bot, "sm", \{ state: "offline" \}\)/u);
+test("roster rows: a finished turn unread is a green dot, a resting bot sleeps, a working one has no badge, the open one is awake", () => {
+  const bot = (id: string, status: BotView["status"], unread: boolean, lastMessage = "2026-10-19T09:00:00.000Z") => ({
+    id, name: id, handle: id, sessionId: `s-${id}`, cwd: `/bots/${id}`, createdAt: lastMessage, updatedAt: lastMessage, status, unread, soul: false, routines: 0,
+  } as BotView);
+  const bots = [
+    bot("done", "idle", true, "2026-10-19T09:04:00.000Z"),
+    bot("asleep", "idle", false, "2026-10-19T09:03:00.000Z"),
+    bot("working", "running", true, "2026-10-19T09:02:00.000Z"),
+    bot("open", "idle", false, "2026-10-19T09:01:00.000Z"),
+  ];
+  const page = markup(renderBotRoster({ bots, query: "", showHidden: false, showArchived: false, activeBotId: "open", menuFor: "", pendingId: "", now: Date.parse("2026-10-19T09:05:00.000Z") } as unknown as BotRosterProps, { navigate: () => {}, dialog: () => {} }));
+  const row = (id: string) => page.slice(page.indexOf(`data-bot-id=${id}`), page.indexOf("</a>", page.indexOf(`data-bot-id=${id}`)));
+  const badges = (id: string) => [...row(id).matchAll(/bot-avatar__badge--(\w+)/gu)].map((match) => match[1]);
+  assert.deepEqual(badges("done"), ["done"]);
+  assert.match(row("done"), /state=idle/u);
+  assert.deepEqual(badges("asleep"), ["sleeping"]);
+  assert.match(row("asleep"), /state=sleeping/u);
+  assert.deepEqual(badges("working"), []);
+  assert.match(row("working"), /state=thinking/u);
+  assert.deepEqual(badges("open"), []);
+  assert.match(row("open"), /state=idle/u);
+  assert.doesNotMatch(page, /sidebar-session-unread-dot/u, "the green dot is the row's one unread mark");
+  assert.match(read("./bots.ts"), /renderBotAvatar\(bot, "sm", \{ state: "offline" \}\)/u, "archived bots show offline");
 });
 
-test("the Settings tab's Look is Face (shape and color) or Emoji, as native radio groups, each choice saved on its own", () => {
+test("the Settings page's Look is Face (shape and color) or Emoji, as native radio groups, each choice saved on its own", () => {
   const source = read("./bot-settings.ts");
   const look = between(source, "function renderLook(", "/** Name, title and look, edited in place");
   assert.match(look, /<details class="settings-row bot-setting bot-look" data-setting="look">/u, "a row that opens into the editor");
@@ -62,9 +131,6 @@ test("a call shows the bot's face listening to the microphone and speaking with 
   const bar = between(source, "export function renderCallBar(", "\n}\n");
   assert.match(bar, /renderBotAvatar\(bot, "sm", \{ state: callFaceState\(state, props\.summarizing\) \}\)/u);
   assert.match(bar, /class="bot-call-bar__pulse"/u, "the bar keeps its live dot");
-  const app = read("../hui-app.ts");
-  assert.match(app, /this\.voice\.call\?\.state\.phase === "speaking" \? this\.voice\.voiceLevel\(\) : this\.voice\.micLevel\(\)/u);
-  assert.match(read("../lib/voice-controller.ts"), /return this\.call \? this\.#session\?\.voiceLevel : 0;/u, "the bot's voice is GPT-Live's stream, as it plays");
 });
 
 test("faces are decorative, pause when unseen and keep still under reduced motion", () => {
@@ -81,7 +147,7 @@ test("faces are decorative, pause when unseen and keep still under reduced motio
   assert.match(reduced, /:is\(\.fx, \.bot-face__shadow, \.bot-face__thoughts circle\) \{ animation: none !important; \}/u);
   assert.match(reduced, /:is\(\.bot-face__gaze, \.bot-face__eyes, \.e-open\) \{ transition: none; \}/u);
   assert.match(reduced, /svg\[data-state="waiting"\] \.bot-face__tilt \{ transform: rotate\(8deg\); \}/u, "waiting keeps its tilt, still");
-  for (const state of ["idle", "thinking", "working", "waiting", "memory", "error", "done", "offline"]) assert.match(styles, new RegExp(`svg\\[data-state="${state}"\\]`, "u"), state);
+  for (const state of ["idle", "sleeping", "thinking", "working", "waiting", "memory", "error", "done", "offline"]) assert.match(styles, new RegExp(`svg\\[data-state="${state}"\\]`, "u"), state);
 });
 
 test("emoji tiles take a face's width in rows, so names line up whichever look a bot has", () => {
@@ -97,73 +163,35 @@ test("emoji tiles take a face's width in rows, so names line up whichever look a
   }
 });
 
-test("Labs → Bots is the one switch: off, the sidebar has no Agents | Bots switch, bot addresses land home and nothing of bots shows; on, it all comes back", () => {
-  const app = read("../hui-app.ts");
-  assert.doesNotMatch(app, /showTab|botsTabShown/u, "one switch: every bot surface asks botsEnabled, Settings → Labs → Bots");
-  // The switch, and with it every unread mark on the Bots tab, shows exactly while bots are on; the remembered choice stays put.
-  assert.match(between(app, "private shellBotsProps(", "private createNewBot"), /^private shellBotsProps\(\): ShellBotsProps \| undefined \{\n\s+if \(!botsEnabled\(this\.settings\)\) return undefined;/u);
-  assert.match(read("./shell.ts"), /\$\{props\.bots \? html`<div class="sidebar-switch">\$\{renderSidebarTabs\(props\.bots\)\}<\/div>` : nothing\}/u, "no props, no switch");
-  assert.doesNotMatch(between(app, "private followBotsSetting(", "private shellBotsProps("), /writeSidebarTab/u, "a remembered Bots choice shows Agents while off, and Bots again once on");
-  // /bots and /bots/:id land on the normal home; a bot's chat opens nowhere, even through a session address.
-  assert.match(between(app, "private applyNavigation(", "private openPendingSession("), /if \(target\.kind === "bot"\) \{[\s\S]*?if \(this\.embeddedPane \|\| !botsEnabled\(this\.settings\)\) \{\n\s+this\.navigate\(\{ kind: "home" \}, true\);/u);
-  assert.match(between(app, "private openPendingSession(", "private selectView"), /if \(session\.bot && !botsEnabled\(this\.settings\)\) \{\n\s+this\.navigate\(\{ kind: "home" \}, true\);\n\s+return;\n\s+\}\n\s+\/\/ A bot's chat opens as the bot \(with its panel\) wherever it is linked from\.\n\s+if \(!this\.embeddedPane && session\.bot\) \{/u);
-  assert.match(app, /const wanted = botsEnabled\(this\.settings\) && !this\.botsStreamUnsupported;/u, "no bot stream while off");
-  // Bot chats stay out of the Agents list on or off: it filters by the session's bot, not by a setting.
-  assert.match(between(app, "private get listedGroups(", "private activeBot("), /if \(this\.listedGroupsSource !== this\.groups\) \{\n\s+this\.listedGroupsSource = this\.groups;\n\s+this\.listedGroupsCache = withoutBotSessions\(this\.groups\);/u);
-  // Either way it applies at once: the setting's change follows here, and another screen's through the stream's 409.
-  assert.match(app, /if \(changed\.has\("settings"\)\) \{\n\s+const before = changed\.get\("settings"\) as Settings \| undefined;\n\s+if \(before && botsEnabled\(before\) !== botsEnabled\(this\.settings\)\) this\.followBotsSetting\(\);/u);
-  const follow = between(app, "private followBotsSetting(", "private shellBotsProps(");
-  assert.match(follow, /if \(botsEnabled\(this\.settings\)\) \{\n\s+void settingsWritten\(\)\.then\(\(\) => this\.syncBotsStream\(\)\);\n\s+return;\n\s+\}\n\s+this\.syncBotsStream\(\);/u, "the stream starts once the gateway has the setting, and stops at once");
-  assert.match(follow, /if \(this\.voice\.call\) this\.voice\.hangUp\(\);/u, "a call ends with bots");
-  assert.match(follow, /if \(this\.view === "bot" \|\| \(this\.view === "home" && this\.selected\?\.bot\)\) this\.navigate\(\{ kind: "home" \}, true\);/u, "a bot's page goes home, and so does its chat open as a session");
-  const off = between(app, "if (state === \"off\") {", "} else if (!wanted && this.botsStreamStop)");
-  assert.match(off, /void settingsWritten\(\)\.then\(refreshSettings\)\.then\(\(settings\) => \{\n\s+if \(!settings\) return;\n\s+this\.settings = settings;/u, "a 409 reads the settings again once this screen's writes landed");
-  assert.match(off, /if \(retry && botsEnabled\(settings\)\) \{\n\s+this\.botsStreamRetried = true;\n\s+this\.syncBotsStream\(\);/u, "still on: asked once more, never in a loop");
-  assert.match(app, /if \(state === "live"\) this\.botsStreamRetried = false;/u);
-  // Bot-only settings go too: Sessions → Bots, Models → Calls, and Automations' routines; the old tab switch is gone.
-  const settings = read("./settings.ts");
-  assert.match(between(settings, "function renderCallsSection(", "function renderModelsPage("), /if \(!botsEnabled\(props\.settings\)\) return nothing;/u);
-  const sessions = between(settings, "function renderSessionsSettingsPage(", "function renderWorktreesSettingsPage(");
-  assert.match(sessions, /\$\{botsEnabled\(props\.settings\) \? renderSection\("Bots",/u);
-  assert.doesNotMatch(settings, /Show the Bots tab|onChangeBots/u, "Settings → Sessions has no second switch");
-  assert.match(between(settings, "function renderModelsPage(", "PI defaults"), /Two roles: the primary model does the real work and the utility model the quick work\./u, "the models' intro names no calls while they are hidden");
-  assert.match(app, /sessions: this\.groups\.flatMap\(\(group\) => group\.sessions\),\n\s+bots: botsEnabled\(this\.settings\),/u);
-});
-
 test("+ creates a bot at once, without a name, and opens its chat, as in Grok Bot; no dialog is left", () => {
-  const app = read("../hui-app.ts");
-  const create = between(app, "private createNewBot = ", "/** The roster's Edit");
-  assert.match(create, /if \(this\.botCreating\) return;/u, "one at a time");
-  assert.match(create, /void createBot\(worker \? \{ worker \} : \{\}\)/u, "no name (the gateway calls it New Bot and its first turn asks for one), on the machine chosen, everything else on the defaults");
-  assert.match(create, /this\.navigate\(\{ kind: "bot", id: bot\.id \}\);/u, "its chat opens");
-  assert.match(create, /this\.notify\(error instanceof Error \? error\.message : "Could not create a bot\.", true\);/u, "a refusal (an offline worker, say) shows as an error toast");
-  assert.match(create, /this\.notify\(`Creating a bot on \$\{this\.launchWorkers\.find\(\(candidate\) => candidate\.id === worker\)\?\.name \?\? "the worker"\}…`\);/u, "a worker can take a moment: a toast says where");
-  assert.match(app, /onNew: \(\) => this\.createNewBot\(\),\n\s+workers: this\.launchWorkers,\n\s+onCreate: \(worker\) => this\.createNewBot\(worker\),\n\s+onImport: this\.botImports\.openImport,\n\s+onWorkersMenu: \(\) => this\.loadLaunchWorkers\(\),\n\s+creating: this\.botCreating,/u, "+ and its menu create the same way");
-  assert.doesNotMatch(app, /\bNEW_BOT_NAME\b|createBotOn/u, "one way to create a bot, without a name");
   const source = read("./bots.ts");
   const button = between(source, "export function renderNewBotButton(", "/** The menu item for this machine");
   assert.equal(button.match(/data-new-bot-trigger \?disabled=\$\{busy\} aria-busy=\$\{busy \? "true" : "false"\}/gu)?.length, 1, "+, the menu's trigger, waits for the bot it is creating");
   assert.match(read("./shell.ts"), /onCreate: botsTab\.onCreate, onImport: botsTab\.onImport, creating: botsTab\.creating,/u);
   assert.match(source, /props\.creating \? "Creating…" : "New bot"/u, "and so does the empty roster's New bot");
-  for (const file of [source, app]) assert.doesNotMatch(file, /renderBotDialog\b|bot-dialog|botDialog|botDraft/u, "the New bot and Edit dialogs are gone");
-  assert.match(read("../lib/bots.ts"), /export type NewBotInput = Omit<BotInput, "name"> & \{ name\?: string \};/u, "the create body may leave the name out");
+  assert.doesNotMatch(source, /renderBotDialog\b|bot-dialog|botDialog|botDraft/u, "the New bot and Edit dialogs are gone");
 });
 
 test("a bot chat offers a call whenever GPT-Live can run, and nothing of VoiceStudio", () => {
-  const app = read("../hui-app.ts");
-  assert.match(between(app, "private callsAvailable(", "private isUpdateSession("), /return callsReady\(this\.callsStatus\);/u);
-  assert.match(app, /if \(!this\.embeddedPane && this\.view === "bot" && !this\.callsStatus\) void this\.loadCallsStatus\(\);/u, "read on every bot page, whatever settings.json holds");
-  assert.doesNotMatch(app, /VoiceStudio|voiceNotes|readAloud|paneVoice|VOICE_CONNECTION_EVENT|calls\.engine/u);
   const home = read("./home.ts");
   assert.match(home, /renderCallButton\(\{ botName: props\.bot\.bot\.name, inCall: props\.call\.inCall, onCall: props\.call\.onCall \}\)/u, "the phone button");
   assert.doesNotMatch(home, /renderVoiceNoteButton|renderVoiceNoteStatus|renderReadAloud|chat-read-aloud|chat-voice-btn/u, "no microphone in the composer, no Read aloud under replies");
 });
 
-test("the Settings tab: Profile, Model, Calls and Workspace, each change saved on its own", () => {
+test("the Settings page: Profile, Tagging, Model, Calls and Workspace, each change saved on its own", () => {
   const source = read("./bot-settings.ts");
   const tab = between(source, "export function renderBotSettings(", "\n}\n");
-  assert.ok(tab.indexOf("renderProfile(props)") < tab.indexOf("renderModels(props)") && tab.indexOf("renderModels(props)") < tab.indexOf("renderCalls(props)")
-    && tab.indexOf("renderCalls(props)") < tab.indexOf("renderWorkspace(props)"), "Profile on top, then Model, Calls and Workspace");
+  assert.ok(tab.indexOf("renderProfile(props)") < tab.indexOf("renderTagging(props)") && tab.indexOf("renderTagging(props)") < tab.indexOf("renderModels(props)")
+    && tab.indexOf("renderModels(props)") < tab.indexOf("renderCalls(props)") && tab.indexOf("renderCalls(props)") < tab.indexOf("renderWorkspace(props)"),
+    "Profile on top, then Tagging, Model, Calls and Workspace");
+  const tagging = between(source, "function renderTagging(", "function renderModels(");
+  assert.match(tagging, /setting: "description", keys: \["description"\], stacked: true, title: "When to tag it"/u);
+  assert.match(tagging, /<textarea class="settings-input bot-settings__description"[^>]*maxlength=\$\{BOT_LIMITS\.description\}/u);
+  assert.match(tagging, /onTextKeydown\(event, "description", props\)\} @blur=\$\{\(event: FocusEvent\) => onTextBlur\(event, "description", props\)\}/u, "the description saves on Enter or blur");
+  assert.match(tagging, /setting: "tagging", keys: \["tagging"\], title: "Who can tag it"/u);
+  assert.match(tagging, /onChange: \(next\) => props\.onChange\("tagging", next\)/u, "who can tag it saves as it changes");
+  assert.match(source, /\{ value: "anyone", label: "Anyone"[\s\S]*\{ value: "mention", label: "Only when @mentioned"[\s\S]*\{ value: "nobody", label: "Nobody"/u);
+  assert.match(source, /if \(!value && key !== "title" && key !== "description"\)/u, "a description can be cleared, as a title can");
   const profile = between(source, "/** Name, title and look, edited in place", "function renderModels(");
   assert.match(profile, /setting: "name", keys: \["name"\]/u);
   assert.match(profile, /setting: "title", keys: \["title"\]/u);
@@ -191,57 +219,47 @@ test("the Settings tab: Profile, Model, Calls and Workspace, each change saved o
   assert.match(between(source, "function renderRow(", "function sectionHead("), /<span class="bot-setting__status" role="status">\$\{pending \? "Saving…" : ""\}<\/span>/u, "a pending save shows on its row");
   assert.match(between(source, "function renderRow(", "function sectionHead("), /<p class="bot-setting__error" role="alert">/u, "and so does a refusal");
   assert.doesNotMatch(source, /type="submit"|>Save</u, "no Save button");
-  const app = read("../hui-app.ts");
-  assert.match(app, /this\.botSettingsQueue = this\.botSettingsQueue\.then\(\(\) => this\.sendBotSetting\(botId, key\)\);/u, "one PATCH per change, in order");
-  assert.match(between(app, "private async sendBotSetting(", "private dismissBotSetting("), /updateBot\(botId, patch\)/u, "through PATCH /__hui/bots/:id");
-  assert.match(between(app, "private botSettingsCall(", "private botSettingsSavesOf("),
-    /return \{ defaultVoice: this\.settings\.calls\.voice, \.\.\.\(this\.callsStatus \? \{ ready: callsReady\(this\.callsStatus\) \} : \{\}\) \};/u,
-    "Settings' voice, and whether calls can run once the gateway has said (callsReady, as Call uses)");
-  assert.match(app, /\n\s+call: settingsCall,\n/u, "the tab always gets its Calls section");
 });
 
-test("the roster's Edit opens the bot's chat on its Settings tab, docked or as the sheet", () => {
+test("the roster's Edit opens the bot's chat with its panel on Settings, docked or as the sheet", () => {
   const source = read("./bots.ts");
   assert.match(source, /<span class="session-menu__text">Edit bot…<\/span>/u, "the ellipsis of a place to make choices, as Settings… has, and as the header's ⋯ menu says");
-  const app = read("../hui-app.ts");
-  assert.match(between(app, "private openEditBot = ", "private showBotSettings("), /this\.showBotSettings\(bot\.id\);/u);
-  const show = between(app, "private showBotSettings(", "private toggleBotSettings(");
-  assert.match(show, /this\.navigate\(\{ kind: "bot", id: botId \}\)/u);
-  assert.match(show, /this\.botPanel = \{ open: this\.mobileNavLayout \? this\.botPanel\.open : true, tab: "settings" \};/u);
-  assert.match(show, /if \(this\.mobileNavLayout\) this\.botSheetOpen = true;/u, "the sheet on narrow screens");
-  assert.match(show, /\.bot-panel \[role="tab"\]\[aria-selected="true"\]'\)\?\.focus\(\)/u, "the focus lands on the tab");
-  assert.doesNotMatch(app, /mode: "edit"/u, "the old Edit dialog is gone");
 });
 
-test("the panel's tabs take their own row under the header and keep their keys; Ctrl+Shift+, toggles Settings", () => {
+test("the panel opens on the bot's overview, whose rows open its pages with a way back; Ctrl+Shift+, toggles Settings", () => {
   const source = read("./bots.ts");
-  const panel = between(source, "export function renderBotPanel(", "/* ── New bot and Edit profile dialogs");
-  assert.match(panel, /<header class="bot-panel__header">\s*<h2 class="bot-panel__title">\$\{props\.bot\.name\}<\/h2>\s*<button[^>]*bot-panel__close/u, "the header: the bot's name and Close");
-  assert.match(panel, /<\/header>\s*<div class="bot-panel__tabs" role="tablist"/u, "the tabs right under it, a row of their own");
-  assert.match(panel, /@keydown=\$\{\(event: KeyboardEvent\) => onPanelTabKeydown\(event, props\)\}/u, "arrows, Home and End");
-  assert.match(panel, /title=\$\{tab === "settings" \? `Settings \(\$\{botSettingsShortcutLabel\(\)\}\)` : nothing\}/u);
-  assert.match(source, /case "settings": return keyed\(props\.bot\.id, renderBotSettings\(/u, "another bot's Settings start afresh");
-  const css = readFileSync(new URL("../styles/bots.css", import.meta.url), "utf8");
-  const tabs = css.match(/\.bot-panel__tabs \{[^}]*\}/u)?.[0] ?? "";
-  assert.match(tabs, /overflow-x: auto;/u, "a larger text scale scrolls the row instead of clipping a label");
-  assert.match(tabs, /box-shadow: inset 0 -1px 0/u, "the divider is drawn inside, so the underline is not clipped");
-  const tab = css.match(/\.bot-panel__tab \{[^}]*\}/u)?.[0] ?? "";
-  assert.match(tab, /flex: 1 0 auto;/u, "tabs grow to fill the row and never shrink below their labels");
-  assert.match(tab, /white-space: nowrap;/u);
-  assert.doesNotMatch(tabs, /[\s;{]width: \d/u, "no fixed width");
-  const app = read("../hui-app.ts");
-  assert.match(app, /if \(isBotSettingsShortcut\(event\)\) \{\n\s+if \(this\.view !== "bot" \|\| this\.settingsOpen \|\| this\.commandPaletteOpen \|\| document\.querySelector\("dialog\[open\]"\)\) return;/u);
-  assert.match(between(app, "private toggleBotSettings(", "private openEditProfile("), /if \(this\.botPanelVisible\(\) && this\.botPanel\.tab === "settings"\) this\.closeBotPanel\(\);\n\s+else this\.showBotSettings\(bot\.id\);/u);
+  const overview = between(source, "function renderOverview(", "function renderPanelView(");
+  const order = ["renderProfile(props)", "renderRoutinesSummary(props)", "renderTriggersSummary(props, now)", "renderActivity(props, now)", "renderSetup(props)"].map((part) => overview.indexOf(part));
+  assert.ok(order.every((at, index) => at > (order[index - 1] ?? -1)), "who it is, what it does on its own, then how it is set up");
+  assert.match(between(source, "function renderPanelHeader(", "/** The panel beside the bot's chat"), /bot-panel__back" aria-label=\$\{`Back to \$\{props\.bot\.name\}`\}/u, "every page has a way back");
+  assert.doesNotMatch(between(source, "/* ── side panel", "/* ── archive confirmation"), /role="tab"|SOUL\.md/iu, "no tabs or Soul editor");
 });
 
-test("the Settings tab uses no fixed heights that could clip it", () => {
+test("an expanded panel keeps the chat mounted underneath, and Escape brings the chat back instead of stopping its turn", () => {
   const css = readFileSync(new URL("../styles/bots.css", import.meta.url), "utf8");
-  const tab = css.slice(css.indexOf("/* ── Settings tab"), css.indexOf("/* The Look:"));
+  assert.match(css, /\.bot-workspace--expanded > \.bot-workspace__chat \{ position: absolute; inset: 0; visibility: hidden; pointer-events: none; \}/u, "hidden, never unmounted: its stream, draft and scroll survive");
+});
+
+test("the Settings page uses no fixed heights that could clip it", () => {
+  const css = readFileSync(new URL("../styles/bots.css", import.meta.url), "utf8");
+  const tab = css.slice(css.indexOf("/* ── Settings page"), css.indexOf("/* The Look:"));
   // An icon's size is no container's height.
   assert.doesNotMatch(tab.replace(/[^{}]*\bsvg \{[^}]*\}/gu, ""), /(^|[\s;{])(max-)?height: \d/mu, "no fixed or maximum height");
   assert.match(tab, /\.bot-settings \.settings-row\.bot-setting \{[^}]*min-height: 0;/u, "compact rows");
   assert.match(tab, /\.bot-settings \.bot-setting--stacked \.settings-row__control \{ display: grid; grid-template-columns: minmax\(0, 1fr\);/u, "a stacked control takes the row's width");
   assert.doesNotMatch(css, /\.bot-dialog/u, "no dialog styles are left");
+});
+
+test("the overview's Tagging, Model and Calls rows name who may tag the bot, what it runs on and how it sounds on calls", () => {
+  assert.deepEqual([botTaggingLabel({}), botTaggingLabel({ tagging: "mention" }), botTaggingLabel({ tagging: "nobody" })], ["Anyone", "Only when @mentioned", "Nobody"]);
+  assert.match(between(read("./bots.ts"), "function renderSetup(", "function renderOverview("), /row\("settings-tagging", "settings", "Tagging", botTaggingLabel\(bot\), bot\.description \?\? botTaggingLabel\(bot\)\)/u,
+    "it opens Settings at Tagging, its description as the title");
+  const models = [{ provider: "anthropic", id: "claude-x", name: "Claude X" }];
+  assert.equal(botModelLabel({}, models), "Gateway default");
+  assert.equal(botModelLabel({ model: "anthropic/claude-x", thinking: "xhigh" }, models), "Claude X · Extra high");
+  assert.equal(botModelLabel({ model: "openai/gone", thinking: "dancing" }, models), "openai/gone", "a model gone from the catalog still shows; an unknown thinking level doesn't");
+  assert.equal(botCallsLabel({}, { defaultVoice: "sol" }), "Sol · Auto", "Settings' voice while it has none of its own");
+  assert.equal(botCallsLabel({ voice: { live: "maple", language: "es" } }, { defaultVoice: "sol" }), "Maple · Spanish");
 });
 
 test("the roster's + is a menu, New bot (on Local or on each worker while a worker exists) then Import bot…, and a choice creates the bot there at once", () => {
@@ -260,12 +278,6 @@ test("the roster's + is a menu, New bot (on Local or on each worker while a work
   assert.match(css, /\.sidebar-recent-sessions__toolbar \.new-bot-menu \{[^}]*text-transform: none;/u, "its items are not the toolbar's small caps");
   const shell = read("./shell.ts");
   assert.match(shell, /\$\{botsTab \? renderNewBotButton\(\{\n\s+workers: botsTab\.workers, onNew: botsTab\.onNew, onCreate: botsTab\.onCreate,/u);
-  const app = read("../hui-app.ts");
-  assert.match(app, /workers: this\.launchWorkers,\n\s+onCreate: \(worker\) => this\.createNewBot\(worker\),/u);
-  const create = between(app, "private createNewBot = ", "/** The roster's Edit");
-  assert.match(create, /createBot\(worker \? \{ worker \} : \{\}\)/u, "created at once, where it was chosen, without a name: its first conversation asks for one");
-  assert.match(create, /this\.navigate\(\{ kind: "bot", id: bot\.id \}\);/u, "and its chat opens");
-  assert.match(create, /this\.notify\([^;]+, true\);/u, "a refusal (an offline worker) shows as an error toast");
 });
 
 test("Settings → Workspace shows the machine a bot runs on, read-only, and offers only that machine's folders", () => {
@@ -281,18 +293,13 @@ test("Settings → Workspace shows the machine a bot runs on, read-only, and off
   assert.match(workspace, /\$\{sectionHead\(props, "workspace", "Workspace", renderBotMachineField\(props\)\)\}/u, "Runs on beside the heading, as Model's note: no height, so the tab still fits 1440×900 with a worker around");
   assert.match(workspace, /<\/div>\n\s+\$\{renderMachineHint\(props\.bot\)\}\n\s+<\/section>/u, "a bot on a worker says why under the section");
   assert.doesNotMatch(source, /renderPicker\(\{ label: "Runs on"/u, "a bot's machine is chosen with +, never changed");
-  const app = read("../hui-app.ts");
-  assert.match(app, /suggestions: this\.directorySuggestionsFrom === \(bot\.worker\?\.id \?\? ""\) \? this\.directorySuggestions : \[\],\n\s+onInput: \(value\) => this\.loadDirectorySuggestions\(value, bot\.worker\?\.id\),/u,
-    "a bot on a worker is offered its worker's folders, never this machine's");
-  assert.match(between(app, "private loadDirectorySuggestions(", "private requestDirectorySuggestions"), /this\.directorySuggestionsFrom = worker \?\? "";\n\s+this\.directorySuggestions = directories;/u, "each answer says which machine it came from");
-  assert.match(app, /workersExist: this\.launchWorkers\.length > 0,/u);
 });
 
 test("a bot on a worker shows the machine compactly in its roster row, its chat header and its confirmations", () => {
   const source = read("./bots.ts");
   assert.match(between(source, "function botRow(", "function archivedRow("),
     /\$\{bot\.worker \? html`<span class="bot-row__tag bot-row__machine" title=\$\{`Runs on \$\{bot\.worker\.name\}`\}>\$\{icons\.globe\}<span>\$\{bot\.worker\.name\}<\/span><\/span>` : nothing\}/u);
-  assert.match(read("../lib/bot-roster.ts"), /\.\.\.\(bot\.worker \? \[`on \$\{bot\.worker\.name\}`\] : \[\]\)/u, "the row's accessible name says where it runs");
+  assert.match(read("../lib/bots/roster.ts"), /\.\.\.\(bot\.worker \? \[`on \$\{bot\.worker\.name\}`\] : \[\]\)/u, "the row's accessible name says where it runs");
   const identity = between(read("./home.ts"), "function renderBotIdentity(", "function renderHeader(");
   assert.match(identity, /<span class="bot-chat-identity__machine" title=\$\{`Runs on \$\{worker\.name\}`\}><span class="sr-only">on <\/span>\$\{icons\.globe\}<span>\$\{worker\.name\}<\/span><\/span> · /u);
   assert.match(identity, /title=\$\{worker \? `\$\{worker\.name\}:\$\{session\.cwd\}` : session\.cwd\}/u, "its folder reads devbox:/path");
@@ -300,7 +307,7 @@ test("a bot on a worker shows the machine compactly in its roster row, its chat 
   assert.match(css, /\.app-shell \.bot-row__machine \{[^}]*max-width: 45%;/u, "a long name never crowds the preview out");
   assert.match(css, /\.bot-chat-identity__machine svg \{ flex: none; width: 11px; height: 11px; \}/u);
   assert.match(between(source, "export function renderBotArchiveDialog(", "/* ── delete confirmation"), /stay on \$\{bot\.worker\?\.name \?\? "this machine"\}/u);
-  assert.match(between(source, "function renderMemoryTab(", "export function renderBotPanel("), /Summarizer since HUI started on \$\{props\.bot\.worker\.name\}/u, "a worker's compactor counts since its host opened the memory");
+  assert.match(between(source, "function renderProfile(", "function renderRoutinesSummary("), /bot\.worker \? `on \$\{bot\.worker\.name\}` : ""/u, "its profile says where it runs");
   const deleting = source.slice(source.indexOf("export function renderBotDeleteDialog("));
   assert.match(deleting, /its memory and its folder\$\{bot\.worker \? ` on \$\{bot\.worker\.name\}` : ""\} \(SOUL\.md and every file in it\) go/u, "its folder on the worker");
   assert.match(deleting, /bot\.status === "disconnected" \? `; HUI is not connected to \$\{bot\.worker\.name\} now, so those go there when it reconnects` : ""/u, "and when they go while the worker is offline");

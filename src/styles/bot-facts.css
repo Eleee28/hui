@@ -1,0 +1,16 @@
+/* Explicit bot knowledge: a compact, responsive list and editor in the existing panel. */
+.bot-facts { display: grid; gap: 16px; min-width: 0; }
+.bot-facts > p { margin: 0; font-size: 13px; line-height: 1.5; }
+.bot-facts__toolbar, .bot-facts__actions, .bot-facts__meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.bot-facts__toolbar { justify-content: space-between; color: var(--muted); font-size: 12px; }
+.bot-facts__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.bot-facts__card { border: 1px solid var(--border); border-radius: 10px; padding: 14px; min-width: 0; }
+.bot-facts__meta { font-size: 12px; color: var(--muted); }
+.bot-facts__meta strong { color: var(--text); }
+.bot-facts__text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; margin: 10px 0; }
+.bot-facts__source { color: var(--muted); overflow-wrap: anywhere; font-size: 11px; line-height: 1.6; }
+.bot-facts__form { display: grid; gap: 12px; border-top: 1px solid var(--border); padding-top: 16px; }
+.bot-facts__form label { display: grid; gap: 6px; font-size: 13px; }
+.bot-facts__form input, .bot-facts__form select, .bot-facts__form textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+
+.bot-facts__form textarea.settings-input { font-family: inherit; }

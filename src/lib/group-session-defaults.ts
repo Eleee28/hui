@@ -2,7 +2,7 @@
  * Which workspace defaults a session group lends to New Session. A group's worktree mode and base ref apply
  * only when the chosen directory is the group's own and is a real Git checkout.
  */
-import type { GitCheckoutInfo, SessionGroup } from "./sessions-store.ts";
+import type { GitCheckoutInfo, SessionGroup } from "../api/sessions.ts";
 
 /** Apply group defaults only to its original directory and an actual checkout. */
 export function groupCheckoutDefaults(directory: string, checkout: GitCheckoutInfo,

@@ -1,0 +1,31 @@
+[
+  {
+    "title": "Fix the picker for all users",
+    "expected": "picker-all-users"
+  },
+  {
+    "title": "APP-12: Fix café login",
+    "jiraKey": "APP-12",
+    "expected": "cafe-login"
+  },
+  {
+    "title": "feature Chore improve the form and save state",
+    "expected": "improve-form-save-state"
+  },
+  {
+    "title": "the and to",
+    "expected": "the-and-to"
+  },
+  {
+    "title": "",
+    "expected": "session"
+  },
+  {
+    "title": "你好",
+    "expected": "session"
+  },
+  {
+    "title": "12345678901234567890123456789012345678901234567890",
+    "expected": "1234567890123456789012345678901234567890"
+  }
+]

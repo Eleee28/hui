@@ -9,15 +9,69 @@
  * Writes go through a temporary file and a rename, and every read/modify/write
  * is serialized, like the session registry. A file from a newer HUI (higher
  * `version`) or one that cannot be parsed is never overwritten.
+ *
+ * `createBacklogLifecycle(deps)` lists the board and starts its items and
+ * `suggest_task` cards as sessions, or saves a card as a local task.
  */
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, normalize } from "node:path";
 
-import { BACKLOG_LIMITS, backlogItemId, type BacklogItem } from "../shared/backlog.ts";
-import type { SessionJiraIssue } from "../shared/jira.ts";
-import { JIRA_KEY, jiraIssueUrl, parseJiraIssue, type JiraClient, type JiraIssueRef } from "./jira.ts";
+import type { BacklogItem, BacklogItemKind, BacklogView } from "./api/backlog.ts";
+import type { SessionJiraIssue } from "./api/sessions.ts";
+import { isSessionStage, SESSION_STAGES } from "./sessions/session-stages.ts";
+import { TaskSuggestionInputError, taskSuggestionPrompt, type TaskSuggestionStartMode, type TaskSuggestionStore } from "./agent-tools/task-suggestions.ts";
+import {
+  JIRA_KEY,
+  JiraClient,
+  jiraIssuesFromTranscript,
+  jiraIssueUrl,
+  mergeJiraRefs,
+  parseJiraIssue,
+  type JiraConfig,
+  type JiraIssueFetcher,
+  type JiraIssueRef,
+  type JiraIssueStatuses,
+} from "./integrations/jira.ts";
+import type { liveSessions } from "./sessions/live-sessions.ts";
 import { CONFIG_DIR } from "./paths.ts";
+import { readRegistry, updateRegistry, type SessionNotFoundError, type SessionRecord } from "./sessions/sessions.ts";
+import type { createSessionLifecycle } from "./sessions/lifecycle.ts";
+import type { SessionView } from "./api/sessions.ts";
+import type { createSessionViews } from "./sessions/views.ts";
+
+export const BACKLOG_LIMITS = {
+  title: 200,
+  problem: 12_000,
+  fix: 8_000,
+  cwd: 4_096,
+  group: 200,
+  tasks: 500,
+} as const;
+
+export function backlogItemId(kind: BacklogItemKind, key: string): string {
+  return `${kind}:${key}`;
+}
+
+export function backlogItemPrompt(item: Pick<BacklogItem, "kind" | "title" | "problem" | "fix" | "jira">): string {
+  const link = item.jira ? [`Jira: [${item.jira.key}](${item.jira.url})`] : [];
+  if (item.kind === "jira") {
+    const summary = item.jira?.summary || item.title;
+    return [
+      `# ${item.jira ? `${item.jira.key}: ` : ""}${summary}`,
+      ...link,
+      "## Description",
+      item.jira?.description?.trim() || "No description in Jira. Investigate and confirm the scope before changing code.",
+    ].join("\n\n");
+  }
+  return [
+    `# ${item.title}`,
+    ...link,
+    "## Problem", item.problem?.trim() || "Not described.",
+    "## Proposed fix",
+    item.fix?.trim() || "Not known yet. Investigate and confirm the root cause before changing code.",
+  ].join("\n\n");
+}
 
 export const BACKLOG_FILE = join(CONFIG_DIR, "backlog.json");
 export const BACKLOG_VERSION = 1;
@@ -359,4 +413,189 @@ export function mergeBacklog(input: {
     }];
   });
   return [...local, ...jira];
+}
+
+export type BacklogLifecycleDeps = {
+  liveSessions: typeof liveSessions;
+  lifecycle: Pick<ReturnType<typeof createSessionLifecycle>, "createSession" | "waitForSessionReady">;
+  views: Pick<ReturnType<typeof createSessionViews>, "toView">;
+  taskSuggestions: TaskSuggestionStore;
+  backlogStore: BacklogStore;
+  backlogFeed: BacklogJiraFeed;
+  jiraConfig: () => JiraConfig | undefined;
+  jiraConfigReady: Promise<void>;
+  jiraClient: () => JiraClient;
+  jiraStatuses: JiraIssueStatuses;
+  defaultSessionTool: () => string;
+  SESSION_TITLE_MAX: number;
+  SessionNotFoundError: typeof SessionNotFoundError;
+};
+
+export function createBacklogLifecycle(deps: BacklogLifecycleDeps) {
+  const { liveSessions, taskSuggestions, backlogStore, backlogFeed, jiraConfig, jiraConfigReady, jiraClient, jiraStatuses } = deps;
+  const { defaultSessionTool, SESSION_TITLE_MAX, SessionNotFoundError } = deps;
+  const { createSession, waitForSessionReady } = deps.lifecycle;
+  const { toView } = deps.views;
+
+  /**
+   * Starts a suggestion as its own session: same group and runtime as the
+   * source, the suggestion's directory and title, and its problem plus proposed
+   * fix (or a request to investigate) as the first turn. The card is removed only once that prompt has been accepted; a
+   * failure releases it so the operator can retry, and keeps any created
+   * session visible rather than deleting it behind their back.
+   */
+  async function startTaskSuggestion(
+    source: SessionRecord,
+    suggestionId: string,
+    mode: TaskSuggestionStartMode = "session",
+  ): Promise<SessionView> {
+    const suggestion = taskSuggestions.claim(source.id, suggestionId);
+    try {
+      if (mode === "current") {
+        // Same conversation: prompt when idle, otherwise steer the active run
+        // like a composer message, falling back to a queued follow-up.
+        if (!liveSessions.ensure(source)) throw new SessionNotFoundError(`unknown session: ${source.id}`);
+        if (liveSessions.status(source.id) === "starting") await waitForSessionReady(source.id);
+        const text = taskSuggestionPrompt(suggestion);
+        if (liveSessions.status(source.id) === "idle") await liveSessions.prompt(source.id, text);
+        else {
+          try { await liveSessions.steer(source.id, text); }
+          catch { await liveSessions.followUp(source.id, text); }
+        }
+        taskSuggestions.remove(source.id, suggestionId);
+        const current = (await readRegistry()).find((session) => session.id === source.id) ?? source;
+        return toView(current, liveSessions.status(source.id));
+      }
+      const record = await createSession({
+        cwd: suggestion.cwd,
+        title: suggestion.title.slice(0, SESSION_TITLE_MAX),
+        group: source.group,
+        tool: defaultSessionTool(),
+        ...(suggestion.worker ? { worker: suggestion.worker } : {}),
+        ...(mode === "worktree" ? { worktree: true } : {}),
+      });
+      await waitForSessionReady(record.id);
+      await liveSessions.prompt(record.id, taskSuggestionPrompt(suggestion));
+      taskSuggestions.remove(source.id, suggestionId);
+      const current = (await readRegistry()).find((session) => session.id === record.id) ?? record;
+      return toView(current, liveSessions.status(record.id));
+    } catch (error) {
+      taskSuggestions.release(suggestionId);
+      throw error;
+    }
+  }
+
+  /** Backlog items whose session is being started, so a double drop cannot
+   * start the same item twice. */
+  const startingBacklogItems = new Set<string>();
+
+  /** Jira keys any session already holds (registry links and, for loaded
+   * transcripts, work items the session created). */
+  async function sessionLinkedJiraKeys(): Promise<Set<string>> {
+    const keys = new Set<string>();
+    for (const record of await readRegistry()) {
+      for (const ref of mergeJiraRefs(record.jiraIssues ?? [], jiraIssuesFromTranscript(liveSessions.transcript(record.id)))) keys.add(ref.key);
+    }
+    return keys;
+  }
+
+  function jiraFetcherFor(url: string): JiraIssueFetcher | undefined {
+    const config = jiraConfig();
+    if (!config || new URL(url).origin !== new URL(config.site).origin) return undefined;
+    return (key: string) => new JiraClient(config).issue(key);
+  }
+
+  async function listBacklog(force = false): Promise<BacklogView> {
+    await jiraConfigReady;
+    const state = await backlogStore.read();
+    const linkedKeys = await sessionLinkedJiraKeys();
+    const config = jiraConfig();
+    let issues: SessionJiraIssue[] = [];
+    let jira: BacklogView["jira"] = { status: "unconfigured" };
+    if (config) {
+      const result = await backlogFeed.get(`${config.site}\u0000${config.email}`, () => fetchAssignedTodo(new JiraClient(config), config.site), force);
+      if ("issues" in result) {
+        issues = result.issues;
+        jira = { status: "ok" };
+      } else {
+        jira = { status: "unavailable", message: result.error };
+      }
+    }
+    const items = mergeBacklog({ state, issues, linkedKeys, viewAttached: (ref) => jiraStatuses.view(ref, jiraFetcherFor(ref.url)) });
+    return { items, jira };
+  }
+
+  async function findBacklogItem(itemId: string): Promise<BacklogItem> {
+    const item = (await listBacklog()).items.find((candidate) => candidate.id === itemId);
+    if (!item) throw new BacklogNotFoundError("That item is no longer in the backlog.");
+    return item;
+  }
+
+  /**
+   * Starts a backlog item as a session: its title, the chosen directory (and
+   * optional worktree/base ref), the chosen group and an operator placement in
+   * the target column. The first prompt is the Jira summary and description or
+   * the local problem and fix. Only once that prompt is accepted does the item
+   * leave the backlog: a Jira key is linked to the session, a local task is
+   * removed. A failure keeps the item; a session already created is kept.
+   */
+  async function startBacklogItem(itemId: string, body: Record<string, unknown>): Promise<SessionView> {
+    if (!isSessionStage(body["stage"])) throw new BacklogInputError(`stage must be one of: ${SESSION_STAGES.join(", ")}.`);
+    const stage = body["stage"];
+    if (typeof body["group"] !== "string") throw new BacklogInputError("A group must be text.");
+    if (startingBacklogItems.has(itemId)) throw new BacklogInputError("That item is already starting.");
+    startingBacklogItems.add(itemId);
+    try {
+      let item = await findBacklogItem(itemId);
+      // The first prompt carries the full description; refresh it when the
+      // cached feed copy has none.
+      if (item.jira && item.kind === "jira" && !item.jira.description && jiraConfig()) {
+        try {
+          const details = await jiraClient().issue(item.jira.key);
+          item = { ...item, jira: { ...item.jira, ...details } };
+        } catch { /* Start with what the feed confirmed. */ }
+      }
+      const record = await createSession({
+        cwd: body["cwd"],
+        title: item.title.slice(0, SESSION_TITLE_MAX),
+        group: body["group"],
+        tool: defaultSessionTool(),
+        ...(body["worktree"] !== undefined ? { worktree: body["worktree"] } : {}),
+        ...(body["branchName"] ? { branchName: body["branchName"] } : {}),
+        ...(body["baseRef"] ? { baseRef: body["baseRef"] } : {}),
+      }, liveSessions, updateRegistry, undefined, { stage });
+      await waitForSessionReady(record.id);
+      await liveSessions.prompt(record.id, backlogItemPrompt(item));
+      if (item.jira) {
+        const ref = { key: item.jira.key, url: item.jira.url };
+        await updateRegistry((sessions) => sessions.map((session) => session.id === record.id
+          ? { ...session, jiraIssues: mergeJiraRefs(session.jiraIssues ?? [], [ref]) }
+          : session));
+      }
+      const [kind, key] = splitItemId(itemId);
+      if (kind === "local") await backlogStore.removeTask(key).catch((error: unknown) => { if (!(error instanceof BacklogNotFoundError)) throw error; });
+      else if (kind === "jira") await backlogStore.forgetJira(key);
+      const current = (await readRegistry()).find((session) => session.id === record.id) ?? record;
+      return toView(current, liveSessions.status(record.id));
+    } finally {
+      startingBacklogItems.delete(itemId);
+    }
+  }
+
+  /** A pending suggestion becomes a local backlog task (group OTHER, same
+   * directory) and its card is removed. */
+  async function saveSuggestionToBacklog(sessionId: string, suggestionId: string) {
+    const suggestion = taskSuggestions.claim(sessionId, suggestionId);
+    try {
+      // Backlog items start on this machine; a remote directory means nothing here.
+      if (suggestion.worker) throw new TaskSuggestionInputError("Suggestions from a remote worker can't go to the backlog yet. Start it in a new session instead.");
+      const task = await backlogStore.addTask({ title: suggestion.title, problem: suggestion.problem, fix: suggestion.fix, cwd: suggestion.cwd, group: "" });
+      taskSuggestions.remove(sessionId, suggestionId);
+      return task;
+    } finally {
+      taskSuggestions.release(suggestionId);
+    }
+  }
+
+  return { startTaskSuggestion, saveSuggestionToBacklog, listBacklog, findBacklogItem, startBacklogItem };
 }

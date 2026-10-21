@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
-import { normalizeBrowserStatus, type BrowserStatus } from "../../shared/browser.ts";
+import { test } from "vitest";
+import { normalizeBrowserStatus } from "./browser-status.ts";
+import type { BrowserStatus } from "../api/schema/browser.ts";
 import { browserStatusLabel, browserVersionLabel } from "./browser-status.ts";
 
 const base: BrowserStatus = normalizeBrowserStatus({

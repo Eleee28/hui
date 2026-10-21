@@ -38,7 +38,7 @@ backend outage.
 
 ## Automated coverage
 
-`src/lib/session-menu-shortcuts.test.ts` covers mappings, uppercase letters,
+`src/lib/session/menu-shortcuts.test.ts` covers mappings, uppercase letters,
 modified/repeated/composing input, capture-time activation, disabled/closed menus,
 editable targets and nested submenu isolation. Existing menu structure and Escape
 checks remain passing. No new dependencies or persisted formats were introduced;

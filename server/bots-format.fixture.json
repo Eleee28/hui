@@ -1,0 +1,429 @@
+{
+  "limits": {
+    "name": 60,
+    "handle": 32,
+    "title": 80,
+    "description": 500,
+    "soul": 20000,
+    "message": 20000,
+    "preview": 200
+  },
+  "thinkingLevels": [
+    "off",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+  ],
+  "accessAnswers": [
+    "Allow",
+    "Deny"
+  ],
+  "faces": {
+    "shapes": [
+      "blob",
+      "round",
+      "triangle",
+      "heart",
+      "cookie",
+      "star",
+      "flower",
+      "cloud",
+      "drop",
+      "ghost",
+      "pill",
+      "block",
+      "hexagon"
+    ],
+    "shapeLabels": {
+      "blob": "Blob",
+      "round": "Pebble",
+      "triangle": "Triangle",
+      "heart": "Heart",
+      "cookie": "Cookie",
+      "star": "Star",
+      "flower": "Flower",
+      "cloud": "Cloud",
+      "drop": "Drop",
+      "ghost": "Ghost",
+      "pill": "Pill",
+      "block": "Block",
+      "hexagon": "Hexagon"
+    },
+    "ears": [
+      "cat",
+      "bear",
+      "bunny",
+      "antenna",
+      "sprout",
+      "horns"
+    ],
+    "earsLabels": {
+      "cat": "Cat ears",
+      "bear": "Bear ears",
+      "bunny": "Bunny ears",
+      "antenna": "Antenna",
+      "sprout": "Sprout",
+      "horns": "Horns"
+    },
+    "colors": [
+      {
+        "id": "blue",
+        "label": "Blue",
+        "hex": "#3a7bfa"
+      },
+      {
+        "id": "yellow",
+        "label": "Yellow",
+        "hex": "#f5c21b"
+      },
+      {
+        "id": "magenta",
+        "label": "Magenta",
+        "hex": "#d23ce0"
+      },
+      {
+        "id": "mint",
+        "label": "Mint",
+        "hex": "#2fc49a"
+      },
+      {
+        "id": "coral",
+        "label": "Coral",
+        "hex": "#ff6b4a"
+      },
+      {
+        "id": "lilac",
+        "label": "Lilac",
+        "hex": "#9b7cf6"
+      }
+    ]
+  },
+  "looks": [
+    {
+      "input": {
+        "id": "0b6c8a52-4f1e-4d0e-9a51-3f1f2f6a7c11"
+      },
+      "expected": {
+        "kind": "face",
+        "shape": "blob",
+        "color": "#3a7bfa",
+        "derived": {
+          "shape": true,
+          "color": true
+        },
+        "seed": 269040390
+      }
+    },
+    {
+      "input": {
+        "id": "scout"
+      },
+      "expected": {
+        "kind": "face",
+        "shape": "triangle",
+        "color": "#9b7cf6",
+        "derived": {
+          "shape": true,
+          "color": true
+        },
+        "seed": 1487071437
+      }
+    },
+    {
+      "input": {
+        "id": "ledger",
+        "avatar": {
+          "shape": "heart",
+          "color": "#2FC49A"
+        }
+      },
+      "expected": {
+        "kind": "face",
+        "shape": "heart",
+        "color": "#2fc49a",
+        "derived": {
+          "shape": false,
+          "color": false
+        },
+        "seed": 2317176558
+      }
+    },
+    {
+      "input": {
+        "id": "ledger",
+        "avatar": {
+          "emoji": "🦊",
+          "shape": "heart"
+        }
+      },
+      "expected": {
+        "kind": "emoji",
+        "emoji": "🦊",
+        "shape": "heart",
+        "color": "#2fc49a",
+        "derived": {
+          "shape": false,
+          "color": true
+        },
+        "seed": 2317176558
+      }
+    },
+    {
+      "input": {
+        "id": "ledger",
+        "avatar": {
+          "ears": "bunny"
+        }
+      },
+      "expected": {
+        "kind": "face",
+        "shape": "heart",
+        "ears": "bunny",
+        "color": "#2fc49a",
+        "derived": {
+          "shape": true,
+          "color": true
+        },
+        "seed": 2317176558
+      }
+    },
+    {
+      "input": {
+        "id": "ledger",
+        "avatar": {
+          "shape": "dragon",
+          "ears": "wings",
+          "color": "teal"
+        }
+      },
+      "expected": {
+        "kind": "face",
+        "shape": "heart",
+        "color": "#2fc49a",
+        "derived": {
+          "shape": true,
+          "color": true
+        },
+        "seed": 2317176558
+      }
+    }
+  ],
+  "shapeChecks": [
+    {
+      "input": "blob",
+      "expected": true
+    },
+    {
+      "input": "hexagon",
+      "expected": true
+    },
+    {
+      "input": "dragon",
+      "expected": false
+    },
+    {
+      "input": 3,
+      "expected": false
+    }
+  ],
+  "earsChecks": [
+    {
+      "input": "cat",
+      "expected": true
+    },
+    {
+      "input": "horns",
+      "expected": true
+    },
+    {
+      "input": "wings",
+      "expected": false
+    },
+    {
+      "input": null,
+      "expected": false
+    }
+  ],
+  "colorNames": [
+    {
+      "input": "#2fc49a",
+      "expected": "Mint"
+    },
+    {
+      "input": "#123456",
+      "expected": "#123456"
+    },
+    {
+      "input": "mint",
+      "expected": "Mint"
+    }
+  ],
+  "previews": [
+    {
+      "input": {
+        "text": "  a\n\tb   c "
+      },
+      "expected": "a b c"
+    },
+    {
+      "input": {
+        "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "expected": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+    },
+    {
+      "input": {
+        "text": "hello world",
+        "max": 6
+      },
+      "expected": "hello…"
+    }
+  ],
+  "tagging": [
+    {
+      "input": "anyone",
+      "valid": true,
+      "stored": null
+    },
+    {
+      "input": "mention",
+      "valid": true,
+      "stored": "mention"
+    },
+    {
+      "input": "nobody",
+      "valid": true,
+      "stored": "nobody"
+    },
+    {
+      "input": "everyone",
+      "valid": false,
+      "stored": null
+    },
+    {
+      "input": 1,
+      "valid": false,
+      "stored": null
+    }
+  ],
+  "kickoffNames": [
+    {
+      "input": "[HUI bot created]\nname: Ada Lovelace\nHUI just created you. This note is from HUI, not the operator, who will read your chat when they open it. Write your opening message to them now (your greeting and first question, as your soul section says) and reply with that message only.",
+      "expected": "Ada Lovelace"
+    },
+    {
+      "input": "[HUI bot created]",
+      "expected": ""
+    },
+    {
+      "input": "[HUI bot created] no",
+      "expected": null
+    },
+    {
+      "input": "hello",
+      "expected": null
+    }
+  ],
+  "turnOrigins": [
+    {
+      "input": null,
+      "expected": {
+        "kind": "operator"
+      }
+    },
+    {
+      "input": "",
+      "expected": {
+        "kind": "operator"
+      }
+    },
+    {
+      "input": "hi",
+      "expected": {
+        "kind": "operator"
+      }
+    },
+    {
+      "input": "[routine: a]b] Summarize my inbox.",
+      "expected": {
+        "kind": "routine",
+        "name": "a]b"
+      }
+    },
+    {
+      "input": "[trigger: PR merged · PR #7 merged · by dani] Write",
+      "expected": {
+        "kind": "trigger",
+        "name": "PR merged"
+      }
+    },
+    {
+      "input": "[trigger: Alerts]\n\nx",
+      "expected": {
+        "kind": "trigger",
+        "name": "Alerts"
+      }
+    },
+    {
+      "input": "[from @grace · hop 2] PR",
+      "expected": {
+        "kind": "bot",
+        "handle": "grace"
+      }
+    },
+    {
+      "input": "[from @ada] hi",
+      "expected": {
+        "kind": "bot",
+        "handle": "ada"
+      }
+    },
+    {
+      "input": "[from agent: Fix retry now · reply-to agent:9b2e-41 · hop 2] Please",
+      "expected": {
+        "kind": "agent",
+        "title": "Fix retry now"
+      }
+    },
+    {
+      "input": "[from agent: Release prep] older",
+      "expected": {
+        "kind": "agent",
+        "title": "Release prep"
+      }
+    },
+    {
+      "input": "[HUI bot created]\nname: Ada\nHUI just created you. This note is from HUI, not the operator, who will read your chat when they open it. Write your opening message to them now (your greeting and first question, as your soul section says) and reply with that message only.",
+      "expected": {
+        "kind": "kickoff"
+      }
+    },
+    {
+      "input": "[HUI bot created]\nname: Ada\nfrom: template",
+      "expected": {
+        "kind": "imported"
+      }
+    }
+  ],
+  "replyTo": [
+    {
+      "input": null,
+      "expected": null
+    },
+    {
+      "input": "[from agent: Fix retry now · reply-to agent:9b2e-41 · hop 2] Please",
+      "expected": "agent:9b2e-41"
+    },
+    {
+      "input": "[from agent: Release prep] older",
+      "expected": null
+    },
+    {
+      "input": "[from @ada] [from agent: x · reply-to agent:abc] y",
+      "expected": null
+    }
+  ]
+}

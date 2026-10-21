@@ -1,0 +1,139 @@
+[
+  {
+    "input": "",
+    "expected": {
+      "clear": null,
+      "compact": null,
+      "reload": null,
+      "update": null
+    }
+  },
+  {
+    "input": "/clear",
+    "expected": {
+      "clear": "clear",
+      "compact": null,
+      "reload": null,
+      "update": null
+    }
+  },
+  {
+    "input": " /clear\n",
+    "expected": {
+      "clear": "clear",
+      "compact": null,
+      "reload": null,
+      "update": null
+    }
+  },
+  {
+    "input": "/clear extra",
+    "expected": {
+      "clear": "invalid",
+      "compact": null,
+      "reload": null,
+      "update": null
+    }
+  },
+  {
+    "input": "/clearing",
+    "expected": {
+      "clear": null,
+      "compact": null,
+      "reload": null,
+      "update": null
+    }
+  },
+  {
+    "input": "/reload",
+    "expected": {
+      "clear": null,
+      "compact": null,
+      "reload": "reload",
+      "update": null
+    }
+  },
+  {
+    "input": "/reload now",
+    "expected": {
+      "clear": null,
+      "compact": null,
+      "reload": "invalid",
+      "update": null
+    }
+  },
+  {
+    "input": "/compact",
+    "expected": {
+      "clear": null,
+      "compact": {},
+      "reload": null,
+      "update": null
+    }
+  },
+  {
+    "input": "/compact keep this\n and this",
+    "expected": {
+      "clear": null,
+      "compact": {
+        "instructions": "keep this\n and this"
+      },
+      "reload": null,
+      "update": null
+    }
+  },
+  {
+    "input": "/compacting",
+    "expected": {
+      "clear": null,
+      "compact": null,
+      "reload": null,
+      "update": null
+    }
+  },
+  {
+    "input": "/update",
+    "expected": {
+      "clear": null,
+      "compact": null,
+      "reload": null,
+      "update": "update"
+    }
+  },
+  {
+    "input": " /update --check ",
+    "expected": {
+      "clear": null,
+      "compact": null,
+      "reload": null,
+      "update": "check"
+    }
+  },
+  {
+    "input": "/update --bad",
+    "expected": {
+      "clear": null,
+      "compact": null,
+      "reload": null,
+      "update": "invalid"
+    }
+  },
+  {
+    "input": "/updates",
+    "expected": {
+      "clear": null,
+      "compact": null,
+      "reload": null,
+      "update": null
+    }
+  },
+  {
+    "input": "$review",
+    "expected": {
+      "clear": null,
+      "compact": null,
+      "reload": null,
+      "update": null
+    }
+  }
+]

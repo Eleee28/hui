@@ -1,0 +1,29 @@
+[
+  {
+    "input": {
+      "title": "Fix picker",
+      "problem": "It differs.",
+      "fix": "Reuse picker."
+    },
+    "prompt": "# Fix picker\n\n## Problem\n\nIt differs.\n\n## Proposed fix\n\nReuse picker.",
+    "jira": "## Problem\n\nIt differs.\n\n## Proposed fix\n\nReuse picker."
+  },
+  {
+    "input": {
+      "title": "Investigate",
+      "problem": "## Symptoms\n\nIt fails.",
+      "fix": ""
+    },
+    "prompt": "# Investigate\n\n## Problem\n\n## Symptoms\n\nIt fails.\n\n## Proposed fix\n\nNot known yet. Investigate and confirm the root cause before changing code.",
+    "jira": "## Problem\n\n## Symptoms\n\nIt fails."
+  },
+  {
+    "input": {
+      "title": "Whitespace",
+      "problem": " P ",
+      "fix": " "
+    },
+    "prompt": "# Whitespace\n\n## Problem\n\n P \n\n## Proposed fix\n\n ",
+    "jira": "## Problem\n\n P \n\n## Proposed fix\n\n "
+  }
+]

@@ -26,7 +26,7 @@ not a replacement for its real PI transcript/tool evidence.
 - The read-only original asset server ran on loopback port 43130:
 
   ```sh
-  node e2e/reference-style-server.mjs "$OPENCLAW_SOURCE" "$CONTROL_UI_ASSETS" 43130
+  node e2e/fixtures/reference-style-server.mjs "$OPENCLAW_SOURCE" "$CONTROL_UI_ASSETS" 43130
   ```
 
 - The app used its real Vite configuration with HMR disabled during comparisons

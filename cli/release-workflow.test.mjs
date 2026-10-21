@@ -3,14 +3,14 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test } from "vitest";
 import { fileURLToPath } from "node:url";
 import { planRelease } from "../scripts/release.mjs";
 import { NIGHTLY_VERSION, nightlyVersion } from "../scripts/nightly-version.mjs";
 
 function fixture(t) {
   const cwd = mkdtempSync(join(tmpdir(), "hui-release-plan-"));
-  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  t.onTestFinished(() => rmSync(cwd, { recursive: true, force: true }));
   const git = (...args) => execFileSync("git", args, { cwd, encoding: "utf8", env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" } }).trim();
   git("init", "-q", "-b", "main");
   git("config", "user.name", "Release test");

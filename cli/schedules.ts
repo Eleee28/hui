@@ -4,14 +4,10 @@
  * (where it is one of the bot's routines), on a schedule. Everything goes through the running gateway's Automation
  * routes, as the Automations page does; the session list names each target. `hui bot routine …` runs on the same
  * code, scoped to one bot.
- *
- * Bots are a preview (Settings → Labs → Bots): while they are off, anything that names a bot or a bot's routine
- * prints the gateway's refusal (its `/__hui/bots` answer), and `list` leaves bots' routines out, as Automations
- * does. Sessions' schedules work regardless.
  */
-import type { BotView } from "../shared/bots.ts";
-import type { AutomationRun, AutomationSchedule, AutomationSnapshot, AutomationTask } from "../src/lib/automation-types.ts";
-import { findBot, GatewayError, request, routineSchedule, type BotFlags, type BotIO } from "./bots.ts";
+import type { BotView } from "../server/api/bots.ts";
+import type { AutomationRun, AutomationSchedule, AutomationSnapshot, AutomationTask } from "../server/automation.ts";
+import { findBot, request, routineSchedule, type BotFlags, type BotIO } from "./gateway-client.ts";
 
 export type ScheduleFlags = BotFlags & {
   /** `add` and `edit`: the bot whose chat it targets; `list`: only that bot's routines. */
@@ -42,11 +38,6 @@ async function sessionsOf(base: string): Promise<Map<string, ScheduleSession>> {
   return new Map((groups ?? []).flatMap((group) => group.sessions ?? []).map((session) => [session.id, session]));
 }
 
-/** Bots are on: the gateway's `/__hui/bots` answers. Off, its 409 is thrown as it is, naming Settings → Labs → Bots. */
-async function botsOn(base: string): Promise<void> {
-  await request(base, "/__hui/bots");
-}
-
 /** `every 5m`, `cron 0 9 * * 1-5 (Europe/Madrid)`, `at 2026-10-06T07:00:00.000Z`. */
 export function scheduleText(schedule: AutomationSchedule): string {
   if (schedule.kind === "at") return `at ${schedule.at}`;
@@ -58,7 +49,7 @@ export function scheduleText(schedule: AutomationSchedule): string {
   return `cron ${schedule.expression} (${schedule.timezone})`;
 }
 
-/** Who made it and its limits, as the bot's Routines tab shows them: `made by @ada · until … · 3 runs left`. */
+/** Who made it and its limits, as the bot's Routines page shows them: `made by @ada · until … · 3 runs left`. */
 export function taskFacts(task: Pick<AutomationTask, "createdBy" | "until" | "runsLeft">): string {
   return [
     ...(task.createdBy?.kind === "bot" ? [`made by @${task.createdBy.handle}`] : []),
@@ -139,14 +130,13 @@ function findSession(sessions: ReadonlyMap<string, ScheduleSession>, target: str
     : `No session ${target}. --session takes a session's id or exact title.`);
 }
 
-/** Where `--bot` or `--session` points. A bot's chat (named either way) needs bots on. */
+/** Where `--bot` or `--session` points. */
 async function resolveTarget(base: string, flags: ScheduleFlags, sessions: ReadonlyMap<string, ScheduleSession>): Promise<{ sessionId: string; label: string }> {
   if (flags.bot !== undefined) {
     const bot = await findBot(base, flags.bot);
     return { sessionId: bot.sessionId, label: `@${bot.handle}` };
   }
   const session = findSession(sessions, flags.session!);
-  if (session.bot) await botsOn(base);
   return { sessionId: session.id, label: targetLabel({ sessionId: session.id, session }) };
 }
 
@@ -206,17 +196,8 @@ export async function scheduleCommand(base: string, action: string, operands: re
       empty = `@${bot.handle} has no routines. Add one with hui schedule add --bot ${bot.handle} --name <name> --prompt <text> --every 1d.`;
     } else if (flags.session !== undefined) {
       const session = findSession(sessions, flags.session);
-      if (session.bot) await botsOn(base);
       tasks = tasks.filter((task) => task.sessionId === session.id);
       empty = `${targetLabel({ sessionId: session.id, session })} has no schedules.`;
-    } else if (tasks.some(isRoutine)) {
-      // Bots off: their routines stay out, as on the Automations page; the scheduler keeps them.
-      try {
-        await botsOn(base);
-      } catch (error) {
-        if (!(error instanceof GatewayError) || error.status !== 409) throw error;
-        tasks = tasks.filter((task) => !isRoutine(task));
-      }
     }
     print(tasks, formatSchedules(tasks, sessions, empty));
     return 0;
@@ -234,8 +215,6 @@ export async function scheduleCommand(base: string, action: string, operands: re
     return 0;
   }
   const task = findSchedule(snapshot.tasks, operands[0]!);
-  // A bot's routine is a bot's: while bots are off, the gateway's refusal.
-  if (isRoutine(task)) await botsOn(base);
   const label = targetLabel({ sessionId: task.sessionId, session: sessions.get(task.sessionId) });
   switch (action) {
     case "show": {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import type { PowerStatus } from "../../shared/power.ts";
+import { test } from "vitest";
+import type { PowerStatus } from "../api/schema/power.ts";
 import { lidAwakeNoticeShown } from "./power-notice.ts";
 import { renderConnectionPage, type SettingsProps } from "./settings.ts";
 

@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test, type TestContext } from "node:test";
+import { test, type TestContext } from "vitest";
 import { LineFile, readLines, Store, type MessageLine } from "./store.ts";
 
 async function directory(t: TestContext): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "hui-optchat-store-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }));
   return dir;
 }
 

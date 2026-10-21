@@ -3,7 +3,7 @@
  * continue after it. The error row itself stays in the transcript; this only surfaces it outside the
  * collapsed activity.
  */
-import type { TranscriptItem } from "./sessions-store.ts";
+import type { TranscriptItem } from "../api/sessions.ts";
 
 export type RunErrorNotice = {
   /** Stable across PI's post-settle history refresh, unlike transcript row ids. */

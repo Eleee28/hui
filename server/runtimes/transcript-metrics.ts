@@ -1,14 +1,7 @@
-/** Optional measurements, never inferred from neighbouring messages. */
-export type TranscriptMetrics = {
-  timestamp?: number;
-  completedAt?: number;
-  durationMs?: number;
-  inputTokens?: number;
-  outputTokens?: number;
-  cacheReadTokens?: number;
-  cacheWriteTokens?: number;
-  costUsd?: number;
-};
+/** Optional transcript measurements, never inferred from neighbouring messages: sanitizing and runtime timings. */
+import type { TranscriptMetrics } from "../api/sessions.ts";
+
+export type { TranscriptMetrics };
 
 export function validMetric(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;

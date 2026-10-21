@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { forkPoint } from "./fork-point.ts";
 
 const prompt = { kind: "message", role: "user", text: "Plan it", entryId: "e1" };

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { endOf, freeLeaf, freeMerge, label, nodeCount, partAt, startOf, Tree } from "./tree.ts";
 
 test("node (l, i) covers [i·2^l, (i+1)·2^l) and is named id+n after its messages", () => {

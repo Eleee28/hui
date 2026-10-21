@@ -41,6 +41,7 @@ hui-bot-face .bot-face__thoughts circle { animation: bot-face-float 2.4s ease-in
 
 hui-bot-face svg[data-state="idle"] .bot-face__squash { animation: bot-face-breathe 3.4s ease-in-out infinite; }
 hui-bot-face svg[data-state="idle"] .bot-face__tilt { animation: bot-face-sway 7s ease-in-out infinite; }
+hui-bot-face svg[data-state="sleeping"] .bot-face__squash { animation: bot-face-deep 4.8s ease-in-out infinite; }
 hui-bot-face svg[data-state="thinking"] .bot-face__squash { animation: bot-face-breathe 3s ease-in-out infinite; }
 hui-bot-face svg[data-state="thinking"] .bot-face__tilt { animation: bot-face-ponder 3.6s ease-in-out infinite; }
 hui-bot-face svg[data-state="working"] .bot-face__bob { animation: bot-face-bob .84s ease-in-out infinite; }

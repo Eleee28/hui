@@ -3,9 +3,9 @@
  * runtime events into rows, including optimistic user messages until the runtime accepts them. The runtime's
  * transcript stays authoritative; these rows are a projection for rendering.
  */
-import { sanitizeMetrics } from "../../server/runtimes/transcript-metrics.ts";
-import type { RuntimeEvent, TranscriptAttachment, TranscriptItem } from "./sessions-store.ts";
-import { parseCallRecord } from "../../shared/calls.ts";
+import { sanitizeMetrics } from "./transcript-metrics.ts";
+import type { RuntimeEvent, TranscriptAttachment, TranscriptItem } from "../api/sessions.ts";
+import { parseCallRecord } from "./voice/calls.ts";
 
 let localSequence = 0;
 
@@ -248,6 +248,20 @@ export function appendPendingUser(
       pending: true,
     },
   ];
+}
+
+/** The gateway's copy of a prompt this screen just sent has no image previews until PI's history
+ * holds it: keep the local previews meanwhile, rather than flipping the images to file cards. */
+export function keepSentPreviews(next: TranscriptItem[], previous: readonly TranscriptItem[]): TranscriptItem[] {
+  const isUser = (item: TranscriptItem) => item.kind === "message" && item.role === "user";
+  const hasPreview = (item: TranscriptItem | undefined) =>
+    item?.kind === "message" && item.attachments?.some((attachment) => typeof attachment !== "string" && attachment.url);
+  const index = next.findLastIndex(isUser);
+  const incoming = next[index];
+  const local = previous.findLast(isUser);
+  if (incoming?.kind !== "message" || local?.kind !== "message" || !incoming.attachments?.length
+    || hasPreview(incoming) || !hasPreview(local) || local.text !== incoming.text) return next;
+  return next.with(index, { ...incoming, attachments: local.attachments! });
 }
 
 export function settlePendingUser(

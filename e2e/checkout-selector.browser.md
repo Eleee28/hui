@@ -27,8 +27,8 @@ app.
 5. Return to **Current checkout**, choose `topic` from the same `From`
    suggestions, and verify the selector stays in Current checkout mode, the
    worktree `Name` field remains hidden, and the branch suggestion list closes.
-6. Use **Configure default prefix** to open `/settings/sessions`, where the
-   `branchPrefix` input is owned by the same HUI Settings surface.
+6. Use **Configure default prefix** to open `/settings/worktrees` scrolled to
+   its Git worktrees section, where the `branchPrefix` input lives.
 7. Inspect the rendered popover at desktop and mobile widths. The mobile popup
    repositions above its trigger, remains fully visible and introduces no
    horizontal document overflow.

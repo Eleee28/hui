@@ -1,8 +1,9 @@
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
-import { latestRunError } from "./run-error.ts";
-import type { TranscriptItem } from "./sessions-store.ts";
+import { latestRunError, CONTINUE_AFTER_ERROR_PROMPT } from "./run-error.ts";
+import type { TranscriptItem } from "../api/sessions.ts";
 
 const user: TranscriptItem = { kind: "message", id: "u", role: "user", text: "rebase" };
 const tool: TranscriptItem = { kind: "tool", id: "t", name: "bash", status: "succeeded", output: "ok" };
@@ -42,4 +43,9 @@ test("keeps the key stable across refreshed row ids and summarises long diagnost
   assert.equal(long?.summary.length, 160);
   assert.equal(long?.multiline, true);
   assert.equal(long?.detail.length, 400);
+});
+
+test("continuing after an error preserves the control prompt", () => {
+  const fixture: { continuePrompt: string } = JSON.parse(readFileSync(new URL("./run-error.fixture.json", import.meta.url), "utf8"));
+  assert.equal(CONTINUE_AFTER_ERROR_PROMPT, fixture.continuePrompt);
 });

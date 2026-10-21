@@ -1,0 +1,12 @@
+{
+  "kinds": [
+    "fact",
+    "preference",
+    "decision"
+  ],
+  "limits": {
+    "count": 40,
+    "text": 500,
+    "source": 200
+  }
+}

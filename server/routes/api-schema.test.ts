@@ -1,0 +1,41 @@
+import assert from "node:assert/strict";
+import { once } from "node:events";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { createServer } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "vitest";
+import { ApiSchemaDocument, ApiSchemaError } from "../api/api-schema.ts";
+import { expectSchema } from "../test-support/api-schema.ts";
+
+test("the guarded schema route returns the committed document from the running schemas", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "hui-api-schema-"));
+  process.env["HOME"] = dir;
+  process.env["XDG_CONFIG_HOME"] = join(dir, "config");
+  process.env["PI_CODING_AGENT_DIR"] = join(dir, "agent");
+  const { middleware } = await import("../hui.ts");
+  const { stopBackend } = await import("../backend.ts");
+  const server = createServer((req, res) => middleware(req, res, () => { res.writeHead(404).end(); }));
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const url = `http://127.0.0.1:${address.port}/__hui/api-schema`;
+  t.onTestFinished(async () => {
+    await stopBackend();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await rm(dir, { recursive: true, force: true });
+  });
+  assert.equal((await fetch(url)).status, 403);
+  const headers = { "x-hui": "1" };
+  const response = await fetch(url, { headers });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  const payload: unknown = await response.json();
+  expectSchema(ApiSchemaDocument, payload);
+  assert.deepEqual(payload, JSON.parse(await readFile(new URL("../../docs/api.schema.json", import.meta.url), "utf8")));
+  const wrongMethod = await fetch(url, { method: "POST", headers });
+  assert.equal(wrongMethod.status, 405);
+  expectSchema(ApiSchemaError, await wrongMethod.json());
+});

@@ -1,8 +1,9 @@
 /** Test-only Vite entrypoint. Never imported by the product or its build. */
 import { createServer } from "vite";
-import { fetchProviderQuota } from "../server/provider-quota.ts";
-import { quotaFixture } from "./provider-quota-fixture.mjs";
-import { huiConfig } from "../server/hui.ts";
+import { fetchProviderQuota } from "../server/pi/provider-quota.ts";
+import { quotaFixture } from "./fixtures/provider-quota-fixture.mjs";
+import { huiConfig } from "../server/vite-plugin.ts";
+import { readFile } from "node:fs/promises";
 
 const identity = JSON.parse(process.env.HUI_VERIFICATION_IDENTITY);
 const token = process.env.HUI_VERIFICATION_TOKEN;
@@ -27,6 +28,11 @@ const server = await createServer({
           return response.end(JSON.stringify(await fetchProviderQuota(quota[1], "synthetic-credential", undefined, async (url) => new Response(JSON.stringify(
             String(url).endsWith("/profile") ? { account: { email_address: "alex.claude@example.com" } } : quotaFixture(quota[1], quota[2])
           )))));
+        }
+        // The demo recorder's stage frames HUI from HUI's own origin, since widgets refuse other ancestors.
+        if (process.env.HUI_DEMO_STAGE && request.url === "/__demo/stage") {
+          response.setHeader("content-type", "text/html; charset=utf-8");
+          return response.end(await readFile(process.env.HUI_DEMO_STAGE));
         }
         if (request.url !== "/__verification" && request.url !== "/__verification/shutdown") return next();
         response.setHeader("content-type", "application/json");

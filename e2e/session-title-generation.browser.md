@@ -46,7 +46,7 @@ Screenshots are transient PR/chat evidence and are not committed.
 
 ## Automated checks
 
-- `npm test -- server/model-routing.test.ts server/hui-sse.test.ts`: passed.
+- `npm test -- server/pi/model-routing.test.ts server/hui-sse.test.ts`: passed.
 - `npm test`: passed.
 - `npm run typecheck`: passed.
 - `npm run build`: passed with the existing large-chunk warning.

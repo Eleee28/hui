@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, mock, test } from "node:test";
+import { afterAll, test, vi } from "vitest";
 
 const root = await mkdtemp(join(tmpdir(), "hui-remote-runtime-"));
 process.env["HOME"] = root;
@@ -17,13 +17,13 @@ type Sink = Parameters<typeof workers.startSession>[4];
 type Link = Awaited<ReturnType<typeof workers.startSession>>;
 type State = Link["started"]["state"];
 
-after(() => rm(root, { recursive: true, force: true }));
+afterAll(() => rm(root, { recursive: true, force: true }));
 
 const state = (patch: Partial<State> = {}): State => ({ sessionId: "s", isStreaming: false, resumesInterruptedRuns: true, ...patch });
 
 /** Starts a session over a connection that `script` drives through its sink. */
 async function start(script: (sink: Sink) => Partial<Link> | void = () => undefined) {
-  mock.method(workers, "startSession", async (...args: Parameters<typeof workers.startSession>): Promise<Link> => ({
+  vi.spyOn(workers, "startSession").mockImplementation(async (...args: Parameters<typeof workers.startSession>): Promise<Link> => ({
     started: { state: state(), seq: 1, transcript: [], methods: [] },
     call: async () => ({ state: state(), seq: 1 }),
     transcript: async () => [],
@@ -33,7 +33,7 @@ async function start(script: (sink: Sink) => Partial<Link> | void = () => undefi
   try {
     return await remoteRuntime("durable").start({ cwd: "/remote", worker: "w", huiSessionId: "k" });
   } finally {
-    mock.restoreAll();
+    vi.restoreAllMocks();
   }
 }
 
@@ -48,6 +48,30 @@ test("a reply does not overwrite state from events that followed it on the strea
   }));
   await session.prompt("hello");
   assert.equal(session.isStreaming, false);
+});
+
+test("tracked prompt identities and receipt operations cross the worker proxy only when the host supports them", async () => {
+  const calls: Array<[string, unknown[]]> = [];
+  const session = await start(() => ({
+    started: { state: state(), seq: 1, transcript: [], methods: ["followUp", "waitForTrackedPrompt", "cancelTrackedPrompt"] },
+    call: async (method, args) => {
+      calls.push([method, args]);
+      return { state: state(), seq: 2 + calls.length, ...(method === "waitForTrackedPrompt" ? { result: { summary: "Original answer." } } : {}) };
+    },
+  }));
+  await session.prompt("routine", undefined, { requestId: "run-1" });
+  await session.followUp!("queued", undefined, { requestId: "run-2" });
+  assert.deepEqual(await session.waitForTrackedPrompt!("run-1"), { summary: "Original answer." });
+  await session.cancelTrackedPrompt!("run-2");
+  assert.deepEqual(calls, [
+    ["prompt", ["routine", [], { requestId: "run-1" }]],
+    ["followUp", ["queued", [], { requestId: "run-2" }]],
+    ["waitForTrackedPrompt", ["run-1"]],
+    ["cancelTrackedPrompt", ["run-2"]],
+  ]);
+  const legacy = await start();
+  assert.equal(legacy.waitForTrackedPrompt, undefined);
+  assert.equal(legacy.cancelTrackedPrompt, undefined);
 });
 
 test("events and a lost connection before anyone subscribed still reach the session's owner", async () => {

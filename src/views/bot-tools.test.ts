@@ -1,24 +1,18 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const between = (source: string, start: string, end: string) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
 
-test("Tools is the panel's fourth tab, between Soul and Settings, self-contained in bot-tools.ts with its own controller and styles", () => {
+test("Tools is a page of the panel, opened from the overview's Setup, self-contained in bot-tools.ts with its own controller and styles", () => {
   const panel = read("./bots.ts");
   assert.match(panel, /import \{ renderBotToolsTab, type BotToolsProps \} from "\.\/bot-tools\.ts";/u);
   assert.match(panel, /tools: Omit<BotToolsProps, "bot">;/u);
-  assert.match(read("../lib/bot-roster.ts"), /export const BOT_PANEL_TABS: readonly BotPanelTab\[\] = \["routines", "memory", "soul", "tools", "settings"\];/u);
-  assert.match(between(panel, "function renderPanelTab(", "export function renderBotPanel("), /case "tools": return keyed\(props\.bot\.id, renderBotToolsTab\(\{ bot: props\.bot, \.\.\.props\.tools \}\)\);/u, "another bot's tab starts afresh");
-  const app = read("../hui-app.ts");
-  assert.match(app, /private botTools = new BotToolsController\(this\);/u);
-  assert.match(app, /this\.resetBotSoul\(target\.id\);\n\s+this\.botTools\.reset\(target\.id\);/u, "another bot starts clean");
-  assert.match(app, /this\.followBotSoul\(\);\n\s+this\.followBotTools\(\);/u, "on every bots frame");
-  assert.match(app, /if \(toolsBot\) void this\.botTools\.refresh\(toolsBot\);/u, "on opening the tab");
-  assert.match(app, /tools: this\.botTools\.props\(bot\),/u);
+  assert.match(between(panel, "function renderSetup(", "function renderOverview("), /row\("tools", "tools", "Tools & skills", botToolsOffLabel\(bot\)\)/u, "Setup says what is off and opens the page");
+  assert.match(between(panel, "function renderPanelView(", "/* ── size"), /case "tools": return keyed\(props\.bot\.id, renderBotToolsTab\(\{ bot: props\.bot, \.\.\.props\.tools \}\)\);/u, "another bot's page starts afresh");
   assert.match(read("./bot-tools.ts"), /loadViewAssets\(\(\) => import\("\.\.\/styles\/bot-tools\.css"\)\);/u);
-  assert.doesNotMatch(read("./bot-settings.ts"), /disabledTools|disabledSkills|Available tools/u, "Settings gets no tools fields: they are this tab");
+  assert.doesNotMatch(read("./bot-settings.ts"), /disabledTools|disabledSkills|Available tools/u, "Settings gets no tools fields: they are this page");
 });
 
 test("Available tools: grouped switches with descriptions, powerful ones labelled, every switch waiting for a save", () => {
@@ -48,7 +42,7 @@ test("Skills sit beside the tools, searchable once there are many; the request i
   assert.match(tab, /Tools are the boundary, not a sandbox/u);
 });
 
-test("the Tools tab's styles use theme tokens only, so dark and light alike, and roomy rows on touch", () => {
+test("the Tools & skills page's styles use theme tokens only, so dark and light alike, and roomy rows on touch", () => {
   const styles = read("../styles/bot-tools.css");
   assert.doesNotMatch(styles, /#[0-9a-f]{3,8}\b/iu, "no raw colors");
   assert.match(styles, /\.bot-tools__group \{[^}]*background: var\(--card\);/u);

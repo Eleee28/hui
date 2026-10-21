@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { codemodeSummary, codemodeToolPresentation, formatCallDuration } from "./codemode-tool-card.ts";
 
 const code = 'await tools.read({ path: "a.ts" });';

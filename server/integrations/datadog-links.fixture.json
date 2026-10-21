@@ -1,0 +1,33 @@
+{
+  "maxEmbeds": 3,
+  "appHosts": ["app.datadoghq.com", "app.datadoghq.eu", "us3.datadoghq.com", "us5.datadoghq.com", "ap1.datadoghq.com", "ap2.datadoghq.com", "app.ddog-gov.com", "us2.ddog-gov.com", "app.datad0g.com", "dd.datad0g.com"],
+  "urls": [
+    { "input": "https://app.datadoghq.com/s/abc/def", "expected": { "kind": "share", "url": "https://app.datadoghq.com/s/abc/def", "host": "app.datadoghq.com" } },
+    { "input": "https://us3.datadoghq.com/dashboard/abc-123-xyz/name?tile_focus=42", "expected": { "kind": "dashboard", "url": "https://us3.datadoghq.com/dashboard/abc-123-xyz/name?tile_focus=42", "host": "us3.datadoghq.com", "dashboardId": "abc-123-xyz", "widgetId": "42" } },
+    { "input": "https://app.datadoghq.eu/dashboard/abc-123-xyz?fullscreen_widget=9", "expected": { "kind": "dashboard", "url": "https://app.datadoghq.eu/dashboard/abc-123-xyz?fullscreen_widget=9", "host": "app.datadoghq.eu", "dashboardId": "abc-123-xyz", "widgetId": "9" } },
+    { "input": "https://app.datadoghq.com/dashboard/abc-123-xyz?tile_focus=9007199254740993", "expected": { "kind": "dashboard", "url": "https://app.datadoghq.com/dashboard/abc-123-xyz?tile_focus=9007199254740993", "host": "app.datadoghq.com", "dashboardId": "abc-123-xyz" } },
+    { "input": "http://app.datadoghq.com/s/a/b", "expected": null },
+    { "input": "https://app.datadoghq.com:8443/s/a/b", "expected": null },
+    { "input": "https://u:p@app.datadoghq.com/s/a/b", "expected": null },
+    { "input": "https://app.datadoghq.com.evil.test/s/a/b", "expected": null },
+    { "input": "https://app.datadoghq.com/s/a/b/c", "expected": null },
+    { "input": "https://app.datadoghq.com/monitors/1", "expected": null },
+    { "input": "not a URL", "expected": null }
+  ],
+  "sites": [
+    { "input": null, "expected": "app.datadoghq.com" },
+    { "input": "", "expected": "app.datadoghq.com" },
+    { "input": " APP.datadoghq.com ", "expected": "app.datadoghq.com" },
+    { "input": "datadoghq.eu", "expected": "app.datadoghq.eu" },
+    { "input": "https://us3.datadoghq.com/dashboard/abc-123-xyz", "expected": "us3.datadoghq.com" },
+    { "input": "example.com", "expected": null },
+    { "input": "http://app.datadoghq.com", "expected": null },
+    { "input": 7, "expected": null }
+  ],
+  "pupSites": [
+    { "input": "app.datadoghq.com", "expected": "datadoghq.com" },
+    { "input": "app.datadoghq.eu", "expected": "datadoghq.eu" },
+    { "input": "us3.datadoghq.com", "expected": "us3.datadoghq.com" },
+    { "input": "app.datad0g.com", "expected": "datad0g.com" }
+  ]
+}

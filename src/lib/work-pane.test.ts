@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { html } from "lit";
 import {
   activateWorkView, adjacentWorkView, clampWorkPaneWidth, closeWorkView, closingLastWorkView, defaultWorkViewKey, emptyWorkPane, launchableWorkViewKinds, migrateLayoutWorkViews,
@@ -8,8 +8,8 @@ import {
   WORK_PANE_CHAT_MIN_WIDTH, WORK_PANE_DEFAULT_WIDTH, WORK_PANE_MAX_WIDTH, WORK_PANE_MIN_WIDTH,
   type WorkPaneStore, type WorkViewKind, type WorkViewRef,
 } from "./work-pane.ts";
-import { PANE_DIVIDER_SIZE } from "./session-pane-geometry.ts";
-import { closeSessionPane, isChatPane, locateSessionPane, parseSessionLayout, sessionPanes, singleSessionLayout, splitSessionPane, visibleSessionPanes, addSessionTab, type SessionLayout } from "./session-multiplexer.ts";
+import { PANE_DIVIDER_SIZE } from "./session/pane-geometry.ts";
+import { closeSessionPane, isChatPane, locateSessionPane, parseSessionLayout, sessionPanes, singleSessionLayout, splitSessionPane, visibleSessionPanes, addSessionTab, type SessionLayout } from "./session/multiplexer.ts";
 
 const T1 = "90fa8a65-bef7-4c0c-9e57-38b6f45ca52a";
 const T2 = "0b8f5d1e-7c9a-4e3b-8d2f-1a6c5e4b3a29";

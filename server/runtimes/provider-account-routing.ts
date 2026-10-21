@@ -7,7 +7,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { findPackageJSON } from "node:module";
 import { pathToFileURL } from "node:url";
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
-import { credentialStore, ProviderAccounts, type CredentialStore } from "../provider-accounts.ts";
+import { credentialStore, ProviderAccounts, type CredentialStore } from "../pi/provider-accounts.ts";
 
 type Stream = ReturnType<ModelRuntime["streamSimple"]>;
 type StreamArgs = Parameters<ModelRuntime["streamSimple"]>;

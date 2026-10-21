@@ -1,6 +1,6 @@
 /** HUI data boundary for the pinned OpenClaw view. No Gateway or identity store. */
 import { html } from "lit";
-import type { SessionView } from "../../lib/sessions-store.ts";
+import type { SessionView } from "../../api/sessions.ts";
 import type { ProgressCard as HuiProgressCard, ProgressStep } from "../../lib/progress-card.ts";
 
 export type ProgressCardStep = ProgressStep;

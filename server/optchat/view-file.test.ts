@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test, type TestContext } from "node:test";
+import { test, type TestContext } from "vitest";
 import { Tree } from "./tree.ts";
 import { checkViews, readViews, ViewFile, type SavedViews } from "./view-file.ts";
 
 async function directory(t: TestContext): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "hui-optchat-view-file-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }));
   return dir;
 }
 

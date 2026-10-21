@@ -3,15 +3,17 @@ import { createServer } from "node:http";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, test } from "node:test";
-import { UPDATE_CHECK_INTERVAL_MS, type UpdateCheck } from "../src/lib/update-types.ts";
+import { afterAll, test } from "vitest";
+import { UPDATE_CHECK_INTERVAL_MS, type UpdateCheck } from "../cli/releases.ts";
+import { expectSchema } from "./test-support/api-schema.ts";
+import { UpdateSnapshot } from "./api/updates.ts";
 
 // HUI's directory resolves at import time and hui.ts reads it as it loads: never the operator's own.
 const home = await mkdtemp(join(tmpdir(), "hui-updates-home-"));
 process.env["HOME"] = home;
 process.env["XDG_CONFIG_HOME"] = join(home, "config");
 process.env["PI_CODING_AGENT_DIR"] = join(home, "agent");
-after(() => rm(home, { recursive: true, force: true }));
+afterAll(() => rm(home, { recursive: true, force: true }));
 const { createUpdates, UpdateConflict } = await import("./updates.ts");
 const { middleware } = await import("./hui.ts");
 
@@ -19,6 +21,7 @@ test("development mode reports source ownership and cannot start an updater", as
   const service = createUpdates();
   assert.equal((await service.status()).job, null);
   const result = await service.check();
+  expectSchema(UpdateSnapshot, result);
   assert.equal(result.check?.canInstall, false);
   assert.match(result.check!.message, /development server/u);
   await assert.rejects(service.start("0.2.0"), UpdateConflict);
@@ -27,7 +30,7 @@ test("development mode reports source ownership and cannot start an updater", as
 test("update routes keep the local-client guard, narrow arguments and method contract", async (t) => {
   const server = createServer((req, res) => middleware(req, res, () => res.writeHead(404).end()));
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  t.after(() => new Promise<void>((resolve) => { server.close(() => resolve()); server.closeAllConnections(); }));
+  t.onTestFinished(() => new Promise<void>((resolve) => { server.close(() => resolve()); server.closeAllConnections(); }));
   const address = server.address(); assert(address && typeof address !== "string");
   const url = `http://127.0.0.1:${address.port}/__hui/update`;
   assert.equal((await fetch(url)).status, 403);
@@ -45,7 +48,7 @@ test("update routes keep the local-client guard, narrow arguments and method con
 
 test("background checks share a gateway cache; explicit checks bypass freshness and requests coalesce", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "hui-update-cache-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(root, { recursive: true, force: true }));
   for (const [file, value] of Object.entries({ "package.json": JSON.stringify({ name: "hui", version: "0.1.1" }),
     "build/release.json": JSON.stringify({ format: 1, version: "0.1.1" }), "dist/index.html": "",
     "build/cli/main.js": "", "build/cli/gateway-run.js": "", "build/server/runtimes/pi-sdk-worker.js": "" })) {

@@ -2,7 +2,9 @@
  * When the UI offers a HUI update and how often it checks. The page's lifetime owns the timer, not the
  * gateway or a host scheduler, and failed background checks stay silent.
  */
-import { UPDATE_CHECK_INTERVAL_MS, type ReleaseInfo, type UpdateSnapshot } from "./update-types.ts";
+import type { ReleaseInfo, UpdateSnapshot } from "../api/schema/updates.ts";
+
+export const UPDATE_CHECK_INTERVAL_MS = 60 * 60_000;
 
 /** No optimistic notifications, nor a stale offer during/after activation. */
 export function availableUpdate(snapshot: UpdateSnapshot | null, dismissedVersion: string): ReleaseInfo | null {

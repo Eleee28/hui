@@ -1,10 +1,11 @@
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import { test } from "vitest";
 
-import { readHuiSettingsAt } from "./hui-settings.ts";
+import { readHuiSettingsAt, normalizeSettings, DEFAULT_SETTINGS } from "./hui-settings.ts";
 
 test("reads normalized disabled skill preferences without touching PI settings", async () => {
   const directory = await mkdtemp(join(tmpdir(), "hui-settings-"));
@@ -41,4 +42,13 @@ test("normalizes HUI-owned model routes", async () => {
     fallback: "anthropic/claude-haiku-4-5",
     utility: "",
   });
+});
+
+const fixtures: { input: unknown; expected: ReturnType<typeof normalizeSettings> }[] = JSON.parse(readFileSync(new URL("./hui-settings.fixture.json", import.meta.url), "utf8"));
+
+test("hui-settings preserves the shared runtime fixtures", () => {
+  for (const fixture of fixtures) {
+    assert.deepEqual(normalizeSettings(fixture.input), fixture.expected);
+  }
+  assert.deepEqual(DEFAULT_SETTINGS, fixtures.find((fixture) => fixture.input === null)!.expected);
 });

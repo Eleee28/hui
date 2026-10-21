@@ -697,3 +697,16 @@ wa-switch::part(base) { min-width: inherit; min-height: inherit; }
   height: 6px;
   accent-color: var(--accent);
 }
+
+.sessions-transcript-search__result {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.sessions-transcript-search__result-header > span {
+  flex: none;
+  white-space: nowrap;
+}
+
+.sessions-transcript-search__result-header > strong {
+  min-width: 0;
+}

@@ -26,7 +26,7 @@ to Anthropic, and refusal to retry that turn twice are covered by the focused
 Create an isolated root containing `workspace`, `pi-agent`, `pi-sessions`,
 `xdg/hui`, and `browser`. Configure three models in `pi-agent/models.json` under
 a local Anthropic-protocol provider: `primary-fixture`, `fallback-fixture`, and
-`utility-fixture`. Point them at `e2e/pi-provider-fixture.mjs`, and seed HUI's
+`utility-fixture`. Point them at `e2e/fixtures/pi-provider-fixture.mjs`, and seed HUI's
 settings with those three canonical model IDs.
 
 Start the fixture provider and Vite with `XDG_CONFIG_HOME`,

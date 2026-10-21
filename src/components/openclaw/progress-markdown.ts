@@ -1,4 +1,4 @@
-import { createMarkdownParser } from "../../lib/markdown.ts";
+import { createMarkdownParser } from "../../lib/markdown/markdown.ts";
 
 /** Same safe HUI Markdown renderer, with the progress_card-only HTML allowlist. */
 const parser = createMarkdownParser();

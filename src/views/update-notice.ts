@@ -4,7 +4,7 @@
  */
 import { html, nothing } from "lit";
 import { icons } from "../lib/icons.ts";
-import type { ReleaseInfo } from "../lib/update-types.ts";
+import type { ReleaseInfo } from "../api/schema/updates.ts";
 
 export function renderUpdateNotice(props: { release: ReleaseInfo | null; inert: boolean; onReview(): void; onDismiss(): void }) {
   if (!props.release) return nothing;

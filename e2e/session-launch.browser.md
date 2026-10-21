@@ -49,7 +49,7 @@ Run these foreground processes in separate terminals, from the repository:
 ```sh
 HUI_E2E_WORKSPACE="$HUI_LAUNCH_RUN/workspace" \
 HUI_E2E_PROVIDER_LOG="$HUI_LAUNCH_RUN/provider.jsonl" \
-node e2e/pi-provider-fixture.mjs
+node e2e/fixtures/pi-provider-fixture.mjs
 
 XDG_CONFIG_HOME="$HUI_LAUNCH_RUN/xdg" \
 PI_AGENT_DIR="$HUI_LAUNCH_RUN/pi-agent" \

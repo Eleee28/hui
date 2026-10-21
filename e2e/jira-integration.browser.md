@@ -2,8 +2,8 @@
 
 Verified on 2026-09-25 with the OpenClaw Browser tool against the real HUI
 gateway (Vite, port 5197), real PI 0.87.1 and two local fixtures: the
-deterministic Anthropic-protocol provider (`e2e/pi-provider-fixture.mjs`, also
-the utility model) and a Jira Cloud REST v3 subset (`e2e/jira-fixture.mjs`).
+deterministic Anthropic-protocol provider (`e2e/fixtures/pi-provider-fixture.mjs`, also
+the utility model) and a Jira Cloud REST v3 subset (`e2e/fixtures/jira-fixture.mjs`).
 No Atlassian account, operator transcript or operator credential was used.
 
 ## Reproduce
@@ -15,8 +15,8 @@ No Atlassian account, operator transcript or operator credential was used.
 2. Seed `xdg/hui/sessions.json` with three sessions in group `CI`: *Pipeline
    reliability audit* (`jiraIssues: [{ key: "CI-1", url: "http://127.0.0.1:43128/browse/CI-1" }]`),
    *Flaky CI retries* and *Docs cleanup*.
-3. Start `HUI_E2E_PROVIDER_PORT=43127 … node e2e/pi-provider-fixture.mjs`,
-   `HUI_E2E_JIRA_PORT=43128 node e2e/jira-fixture.mjs`, and Vite with
+3. Start `HUI_E2E_PROVIDER_PORT=43127 … node e2e/fixtures/pi-provider-fixture.mjs`,
+   `HUI_E2E_JIRA_PORT=43128 node e2e/fixtures/jira-fixture.mjs`, and Vite with
    `XDG_CONFIG_HOME`, `PI_CODING_AGENT_DIR` and `PI_CODING_AGENT_SESSION_DIR`
    under the root plus `HUI_JIRA_TEST_ORIGIN=http://127.0.0.1:43128`. Set
    `NO_PROXY=127.0.0.1,localhost` when an HTTP proxy is configured.
@@ -90,4 +90,4 @@ use one tree level deeper, and no mark remains in the title row.
 The managed headless Brave reports `(hover: none)`; the hover was driven by
 the Browser tool's pointer, which the controller accepts per pointer type.
 Real Jira Cloud was not contacted: the REST shapes follow Atlassian's v3
-documentation and are exercised by the fixture and `server/jira.test.ts`.
+documentation and are exercised by the fixture and `server/integrations/jira.test.ts`.

@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test, { after } from "node:test";
+import { afterAll, test } from "vitest";
 
 // HUI's provider selections resolve at import time and are read with each filter: never the operator's own.
 const root = await mkdtemp(join(tmpdir(), "hui-pi-models-home-"));
 process.env["HOME"] = root;
 process.env["XDG_CONFIG_HOME"] = join(root, "config");
 process.env["PI_CODING_AGENT_DIR"] = join(root, "agent");
-after(() => rm(root, { recursive: true, force: true }));
+afterAll(() => rm(root, { recursive: true, force: true }));
 const { configuredModels, filterConfiguredModels } = await import("./pi-models.ts");
 
 const catalog = [
@@ -43,7 +43,7 @@ test("unusable models.json structure does not invent a restrictive list", () => 
 
 test("file filtering hides unconfigured models without adding unavailable ones and re-reads changes", async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "hui-model-selection-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }));
   const path = join(dir, "models.json");
   await writeFile(path, JSON.stringify({ providers: {
     gateway: { apiKey: "fixture-secret", models: [{ id: "anthropic/opus" }, { id: "unavailable" }] },
@@ -59,7 +59,7 @@ test("file filtering hides unconfigured models without adding unavailable ones a
 
 test("missing, unreadable and malformed config preserve PI's available catalog", async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "hui-model-fallback-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }));
   assert.deepEqual(await filterConfiguredModels(catalog, dir), catalog);
   const path = join(dir, "models.json");
   await writeFile(path, "{");

@@ -27,7 +27,7 @@ keeps the active pane's navigation toggle visible.
 Run the independent model comparison with the installed reference's assets:
 
 ```sh
-node e2e/session-multiplexer-oracle.mjs /path/to/openclaw/dist/control-ui/assets
+node e2e/probes/session-multiplexer-oracle.mjs /path/to/openclaw/dist/control-ui/assets
 ```
 
 It executes the shipped layout/drop functions, not HUI-derived expected values.

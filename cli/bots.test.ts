@@ -3,10 +3,11 @@ import { createServer, type ServerResponse } from "node:http";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test, type TestContext } from "node:test";
-import { botKickoffText, BOTS_OFF_MESSAGE, type BotCatalog, type BotCatalogTool, type BotMessageResult, type BotView } from "../shared/bots.ts";
-import type { AutomationTask } from "../src/lib/automation-types.ts";
-import { botCommand, findBot, formatBot, formatBots, formatLook, lookColor, parseDuration, parseZoom, questionAnswer, routineSchedule, type BotIO } from "./bots.ts";
+import { test, type TestContext } from "vitest";
+import { botKickoffText, type BotCatalog, type BotCatalogTool, type BotMessageResult, type BotView } from "../server/bots-format.ts";
+import type { AutomationTask } from "../server/automation.ts";
+import { botCommand, formatBot, formatBots, formatLook, lookColor, parseZoom, questionAnswer } from "./bots.ts";
+import { findBot, parseDuration, routineSchedule, type BotIO } from "./gateway-client.ts";
 
 function view(id: string, handle: string, extra: Partial<BotView> = {}): BotView {
   return {
@@ -149,10 +150,10 @@ async function fakeGateway(t: TestContext) {
     reply(404, { error: "not found" });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  t.after(() => {
+  t.onTestFinished(() => {
     for (const stream of streams.values()) stream.end();
     server.closeAllConnections();
-    return new Promise((resolve) => server.close(resolve));
+    return new Promise((resolve) => server.close(() => resolve()));
   });
   const address = server.address() as { port: number };
   return {
@@ -230,33 +231,6 @@ function terminal(stdin = "", answers: string[] = [], interactive = false) {
   };
 }
 
-test("with bots off on the gateway every hui bot command fails with its refusal, which names Settings → Labs → Bots", async (t) => {
-  // The gateway's answer while Settings → Labs → Bots is off: 409 on every bot route.
-  const requests: string[] = [];
-  const server = createServer((request, response) => {
-    requests.push(`${request.method} ${request.url}`);
-    response.writeHead(409, { "content-type": "application/json" });
-    response.end(JSON.stringify({ error: BOTS_OFF_MESSAGE }));
-  });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  t.after(() => new Promise((resolve) => server.close(resolve)));
-  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}/`;
-  for (const [action, operands, flags] of [
-    ["list", [], {}], ["list", [], { json: true }], ["add", [], { name: "Kim" }], ["show", ["kim"], {}], ["send", ["kim", "hi"], { wait: true }],
-    ["chat", ["kim"], {}], ["memory", ["kim"], {}], ["routine list", ["kim"], {}], ["delete", ["kim"], { yes: true }],
-  ] as const) {
-    const term = terminal();
-    await assert.rejects(botCommand(base, action, operands, flags, term.io), (error: unknown) => {
-      // bin/hui.mjs prints it as `hui: <message>` and exits 1.
-      assert.deepEqual([(error as Error).name, (error as Error).message, (error as { status?: number }).status], ["GatewayError", BOTS_OFF_MESSAGE, 409], action);
-      return true;
-    });
-    assert.equal(term.out, "", `${action} prints nothing else`);
-  }
-  assert.match(BOTS_OFF_MESSAGE, /Settings → Labs → Bots/u);
-  assert.ok(requests.every((line) => line.includes(" /__hui/bots")), "each stopped at its first bot route");
-});
-
 test("bots are found by id, handle or exact name, archived ones included, and shared names are refused", async (t) => {
   const gateway = await fakeGateway(t);
   assert.equal((await findBot(gateway.base, "id-bob")).handle, "bob");
@@ -271,7 +245,7 @@ test("bots are found by id, handle or exact name, archived ones included, and sh
 test("list, show, add, edit, remove, restore and stop talk to the bot routes and print for people or --json", async (t) => {
   const gateway = await fakeGateway(t);
   const dir = await mkdtemp(join(tmpdir(), "hui-cli-bots-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }));
   const term = terminal();
   term.io.cwd = dir;
   assert.equal(await botCommand(gateway.base, "list", [], {}, term.io), 0);
@@ -395,7 +369,7 @@ test("delete removes any bot for good once confirmed: a terminal is asked, anyth
 test("soul prints SOUL.md or says the bot has none yet, and --file replaces it from a file or stdin; empty removes it", async (t) => {
   const gateway = await fakeGateway(t);
   const dir = await mkdtemp(join(tmpdir(), "hui-cli-soul-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }));
   const shown = terminal();
   assert.equal(await botCommand(gateway.base, "soul", ["ada"], {}, shown.io), 0);
   assert.equal(shown.out, "# Who I am\nAda, a researcher.\n");
@@ -463,7 +437,7 @@ test("tools and skills print what a bot has, on or off, and --deny / --allow sen
     "  off  alpha  Writes release notes.  [/skills]",
     "  on   beta   Triage.  [HUI defaults]",
     "",
-    "Waiting for you: Allow access to bash (powerful)? Answer it in hui bot chat bob or the Tools tab.",
+    "Waiting for you: Allow access to bash (powerful)? Answer it in hui bot chat bob or on its Tools & skills page.",
     "",
   ].join("\n"));
   await botCommand(gateway.base, "skills", ["bob"], { allow: "alpha" }, terminal().io);
@@ -510,7 +484,7 @@ test("send reads - from stdin and exits 0 when answered, 1 on failure or timeout
 test("memory prints the status and view, zooms a line and saves the browse page", async (t) => {
   const gateway = await fakeGateway(t);
   const dir = await mkdtemp(join(tmpdir(), "hui-cli-memory-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }));
   const term = terminal();
   await botCommand(gateway.base, "memory", ["ada"], {}, term.io);
   assert.equal(term.out, "12 messages · 11 summaries built · 1 pending · view 4 KB in 9 lines · summarizing · compactor 3 calls, 6200 tokens in, 400 out, $0.0123\n<chat>\n0+8|user: plans\n</chat>\n");
@@ -775,4 +749,15 @@ test("--call-voice sets the bot's GPT-Live voice, \"\" goes back to Settings' de
   const base: BotView = { id: "id-vox", handle: "vox", name: "Vox", cwd: "/tmp", sessionId: "s", createdAt: "2026-10-05T10:00:00.000Z", updatedAt: "2026-10-05T10:00:00.000Z", status: "idle", soul: false, unread: false, routines: 0 };
   assert.match(formatBot({ ...base, voice: { language: "es", live: "juniper" } }), /\nlanguage: es \(Spanish\)\ncall voice: Juniper\nroutines: /u);
   assert.doesNotMatch(formatBot(base), /call voice:/u, "without one it follows Settings");
+});
+
+test("--description says what a bot does and when to tag it, --tagging who may, and show says both", async (t) => {
+  const gateway = await fakeGateway(t);
+  await botCommand(gateway.base, "edit", ["ada"], { description: "Release notes. Tag her when a PR merges.", tagging: " Mention " }, terminal().io);
+  assert.deepEqual(gateway.calls.at(-1)?.body, { description: "Release notes. Tag her when a PR merges.", tagging: "mention" });
+  await botCommand(gateway.base, "add", [], { name: "Lola", tagging: "nobody" }, terminal().io);
+  assert.deepEqual(gateway.calls.at(-1)?.body, { name: "Lola", tagging: "nobody" });
+  const base: BotView = { id: "id-vox", handle: "vox", name: "Vox", cwd: "/tmp", sessionId: "s", createdAt: "2026-10-05T10:00:00.000Z", updatedAt: "2026-10-05T10:00:00.000Z", status: "idle", soul: false, unread: false, routines: 0 };
+  assert.match(formatBot({ ...base, description: "Finds sources.", tagging: "mention" }), /\ndescription: Finds sources\.\ntagging: only when your message tags it\n/u);
+  assert.match(formatBot(base), /\ntagging: anyone, when a task fits its description\n/u);
 });

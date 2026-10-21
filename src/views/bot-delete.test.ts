@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const between = (source: string, start: string, end: string) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
@@ -20,9 +20,6 @@ test("the bot's chat header has a ⋯ menu: Edit bot…, Archive… and Delete�
   }
   assert.match(menu, /aria-label=\$\{`Actions for \$\{bot\.bot\.name\}`\}/u);
   assert.match(home, /\$\{props\.bot\?\.onAction \? renderBotHeaderMenu\(props\.bot\) : nothing\}/u);
-  const app = read("../hui-app.ts");
-  assert.match(app, /if \(action === "edit"\) this\.openEditBot\(bot\);\n\s+else if \(action === "archive"\) this\.requestArchiveBot\(bot\);\n\s+else this\.requestDeleteBot\(bot\);/u);
-  assert.match(app, /if \(this\.view === "bot" && this\.activeBotId === bot\.id\) this\.navigate\(\{ kind: "home" \}, true\);\n\s+void this\.refreshBots\(\);\n\s+void this\.refreshSessions\(true\);/u, "deleting the open bot returns home");
 });
 
 test("the delete confirmation says what goes and what stays", () => {

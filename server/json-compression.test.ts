@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, request as httpRequest, type IncomingHttpHeaders } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test } from "vitest";
 import { brotliDecompressSync, gunzipSync } from "node:zlib";
 
 /** A raw request, so the test sees the bytes on the wire rather than a decoded body. */
@@ -29,14 +29,15 @@ test("large JSON answers are compressed for clients that accept it and identical
     tool: "durable", piSessionFile: `durable:compression-${index}`, createdAt: "2026-10-01T10:00:00.000Z", updatedAt: "2026-10-01T11:00:00.000Z", source: "hui",
   }));
   await writeFile(join(dir, "hui", "sessions.json"), JSON.stringify({ version: 2, groups: [], sessions }));
-  const { middleware, stopBackend } = await import("./hui.ts");
+  const { middleware } = await import("./hui.ts");
+  const { stopBackend } = await import("./backend.ts");
   const server = createServer((req, res) => middleware(req, res, () => { res.writeHead(404).end(); }));
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
   assert.ok(address && typeof address !== "string");
   const url = `http://127.0.0.1:${address.port}/__hui/sessions`;
-  t.after(async () => {
+  t.onTestFinished(async () => {
     await stopBackend();
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));

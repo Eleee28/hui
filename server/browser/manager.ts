@@ -12,8 +12,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, extname, isAbsolute, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 
-import type { BrowserStatus, BrowserViewAction, BrowserViewState } from "../../shared/browser.ts";
-import type { BrowserSettings } from "../../src/lib/settings.ts";
+import type { BrowserStatus, BrowserViewAction, BrowserViewState } from "../api/browser.ts";
+import type { BrowserSettings } from "../hui-settings.ts";
 import { CdpConnection, CdpError, type CdpEvent } from "./cdp.ts";
 import { defaultExecutableProbe, resolveBrowserExecutable, type BrowserExecutable, type ExecutableProbe } from "./executable.ts";
 import { KeyParseError, parseKey, type KeyStroke } from "./keys.ts";

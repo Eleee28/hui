@@ -30,6 +30,9 @@ function secretRequestText(result) {
 
 /** What the model reads back from `ask_user_question`, worded like the PI extension it replaces. */
 function questionnaireText(result) {
+  if (result?.timedOut) {
+    return `No answer within ${result.timeoutMinutes} minutes; the operator may be away. Continue with your recommended option, keep going with the rest of the work, and in your final reply list the decisions that still need the operator.`;
+  }
   const answers = Array.isArray(result?.answers) ? result.answers : [];
   if (result?.cancelled || !answers.length) return "User declined to answer questions";
   const segments = answers.map((answer) => {
@@ -40,7 +43,12 @@ function questionnaireText(result) {
   return `User has answered your questions: ${segments.join(" ")} You can now continue with the user's answers in mind.`;
 }
 
-/** A day: the gateway's `QUESTIONNAIRE_WAIT_MS` (server/questionnaires.ts). */
+/** Above `agents_wait`'s own timeout (server/agent-tools/subagents.ts), so the wait, not the transport, ends it. */
+export function agentsWaitTransportMs(params) {
+  return ((params?.timeoutSeconds ?? 600) + 30) * 1_000;
+}
+
+/** A day: the gateway's `QUESTIONNAIRE_WAIT_MS` (server/agent-tools/questionnaires.ts). */
 const QUESTIONNAIRE_WAIT_MS = 24 * 60 * 60_000;
 
 const questionOption = Type.Object({
@@ -53,7 +61,7 @@ export default function agentToolsExtension(pi) {
   pi.registerTool({
     name: "ask_user_question",
     label: "Ask user question",
-    description: `Ask the user one or more structured questions in a card in this HUI conversation and wait for the answers. Use it to gather preferences or requirements, clarify ambiguous instructions, get decisions on implementation choices, or offer choices of direction.
+    description: `Ask the user one or more structured questions in a card in this HUI conversation and wait for the answers, or until the operator's question timeout ends the call. Use it to gather preferences or requirements, clarify ambiguous instructions, get decisions on implementation choices, or offer choices of direction.
 
 Every question also offers a free-text answer the card adds itself, and the user can cancel the whole card. Previews are Markdown shown beside the options of a single-select question while one is focused; use them only when the user needs to compare concrete artifacts (mockups, code, diagrams, configs).`,
     promptSnippet: "Ask the user up to 4 structured questions (2-4 options each) when requirements are ambiguous",
@@ -62,6 +70,7 @@ Every question also offers a free-text answer the card adds itself, and the user
       "Each question needs a header (≤16 characters), the full question and 2-4 options, each with a concise label and a description of what it means. The card adds a free-text answer to every question: never author \"Other\", \"Type something.\" or \"Next\" options.",
       "Set multiSelect: true when several answers can apply. If you recommend an option, put it first and end its label with \"(Recommended)\".",
       "If the user declines, do not ask the same questions again in chat; continue with sensible defaults or ask what they want.",
+      "If the call times out, the operator may be away: continue with your recommended option, finish the rest of the work, and list the decisions that still need the operator in your final reply.",
     ],
     parameters: Type.Object({
       questions: Type.Array(Type.Object({
@@ -107,6 +116,7 @@ Every question also offers a free-text answer the card adds itself, and the user
     promptGuidelines: [
       "Use sessions_spawn only for a concrete bounded task that can run independently.",
       "Continue useful non-overlapping work after spawning; the child reports back when finished.",
+      "To fan work out over many helpers (about five or more) and combine their answers, spawn them with collect: true from one codemode script and await agents_wait with their taskIds there: their results return to the script, not the conversation. Up to 32 run at once and more queue; prefer Promise.allSettled-style handling so one failed helper keeps the others' results. Each tool result in a script is JSON text: JSON.parse it.",
     ],
     parameters: Type.Object({
       task: Type.String({ minLength: 1, maxLength: 20_000 }),
@@ -114,12 +124,26 @@ Every question also offers a free-text answer the card adds itself, and the user
       model: Type.Optional(Type.String({ minLength: 3, maxLength: 200 })),
       thinking: Type.Optional(Type.Union([
         Type.Literal("off"), Type.Literal("minimal"), Type.Literal("low"),
-        Type.Literal("medium"), Type.Literal("high"), Type.Literal("xhigh"),
+        Type.Literal("medium"), Type.Literal("high"), Type.Literal("xhigh"), Type.Literal("max"),
       ])),
       runTimeoutSeconds: Type.Optional(Type.Number({ minimum: 0, maximum: 3_600 })),
+      collect: Type.Optional(Type.Boolean({ description: "Collect the result with agents_wait instead of having it reported back to this conversation. Queues when 32 are already running." })),
     }),
     async execute(_toolCallId, params) {
       return output(await invoke("sessions_spawn", params));
+    },
+  });
+
+  pi.registerTool({
+    name: "agents_wait",
+    label: "Wait for subagents",
+    description: "Wait until the listed subagents of this session have finished and return their results; at the timeout, return those finished so far and the pending ones.",
+    parameters: Type.Object({
+      ids: Type.Array(Type.String({ minLength: 1, maxLength: 200 }), { minItems: 1, maxItems: 100, description: "taskIds from sessions_spawn." }),
+      timeoutSeconds: Type.Optional(Type.Integer({ minimum: 1, maximum: 3_600, description: "Default 600." })),
+    }),
+    async execute(_toolCallId, params, signal) {
+      return output(await invokeHuiBridge("agents_wait", params, { timeoutMs: agentsWaitTransportMs(params), signal }));
     },
   });
 
@@ -293,17 +317,19 @@ Every question also offers a free-text answer the card adds itself, and the user
     promptGuidelines: [
       "Use watcher instead of a detached nohup loop whenever a condition may take a long time to become true: waiting for a pull request approval, a CI run, a deploy or an external state change. The watcher keeps running after this turn ends and after HUI restarts.",
       "Record the purpose (what it waits for), the target (the pull request or other URL) and the outcome (what happens when the condition holds), so the operator can see what it is doing without reading the command.",
-      "The command runs with /bin/sh in this conversation's working directory, appends its output to the watcher's own log and records its exit status. It must end on its own; do not start background children of your own inside it.",
-      "Keep one watcher per condition. Stop or dismiss watchers that are no longer needed instead of leaving them running.",
-      "A watcher card reports running, done, failed, stopped or dead (the process was lost, for example after a reboot). Restart a dead watcher instead of starting a duplicate.",
+      "The command runs with /bin/sh in this conversation's working directory, appends its output to the watcher's own log and records its exit status. It must end on its own unless it was started with keepRunning; do not start background children of your own inside it.",
+      "Keep one watcher per condition. Stop watchers that are no longer needed instead of leaving them running, and dismiss finished ones you no longer need: a conversation holds at most 10 watchers, finished ones included.",
+      "A watcher card reports running, done, failed, stopped or dead (the process was lost, for example after a reboot). Restart a dead watcher instead of starting a duplicate. Restarting re-runs the same command; to watch something else, start a new watcher.",
+      "Pass keepRunning: true only for a watcher that should run until stopped, such as a listener that reports to a bot's trigger: HUI starts it again whenever it finds it dead, including after a reboot. Never for a one-shot wait, whose command would act again.",
     ],
     parameters: Type.Object({
-      action: Type.Union(["start", "list", "stop", "restart", "log"].map((action) => Type.Literal(action))),
+      action: Type.Union(["start", "list", "stop", "restart", "dismiss", "log"].map((action) => Type.Literal(action))),
       id: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
       purpose: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
       target: Type.Optional(Type.String({ maxLength: 500 })),
       outcome: Type.Optional(Type.String({ maxLength: 200 })),
       command: Type.Optional(Type.String({ minLength: 1, maxLength: 4_000 })),
+      keepRunning: Type.Optional(Type.Boolean()),
       lines: Type.Optional(Type.Integer({ minimum: 1, maximum: 400 })),
     }),
     async execute(_toolCallId, params) {

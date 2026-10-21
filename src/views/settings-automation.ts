@@ -10,9 +10,10 @@ import type {
   AutomationSnapshot,
   AutomationTask,
   AutomationTaskInput,
-} from "../lib/automation-types.ts";
-import type { SessionView } from "../lib/sessions-store.ts";
-import { routineCadenceSummary, routineFacts } from "../lib/bot-routines.ts";
+} from "../api/schema/automation.ts";
+import type { SessionView } from "../api/sessions.ts";
+import { routineCadenceSummary, routineFacts } from "../lib/bots/routines.ts";
+import { automationRunLabel, automationRunRecoveryDetail } from "../lib/automation-recovery.ts";
 import { icons } from "../lib/icons.ts";
 import { labelDropdown, closeDropdownOnEscape } from "../lib/web-awesome.ts";
 import { renderSettingsToggle } from "./settings-toggle.ts";
@@ -29,9 +30,6 @@ export type AutomationProps = {
   /** Every registered session. Bot chats label their routines but are not
    * offered as targets: a bot's routines are added from its own panel. */
   sessions: readonly SessionView[];
-  /** Settings → Labs → Bots. `false` (bots off) leaves bots' routines and their runs out, like every other trace of
-   * bots; the scheduler keeps them, skipping their runs. */
-  bots?: boolean;
   onRetryAutomation: () => void;
   /** Resolves `true` once the scheduler accepted the task, so the form clears. */
   onCreateAutomationTask: (input: AutomationTaskInput) => Promise<boolean>;
@@ -54,15 +52,6 @@ export function automationState(
   if (props.automation) return "ready";
   return props.automationError ? "error" : "loading";
 }
-
-const RUN_STATUS_LABELS: Record<AutomationRun["status"], string> = {
-  queued: "Queued",
-  running: "Running",
-  completed: "Completed",
-  failed: "Failed",
-  skipped: "Skipped",
-  cancelled: "Cancelled",
-};
 
 /** A run is only cancellable while the scheduler still owns it. */
 export function runIsActive(run: AutomationRun): boolean {
@@ -174,6 +163,7 @@ function sessionLabel(props: AutomationProps, sessionId: string): string {
 
 function renderTask(props: AutomationProps, task: AutomationTask) {
   const lastRun = props.automation?.runs.find((run) => run.taskId === task.id);
+  const retryAt = lastRun?.status === "queued" ? lastRun.retryAt : undefined;
   // Bot routines read as their bot's panel shows them; other tasks keep the generic summary.
   const routine = props.sessions.some((session) => session.id === task.sessionId && session.bot);
   // Who made it when a bot did, by its handle now, and a temporary task's limits.
@@ -187,8 +177,8 @@ function renderTask(props: AutomationProps, task: AutomationTask) {
         </span>
       </button>
       <span class="cron-table__cell cron-table__schedule"><span class="cron-table__cell-label">Schedule</span><span class="cron-table__cell-value">${routine ? describeRoutineSchedule(task.schedule) : describeSchedule(task.schedule)}</span></span>
-      <span class="cron-table__cell cron-table__next"><span class="cron-table__cell-label">Next run</span><span class="cron-table__cell-value">${formatTimestamp(task.nextRunAt)}</span></span>
-      <span class="cron-table__cell cron-table__last"><span class="cron-table__cell-label">Last run</span><span class="cron-table__cell-value">${lastRun ? RUN_STATUS_LABELS[lastRun.status] : "—"}</span></span>
+      <span class="cron-table__cell cron-table__next"><span class="cron-table__cell-label">${retryAt ? "Next retry" : "Next run"}</span><span class="cron-table__cell-value" title=${retryAt ? `Next retry ${formatTimestamp(retryAt)}` : nothing}>${formatTimestamp(retryAt ?? task.nextRunAt)}</span></span>
+      <span class="cron-table__cell cron-table__last"><span class="cron-table__cell-label">Last run</span><span class="cron-table__cell-value" title=${lastRun ? [automationRunLabel(lastRun), automationRunRecoveryDetail(lastRun, formatTimestamp), lastRun.error].filter(Boolean).join(" · ") : nothing}>${lastRun ? automationRunLabel(lastRun) : "—"}</span></span>
       <span class="cron-table__actions">
         <button type="button" class="btn btn--sm btn--ghost cron-row-run" ?disabled=${props.automationPending} @click=${() => props.onRunAutomationTask(task)} title="Run now" aria-label=${`Run now: ${task.name}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
@@ -210,16 +200,18 @@ function renderTask(props: AutomationProps, task: AutomationTask) {
 }
 
 function renderRun(props: AutomationProps, run: AutomationRun) {
+  const recovery = automationRunRecoveryDetail(run, formatTimestamp);
   return html`
     <article class="cron-run-entry" data-run=${run.id}>
       <div class="cron-run-entry__header">
         <span class="cron-run-entry__title">${run.taskName}</span>
-        <span class="settings-status">${RUN_STATUS_LABELS[run.status]}</span>
+        <span class="settings-status">${automationRunLabel(run)}</span>
       </div>
       <p class="cron-run-entry__facts">
         ${run.source === "manual" ? "Manual" : "Scheduled"} · started ${formatTimestamp(run.startedAt ?? run.createdAt)}
         ${run.finishedAt ? html` · finished ${formatTimestamp(run.finishedAt)}` : nothing}
       </p>
+      ${recovery ? html`<p class="cron-run-entry__body">${recovery}</p>` : nothing}
       ${run.summary ? html`<p class="cron-run-entry__body">${run.summary}</p>` : nothing}
       ${run.error ? html`<p class="cron-run-entry__body" role="alert">${run.error}</p>` : nothing}
       ${runIsActive(run)
@@ -365,23 +357,6 @@ function syncScheduleVisibility(form: HTMLFormElement, kind: string) {
   }
 }
 
-/** What the page lists: every task and run, or, while bots are off (Settings → Labs → Bots), all but bots' routines and
- * their runs, which the scheduler keeps and skips; its next wake is then the next time of a task the page lists. */
-export function listedAutomation(
-  snapshot: Pick<AutomationSnapshot, "tasks" | "runs" | "scheduler">,
-  sessions: readonly Pick<SessionView, "id" | "bot">[],
-  bots: boolean | undefined,
-): Pick<AutomationSnapshot, "tasks" | "runs"> & { nextWakeAt: string | null } {
-  if (bots !== false) return { tasks: snapshot.tasks, runs: snapshot.runs, nextWakeAt: snapshot.scheduler.nextWakeAt };
-  const chats = new Set(sessions.filter((session) => session.bot).map((session) => session.id));
-  const tasks = snapshot.tasks.filter((task) => !chats.has(task.sessionId));
-  return {
-    tasks,
-    runs: snapshot.runs.filter((run) => !chats.has(run.sessionId)),
-    nextWakeAt: tasks.flatMap((task) => task.enabled && task.nextRunAt ? [task.nextRunAt] : []).toSorted()[0] ?? null,
-  };
-}
-
 export function renderAutomationPage(props: AutomationProps, renderSection: SectionRenderer) {
   const state = automationState(props);
   if (state !== "ready") {
@@ -396,7 +371,7 @@ export function renderAutomationPage(props: AutomationProps, renderSection: Sect
     `;
   }
   const snapshot = props.automation as AutomationSnapshot;
-  const { tasks, runs, nextWakeAt } = listedAutomation(snapshot, props.sessions, props.bots);
+  const { tasks, runs, scheduler: { nextWakeAt } } = snapshot;
   return html`<div class="cron-page settings-stack">
     <p class="settings-page__intro">Scheduled tasks, manual runs and run history owned by HUI.</p>
     ${renderSection(

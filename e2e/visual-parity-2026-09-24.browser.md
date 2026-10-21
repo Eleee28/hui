@@ -12,7 +12,7 @@ parity is not certified.** See the remaining acceptance gate in
 - Disposable config root: `/tmp/hui-parity-e2e.lVZlkq`; real PI RPC, isolated
   agent/settings/models/skills/extensions, session directory and Git workspace.
 - Deterministic Anthropic-compatible provider: loopback 43127,
-  `e2e/pi-provider-fixture.mjs`, two zero-cost fixture models.
+  `e2e/fixtures/pi-provider-fixture.mjs`, two zero-cost fixture models.
 - Package/skill installation/removal uses `pi-mutation-fixture.mjs`; all other
   runtime commands delegate to the installed real PI. No operator data deleted.
 - Browser: managed `openclaw` profile, dedicated Brave directory, CDP 18800,
@@ -26,16 +26,16 @@ None emulates a Gateway or connects to a real account.
   Typography/scale/preferences were restored after their tests.
 
 Use the isolated setup in `e2e/chat-composer.browser.md`, adding the cheap
-`fixture-mini` model and `e2e/question-extension.ts` before starting PI.
+`fixture-mini` model and `e2e/fixtures/question-extension.ts` before starting PI.
 Start the source oracle with:
 
 ```sh
-node e2e/reference-style-server.mjs /path/to/pinned-source /path/to/control-ui
-node e2e/reference-style-server.mjs /path/to/pinned-source /path/to/control-ui 43129
-node e2e/reference-style-server.mjs /path/to/pinned-source /path/to/control-ui 43130
+node e2e/fixtures/reference-style-server.mjs /path/to/pinned-source /path/to/control-ui
+node e2e/fixtures/reference-style-server.mjs /path/to/pinned-source /path/to/control-ui 43129
+node e2e/fixtures/reference-style-server.mjs /path/to/pinned-source /path/to/control-ui 43130
 ```
 
-Through Browser `act:evaluate`, import `/e2e/visual-journey-probe.js`.
+Through Browser `act:evaluate`, import `/e2e/probes/visual-journey-probe.js`.
 `auditRoutes(width, height)` opens each destination using the real command
 palette, waits for rendered/loading state, asserts the viewport at every route
 and measures inner-container overflow. `compareReferenceStyles(selectors)`

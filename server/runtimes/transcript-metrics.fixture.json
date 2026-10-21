@@ -1,0 +1,54 @@
+[
+  {
+    "input": null,
+    "expected": {}
+  },
+  {
+    "input": "text",
+    "expected": {}
+  },
+  {
+    "input": {
+      "timestamp": 1700000000000,
+      "completedAt": 1700000001000,
+      "durationMs": 1000,
+      "inputTokens": 12,
+      "outputTokens": 3,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 4,
+      "costUsd": 0.25
+    },
+    "expected": {
+      "timestamp": 1700000000000,
+      "completedAt": 1700000001000,
+      "durationMs": 1000,
+      "inputTokens": 12,
+      "outputTokens": 3,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 4,
+      "costUsd": 0.25
+    }
+  },
+  {
+    "input": {
+      "timestamp": 9000000000000000.0,
+      "completedAt": -1,
+      "durationMs": "5",
+      "inputTokens": null,
+      "outputTokens": 7,
+      "other": 3
+    },
+    "expected": {
+      "outputTokens": 7
+    }
+  },
+  {
+    "input": {
+      "durationMs": 9000000000000000.0,
+      "costUsd": -0.5
+    },
+    "expected": {
+      "durationMs": 9000000000000000.0
+    }
+  }
+]

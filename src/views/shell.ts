@@ -3,27 +3,28 @@
 import { html, nothing, type TemplateResult } from "lit";
 import { icons } from "../lib/icons.ts";
 import { icons as openclawIcons } from "../components/openclaw/icons.ts";
-import { sessionMenuShortcuts } from "../lib/session-menu-shortcuts.ts";
+import { sessionMenuShortcuts } from "../lib/session/menu-shortcuts.ts";
 import { labelDropdown, closeDropdownOnEscape } from "../lib/web-awesome.ts";
 import { renderHoverMarquee } from "../lib/hover-marquee.ts";
-import { sessionGroupLabel, storedSessionGroup, unreachableHost, type SessionGroup, type SessionView } from "../lib/sessions-store.ts";
+import { type SessionGroup, type SessionView } from "../api/sessions.ts";
+import { sessionGroupLabel, storedSessionGroup, unreachableHost } from "../lib/session/sessions.ts";
 import { subagentElapsed, subagentVisualState } from "../lib/subagent-activity.ts";
-import { customGroupOrder, sessionTreeRows, sidebarSessionGroups, type SidebarSessionGroup, type SidebarSessionOptions, type SidebarSessionTreeRow } from "../lib/sidebar-sessions.ts";
+import { customGroupOrder, sessionTreeRows, sidebarSessionGroups, type SidebarSessionGroup, type SidebarSessionOptions, type SidebarSessionTreeRow } from "../lib/session/sidebar-sessions.ts";
 import { renderSidebarSessionOptions } from "./sidebar-session-options.ts";
 import { kanbanIcon } from "./kanban.ts";
-import { isSessionStage, SESSION_STAGE_LABELS } from "../../shared/session-stages.ts";
-export { filterSessionGroups } from "../lib/sidebar-sessions.ts";
+import { isSessionStage, SESSION_STAGE_LABELS } from "../lib/kanban.ts";
+export { filterSessionGroups } from "../lib/session/sidebar-sessions.ts";
 import { HUI_PAGES, type HuiPage } from "../lib/pages.ts";
 import { navigationPath } from "../lib/navigation.ts";
-import { writeSessionDrag } from "../lib/session-pane-layout.ts";
-import { pullRequestAccessibleLabel } from "../../shared/pull-requests.ts";
+import { writeSessionDrag } from "../lib/session/pane-layout.ts";
+import { pullRequestAccessibleLabel } from "../lib/pull-requests.ts";
 import { pullRequestStateIcon } from "../components/pull-request-hovercard.ts";
-import { jiraIssueAccessibleLabel, primaryJiraIssue } from "../../shared/jira.ts";
+import { jiraIssueAccessibleLabel, primaryJiraIssue } from "../lib/jira.ts";
 import { brandIcons } from "../lib/brand-icons.ts";
 import { worktreeProgressLabel } from "../lib/worktree-progress.ts";
 import type { JiraBadgeData } from "../components/jira-hovercard.ts";
 import { renderBotRoster, renderNewBotButton, type BotPlace, type BotRosterProps } from "./bots.ts";
-import { SIDEBAR_TABS, tabAfterKey, type SidebarTab } from "../lib/bot-roster.ts";
+import { SIDEBAR_TABS, tabAfterKey, type SidebarTab } from "../lib/bots/roster.ts";
 import { loadViewAssets } from "../lib/view-assets.ts";
 
 // The real browser entry loads these before this view can render.
@@ -45,12 +46,11 @@ loadViewAssets(
  */
 
 /** Sidebar destinations. Sessions are opened from the list below and New
- * Session from the header, so there is no separate Home entry. */
+ * Session from the header, so there is no separate Home entry. Automations,
+ * Plugins and Skills live in Settings. */
 export const PRIMARY_NAV = [
   { id: "contributions", label: "Contributions", icon: openclawIcons.gitPullRequest },
-  { id: "cron", label: "Automations", icon: icons.calendarClock },
-  { id: "plugins", label: "Plugins", icon: icons.plug },
-  { id: "skills", label: "Skills", icon: icons.book },
+  { id: "sessions", label: "Sessions", icon: icons.messageSquare },
 ] as const;
 
 /** Compact content geometry and the platform-aware browser drawer contract
@@ -110,9 +110,7 @@ export type GroupDropTarget = { group: string; position: "before" | "after" };
 
 /** The Agents | Bots switch fills the sidebar's top row, right after the
  * collapse toggle, because each tab has a sidebar of its own: Agents is the
- * sidebar as before, and Bots shows only the roster. Present only while
- * Settings → Labs → Bots is on; without it the top row holds
- * only the toggle. */
+ * sidebar as before, and Bots shows only the roster. */
 export type ShellBotsProps = {
   tab: SidebarTab;
   onTab: (tab: SidebarTab) => void;
@@ -204,7 +202,7 @@ export type ShellProps = {
   /** Drops `group` before/after `target`; `ungrouped` as target means last. */
   onReorderGroup: (group: string, target: GroupDropTarget) => void;
   onDeleteSession: (session: SessionView) => void;
-  bots?: ShellBotsProps;
+  bots: ShellBotsProps;
 };
 
 export function sessionMoveGroupOptions(groups: readonly SessionGroup[]): Array<{ label: string; value: string }> {
@@ -742,7 +740,7 @@ function renderImportNote(props: ShellProps) {
 }
 
 /** Kanban is a HUI-owned route, not an OpenClaw catalogue page; it sits
- * directly below Automations. */
+ * directly below Contributions. */
 function kanbanNavItem(props: ShellProps) {
   const active = props.view === "kanban";
   return html`<a
@@ -788,7 +786,7 @@ export function renderSidebar(props: ShellProps) {
   const visibleGroups = sidebarSessionGroups(props.groups, props.search, props.sessionOptions);
   // On the Bots tab the sidebar is the roster alone, as in Hermes: the primary
   // navigation and New session stay under Agents.
-  const botsTab = props.bots?.tab === "bots" ? props.bots : undefined;
+  const botsTab = props.bots.tab === "bots" ? props.bots : undefined;
   const searchLabel = botsTab ? "Search bots" : "Search sessions";
   return html`<hui-session-hovercard-provider .sessions=${props.groups.flatMap((group) => group.sessions)}>
     <header class="topbar">
@@ -851,7 +849,7 @@ export function renderSidebar(props: ShellProps) {
         <div class="sidebar-shell sidebar-drawer__body">
           <div class="sidebar-brand">
             <button type="button" class="sidebar-brand__icon sidebar-brand__header-control sidebar-brand__collapse" aria-label="Collapse sidebar" title="Collapse sidebar" aria-expanded="true" @click=${toggleDesktopSidebar}>${icons.panelLeftClose}</button>
-            ${props.bots ? html`<div class="sidebar-switch">${renderSidebarTabs(props.bots)}</div>` : nothing}
+            <div class="sidebar-switch">${renderSidebarTabs(props.bots)}</div>
           </div>
 
           <label class="sidebar-search ${(botsTab ? botsTab.search.trim() : query) ? "sidebar-search--active" : ""}">
@@ -866,8 +864,7 @@ export function renderSidebar(props: ShellProps) {
           </label>
 
           <div class="sidebar-shell__content">
-          <div class="sidebar-shell__body" id=${props.bots ? "sidebar-tabpanel" : nothing} role=${props.bots ? "tabpanel" : nothing}
-            aria-labelledby=${props.bots ? `sidebar-tab-${props.bots.tab}` : nothing}>
+          <div class="sidebar-shell__body" id="sidebar-tabpanel" role="tabpanel" aria-labelledby="sidebar-tab-${props.bots.tab}">
           ${botsTab ? nothing : html`<nav class="sidebar-nav" aria-label="Primary navigation">
             ${PRIMARY_NAV.map((item) => {
               const page = HUI_PAGES.find((candidate) => candidate.id === item.id);
@@ -885,7 +882,7 @@ export function renderSidebar(props: ShellProps) {
                 >
                   <span class="nav-item__icon" aria-hidden="true">${item.icon}</span>
                   <span class="nav-item__text">${item.label}</span>
-                </a>${item.id === "cron" ? kanbanNavItem(props) : nothing}` : nothing;
+                </a>${item.id === "contributions" ? kanbanNavItem(props) : nothing}` : nothing;
             })}
             <a
               href="/settings/appearance"

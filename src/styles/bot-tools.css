@@ -1,4 +1,4 @@
-/* A bot's Tools tab: rows like Settings → Skills, sized for the bot panel. Theme tokens only, so dark and light alike. */
+/* A bot's Tools & skills page: rows like Settings → Skills, sized for the bot panel. Theme tokens only, so dark and light alike. */
 .bot-tools { display: flex; flex-direction: column; gap: 12px; }
 .bot-tools__summary { margin: 0; color: var(--text); font-size: var(--control-ui-text-sm); line-height: 1.45; }
 .bot-tools__section { gap: 6px; }

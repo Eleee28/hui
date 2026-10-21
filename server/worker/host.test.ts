@@ -8,7 +8,7 @@ import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/
 import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, test } from "node:test";
+import { afterAll, test } from "vitest";
 
 const root = await mkdtemp(join(tmpdir(), "hui-worker-host-"));
 process.env["HOME"] = root;
@@ -20,14 +20,14 @@ const { WorkerHost } = await import("./host.ts");
 const { attachPeer } = await import("./protocol.ts");
 const { brokeredStore, ownLogin } = await import("./credentials.ts");
 const { GATEWAY_ONLY_TOOLS } = await import("./gateway-tools.ts");
-const { invokeAgentTool } = await import("../agent-tools-bridge.ts");
+const { invokeAgentTool } = await import("../agent-tools/bridge.ts");
 type Store = ReturnType<typeof brokeredStore>;
 type Frame = import("./protocol.ts").Frame;
-type HostInfo = import("./host.ts").HostInfo;
+type HostInfo = import("./protocol.ts").HostInfo;
 
 const host = new WorkerHost(workerPaths());
 await host.listen();
-after(async () => {
+afterAll(async () => {
   await host.close();
   await rm(root, { recursive: true, force: true });
 });
@@ -69,7 +69,7 @@ test("cached gateway credentials end at their expiry or deletion; then the remot
 
 test("the remote's own login is only opened once it exists, so no file appears outside HUI's directory", async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "hui-own-login-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }));
   const path = join(dir, ".pi", "agent", "auth.json");
   const login = ownLogin(path);
   assert.equal(await login.read("fx"), undefined);
@@ -89,6 +89,22 @@ test("folder suggestions list directories on the worker, not the gateway", async
   try {
     const { directories } = await peer.request<{ directories: string[] }>("directories", { q: "~/remote" });
     assert.deepEqual(directories, ["~/remote-project/"]);
+  } finally {
+    socket.destroy();
+  }
+});
+
+test("transcript search reads the worker's own session files", async () => {
+  const file = join(root, "remote-session.jsonl");
+  await writeFile(file, [
+    { type: "session", version: 3, id: "s", timestamp: "2026-10-01T10:00:00.000Z", cwd: root },
+    { type: "message", id: "u1", parentId: null, timestamp: "2026-10-01T10:00:00.000Z", message: { role: "user", content: [{ type: "text", text: "Ship the remote widget" }], timestamp: 1 } },
+  ].map((line) => JSON.stringify(line)).join("\n") + "\n");
+  const socket = connect(host.paths.socket);
+  const peer = attachPeer(socket, socket);
+  try {
+    const { hits } = await peer.request<{ hits: unknown[] }>("sessions.search", { sessionFiles: [file, "durable:999999"], q: "remote WIDGET" });
+    assert.deepEqual(hits, [{ sessionFile: file, snippet: "Ship the remote widget", matches: 1 }]);
   } finally {
     socket.destroy();
   }
@@ -270,7 +286,7 @@ test("a bot's tool and skill lists live in its document here: made with it, read
 test("a session's secret request is answered on the gateway, written here, and its Stop reaches the gateway", async (t) => {
   const socket = connect(host.paths.socket);
   const peer = attachPeer(socket, socket);
-  t.after(() => socket.destroy());
+  t.onTestFinished(() => { socket.destroy(); });
   const asked: Record<string, unknown>[] = [];
   let held: AbortSignal | undefined;
   let entered!: () => void;

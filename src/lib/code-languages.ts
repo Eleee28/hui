@@ -1,14 +1,14 @@
 /**
- * CodeMirror language support per `FileLanguage` (`file-languages.ts` decides which one a file gets), each loaded
- * on demand: the Files editor (`file-editor.ts`) mounts it, the Diff view (`diff-highlight.ts`) uses its parser to
+ * CodeMirror language support per `FileLanguage` (`files/languages.ts` decides which one a file gets), each loaded
+ * on demand: the Files editor (`files/editor.ts`) mounts it, the Diff view (`diff/highlight.ts`) uses its parser to
  * colour changed lines. Importing this module loads no language until one is asked for.
  *
  * The language loading follows AgentsInTheCloud's file editor (packages/files/src/client/editor-language.ts, MIT, see
- * THIRD_PARTY_NOTICES.md); it moved here from `file-editor.ts`.
+ * THIRD_PARTY_NOTICES.md); it moved here from `files/editor.ts`.
  */
 import { Language, LanguageSupport, StreamLanguage, type StreamParser } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
-import type { FileLanguage } from "./file-languages.ts";
+import type { FileLanguage } from "./files/languages.ts";
 
 const legacy = (load: () => Promise<StreamParser<unknown>>) => async (): Promise<Extension> => StreamLanguage.define(await load());
 

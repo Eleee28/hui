@@ -6,7 +6,7 @@ import { html, nothing } from "lit";
 import { live } from "lit/directives/live.js";
 import { icons } from "../lib/icons.ts";
 import { closeDropdownOnEscape, labelDropdown } from "../lib/web-awesome.ts";
-import { normalizeSidebarSessionOptions, type SidebarSessionOptions } from "../lib/sidebar-sessions.ts";
+import { normalizeSidebarSessionOptions, type SidebarSessionOptions } from "../lib/session/sidebar-sessions.ts";
 
 export function renderSidebarSessionOptions(
   options: SidebarSessionOptions,

@@ -6,7 +6,7 @@ Verified 2026-09-24 using the real HUI gateway and PI 0.73.1.
 
 1. Create a fresh `/tmp/hui-markdown-tables-*` root. Configure the isolated
    `hui-e2e/fixture` model using `chat-composer.browser.md` before launching PI.
-2. Run `node e2e/markdown-tables-fixture.mjs <ROOT> <PI_PACKAGE>/dist/core/session-manager.js`.
+2. Run `node e2e/fixtures/markdown-tables-fixture.mjs <ROOT> <PI_PACKAGE>/dist/core/session-manager.js`.
    It seeds one disposable PI conversation and an exclusive HUI registry.
 3. Start `npm run dev` with `XDG_CONFIG_HOME=<ROOT>/xdg`,
    `PI_AGENT_DIR=<ROOT>/pi-agent`, `PI_CODING_AGENT_DIR=<ROOT>/pi-agent`,
@@ -30,7 +30,7 @@ Verified 2026-09-24 using the real HUI gateway and PI 0.73.1.
 
 ## Automated checks and scope
 
-`npm test -- src/lib/markdown.test.ts`: 11 passed. Full `npm test`: 415 passed.
+`npm test -- src/lib/markdown/markdown.test.ts`: 11 passed. Full `npm test`: 415 passed.
 `npm run typecheck`, `npm run build`, and `git diff --check`: passed.
 
 Unit coverage includes escaped pipes, optional outer pipes, missing/extra cells,

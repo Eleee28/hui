@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { test, type TestContext } from "node:test";
-import { BOTS_OFF_MESSAGE, type BotView } from "../shared/bots.ts";
-import type { AutomationRun, AutomationTask } from "../src/lib/automation-types.ts";
-import type { BotIO } from "./bots.ts";
+import { test, type TestContext } from "vitest";
+import type { BotView } from "../server/bots-format.ts";
+import type { AutomationRun, AutomationTask } from "../server/automation.ts";
+import type { BotIO } from "./gateway-client.ts";
 import { HELP, parseCli } from "./main.ts";
-import { botCommand } from "./bots.ts";
-import { formatSchedules, scheduleCommand, scheduleText, taskFacts, type ScheduleSession } from "./schedules.ts";
+import { formatSchedules, scheduleCommand, taskFacts, type ScheduleSession } from "./schedules.ts";
 
 function bot(id: string, handle: string): BotView {
   return {
@@ -24,9 +23,8 @@ function task(id: string, name: string, sessionId: string, extra: Partial<Automa
 
 type Call = { method: string; path: string; body?: Record<string, unknown> };
 
-/** A stand-in gateway: the session list, the bot list (or bots off) and the Automation routes over in-memory state. */
+/** A stand-in gateway: the session list, the bot list and the Automation routes over in-memory state. */
 async function fakeGateway(t: TestContext) {
-  const state = { botsOn: true };
   const bots = [bot("id-ada", "ada"), bot("id-bob", "bob")];
   const sessions: ScheduleSession[] = [
     { id: "s-docs", title: "Docs cleanup", group: "hui" },
@@ -55,7 +53,7 @@ async function fakeGateway(t: TestContext) {
     if (request.headers["x-hui"] !== "1") return reply(403, { error: "missing x-hui header" });
     const path = url.pathname;
     if (path === "/__hui/sessions") return reply(200, { revision: 1, groups: [{ label: "hui", sessions: sessions.filter((each) => !each.bot) }, { label: "bots", sessions: sessions.filter((each) => each.bot) }] });
-    if (path === "/__hui/bots") return state.botsOn ? reply(200, { bots: url.searchParams.get("archived") === "1" ? [] : bots }) : reply(409, { error: BOTS_OFF_MESSAGE });
+    if (path === "/__hui/bots") return reply(200, { bots: url.searchParams.get("archived") === "1" ? [] : bots });
     if (path === "/__hui/automation") return reply(200, { scheduler: { enabled: true, activeRuns: 0, nextWakeAt: null }, tasks, runs });
     if (path === "/__hui/automation/tasks" && request.method === "POST") {
       const { runs: count, until, ...fields } = body as Record<string, unknown>;
@@ -82,8 +80,8 @@ async function fakeGateway(t: TestContext) {
     reply(404, { error: "not found" });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  t.after(() => { server.closeAllConnections(); return new Promise((resolve) => server.close(resolve)); });
-  return { base: `http://127.0.0.1:${(server.address() as { port: number }).port}/`, state, tasks, calls, sessions: new Map(sessions.map((each) => [each.id, each])) };
+  t.onTestFinished(() => { server.closeAllConnections(); return new Promise((resolve) => server.close(() => resolve())); });
+  return { base: `http://127.0.0.1:${(server.address() as { port: number }).port}/`, tasks, calls, sessions: new Map(sessions.map((each) => [each.id, each])) };
 }
 
 function terminal() {
@@ -137,7 +135,7 @@ test("hui schedule parses every command, accepting schedule and schedules, with 
   ] as const) assert.throws(() => parseCli([...args]), message, args.join(" "));
 });
 
-test("HELP lists every hui schedule command and says how temporary schedules and bots off work", () => {
+test("HELP lists every hui schedule command and says how temporary schedules work", () => {
   for (const line of [
     "hui schedule list [--bot <bot> | --session <session>] [--json]",
     "hui schedule show <schedule> [--json]",
@@ -148,7 +146,6 @@ test("HELP lists every hui schedule command and says how temporary schedules and
     "hui schedule pause|resume|run|remove <schedule> [--json]",
     "\"schedules\"\nworks as \"schedule\"",
     "A temporary schedule ends by\nitself",
-    "While bots are off, anything that\nnames a bot or a bot's routine prints the gateway's refusal",
   ]) assert.ok(HELP.includes(line), line);
 });
 
@@ -226,30 +223,6 @@ test("add aims one task at a bot's chat or a session with its limits; edit chang
   assert.equal((await hui(gateway.base, ["schedule", "run", "Release check"])).out, "Started Release check; it runs in session \"Docs cleanup\".\n");
   assert.deepEqual(JSON.parse((await hui(gateway.base, ["schedule", "remove", "Tea", "--json"])).out), { removed: "Tea", id: "t-new-2" });
   assert.equal(gateway.tasks.some((each) => each.name === "Tea"), false);
-});
-
-test("with bots off, a bot, a bot's chat or a bot's routine prints the gateway's refusal; list leaves routines out and sessions' schedules work", async (t) => {
-  const gateway = await fakeGateway(t);
-  gateway.state.botsOn = false;
-  for (const args of [
-    ["schedule", "list", "--bot", "ada"], ["schedule", "list", "--session", "s-ada"], ["schedule", "show", "Watch #82"], ["schedule", "pause", "Morning"],
-    ["schedule", "run", "Inbox"], ["schedule", "remove", "t-watch"], ["schedule", "edit", "Nightly review", "--bot", "ada"],
-    ["schedule", "add", "--name", "x", "--prompt", "y", "--every", "5m", "--bot", "ada"], ["schedule", "add", "--name", "x", "--prompt", "y", "--every", "5m", "--session", "Ada"],
-  ]) {
-    await assert.rejects(hui(gateway.base, args), (error: unknown) => {
-      assert.deepEqual([(error as Error).name, (error as Error).message, (error as { status?: number }).status], ["GatewayError", BOTS_OFF_MESSAGE, 409], args.join(" "));
-      return true;
-    });
-  }
-  assert.equal(gateway.calls.filter((call) => call.method !== "GET").length, 0, "nothing reached a bot's routine");
-  assert.equal((await hui(gateway.base, ["schedule", "list"])).out, "Nightly review  cron 0 2 * * * (UTC)  paused  session \"Docs cleanup\"  t-nightly\n");
-  assert.deepEqual((JSON.parse((await hui(gateway.base, ["schedule", "list", "--json"])).out) as AutomationTask[]).map((each) => each.id), ["t-nightly"]);
-  await hui(gateway.base, ["schedule", "resume", "Nightly review"]);
-  await hui(gateway.base, ["schedule", "edit", "Nightly review", "--every", "1h"]);
-  await hui(gateway.base, ["schedule", "add", "--name", "Docs", "--prompt", "Tidy.", "--every", "1d", "--session", "Docs cleanup"]);
-  assert.deepEqual(gateway.tasks.filter((each) => each.sessionId === "s-docs").map((each) => [each.name, each.enabled, scheduleText(each.schedule)]), [["Nightly review", true, "every 1h"], ["Docs", true, "every 1d"]]);
-  // hui bot routine runs on the same code, and stops at the same refusal.
-  await assert.rejects(botCommand(gateway.base, "routine list", ["ada"], {}, terminal().io), (error: unknown) => (error as Error).message === BOTS_OFF_MESSAGE);
 });
 
 test("the facts a schedule shows: who made it, until when and how many runs it has left", () => {

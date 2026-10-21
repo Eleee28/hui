@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, test } from "node:test";
+import { afterAll, test } from "vitest";
 
 const root = await mkdtemp(join(tmpdir(), "hui-cli-state-"));
 process.env["XDG_CONFIG_HOME"] = root;
 process.env["XDG_DATA_HOME"] = join(root, "data");
-after(() => rm(root, { recursive: true, force: true }));
+afterAll(() => rm(root, { recursive: true, force: true }));
 const { withLifecycleLock, atomicJson, GATEWAY_DIR, STATE_FILE, readState } = await import("./state.ts");
 const { gatewayStatus, stopGateway } = await import("./gateway.ts");
 const { readPointer, updateDirectory, releaseRoot, assertUpdatable } = await import("./installation.ts");

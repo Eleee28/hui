@@ -7,9 +7,9 @@ import { property, state } from "lit/decorators.js";
 import { live } from "lit/directives/live.js";
 import { configureAnchoredPopup } from "../lib/anchored-overlay.ts";
 import { icons } from "../lib/icons.ts";
-import { pickerRows } from "../lib/picker-options.ts";
+import { pickerRows, type PickerOption } from "../lib/picker-options.ts";
 
-import type { PickerOption, PickerParams } from "../views/settings-picker.ts";
+import type { PickerParams } from "../views/settings-picker.ts";
 
 let pickerCount = 0;
 

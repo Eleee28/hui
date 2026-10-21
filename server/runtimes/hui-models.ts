@@ -3,7 +3,7 @@ import { readFile, mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
-import { credentialStore, type CredentialStore, ProviderAccounts } from "../provider-accounts.ts";
+import { credentialStore, type CredentialStore, ProviderAccounts } from "../pi/provider-accounts.ts";
 import { accountRouting } from "./provider-account-routing.ts";
 import { CONFIG_DIR } from "../paths.ts";
 

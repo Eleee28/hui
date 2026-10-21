@@ -4,7 +4,7 @@ import { once } from "node:events";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test } from "vitest";
 import { updateDirectory } from "./installation.ts";
 import { atomicJson } from "./state.ts";
 import { readUpdateJob, updateJobFile } from "./update-job.ts";
@@ -13,7 +13,7 @@ test("restart receipts distinguish completed updates from dead workers and inval
   const directory = await mkdtemp(join(tmpdir(), "hui-update-receipt-"));
   const previous = process.env["XDG_DATA_HOME"];
   process.env["XDG_DATA_HOME"] = directory;
-  t.after(async () => {
+  t.onTestFinished(async () => {
     if (previous === undefined) delete process.env["XDG_DATA_HOME"]; else process.env["XDG_DATA_HOME"] = previous;
     await rm(directory, { recursive: true, force: true });
   });

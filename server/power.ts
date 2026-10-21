@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 
-import type { PowerState, PowerStatus } from "../shared/power.ts";
+import type { PowerState, PowerStatus } from "./api/power.ts";
 import { CONFIG_DIR } from "./paths.ts";
 
 const execFileAsync = promisify(execFile);

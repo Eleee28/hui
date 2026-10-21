@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { test } from "node:test";
+import { test } from "vitest";
 
 const json = async (file) => JSON.parse(await readFile(new URL(`../${file}`, import.meta.url), "utf8"));
 

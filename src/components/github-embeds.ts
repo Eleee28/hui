@@ -4,18 +4,15 @@
  * come from the gateway's `gh` login and stay absent until it answers.
  */
 import { LitElement, html, nothing, svg, type TemplateResult } from "lit";
-import {
-  githubRefKey,
-  githubRefsInText,
-  type GitHubPreview,
-  type GitHubPreviewResult,
-  type GitHubRef,
-} from "../../shared/github-links.ts";
-import { pullRequestStateLabel } from "../../shared/pull-requests.ts";
-import { compactCount, loadGitHubPreviews, previewErrorLabel } from "../lib/github-previews.ts";
+import { githubRefKey, githubRefsInText } from "../lib/markdown/github-links.ts";
+import type { GitHubPreview, GitHubPreviewResult } from "../api/schema/github.ts";
+import type { GitHubRef } from "../lib/markdown/github-links.ts";
+import { pullRequestStateLabel } from "../lib/pull-requests.ts";
+import { compactCount, previewErrorLabel } from "../lib/github-previews.ts";
+import { loadGitHubPreviews, settledGitHubPreview } from "../lib/github-previews-store.ts";
 import { pullRequestStateIcon, renderPullRequestCard } from "./pull-request-hovercard.ts";
 import { BadgeHovercardController } from "./badge-hovercard.ts";
-import type { SessionPullRequest } from "../../shared/pull-requests.ts";
+import type { SessionPullRequest } from "../api/schema/github.ts";
 import { icons } from "./openclaw/icons.ts";
 
 /** Octicons mark-github (MIT). */
@@ -98,7 +95,8 @@ function accessibleName(ref: GitHubRef, result: GitHubPreviewResult | undefined)
   return `Issue ${preview.repository}#${preview.number}, ${issueState(preview).label.toLowerCase()}: ${preview.title}`;
 }
 
-const SETTLE_MS = 800;
+/** How long a message's text must stay unchanged before it unfurls; Datadog cards (`datadog-embeds.ts`) share it. */
+export const SETTLE_MS = 800;
 const PULL_EMBED_SELECTOR = "a.github-embed[data-kind=\"pull\"]";
 
 type PullEmbedAnchor = HTMLAnchorElement & { githubPreview?: GitHubPreview };
@@ -161,8 +159,11 @@ export class HuiGitHubEmbeds extends LitElement {
     // A streaming message grows a URL character by character; unfurl only once the
     // text has been stable briefly so partial links are never looked up or shown.
     if (this.#settle) clearTimeout(this.#settle);
-    const first = this.#requested === "" && this.#refs.length === 0;
-    this.#settle = setTimeout(() => { this.#settle = undefined; this.#unfurl(); }, first ? 0 : SETTLE_MS);
+    this.#settle = undefined;
+    // A message's first render shows its cards at once, already filled in when they were seen before, so a
+    // transcript that renders again does not grow card by card under the reader.
+    if (this.#requested === "" && this.#refs.length === 0) this.#unfurl();
+    else this.#settle = setTimeout(() => { this.#settle = undefined; this.#unfurl(); }, SETTLE_MS);
   }
 
   #unfurl() {
@@ -171,6 +172,10 @@ export class HuiGitHubEmbeds extends LitElement {
     if (signature === this.#requested) return;
     this.#requested = signature;
     this.#refs = refs;
+    for (const ref of refs) {
+      const known = settledGitHubPreview(ref);
+      if (known && !this.#results.has(githubRefKey(ref))) this.#results.set(githubRefKey(ref), known);
+    }
     this.requestUpdate();
     if (!refs.length) return;
     void loadGitHubPreviews(refs).then((results) => {

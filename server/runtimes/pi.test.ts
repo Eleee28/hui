@@ -5,7 +5,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { after, test } from "node:test";
+import { afterAll, test } from "vitest";
 
 import type { RuntimeEvent } from "./types.ts";
 
@@ -14,7 +14,7 @@ const root = await mkdtemp(join(tmpdir(), "hui-pi-home-"));
 process.env["HOME"] = root;
 process.env["XDG_CONFIG_HOME"] = join(root, "config");
 process.env["PI_CODING_AGENT_DIR"] = join(root, "agent");
-after(() => rm(root, { recursive: true, force: true }));
+afterAll(() => rm(root, { recursive: true, force: true }));
 const { branchHistory, imageFromMessages, PiSession, runtimeCommands, runtimeUsage, toRuntimeEvent, transcriptFrom } = await import("./pi.ts");
 type PiSession = import("./pi.ts").PiSession;
 
@@ -107,7 +107,7 @@ test("the shown history is the whole active branch with compactions in place and
 
 test("PI catalogs apply models.json to RPC results and preserve namespaced switch IDs", async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "hui-pi-catalog-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }));
   await writeFile(join(dir, "models.json"), JSON.stringify({ providers: {
     gateway: { models: [{ id: "anthropic/opus" }] },
   } }));
@@ -121,7 +121,7 @@ test("PI catalogs apply models.json to RPC results and preserve namespaced switc
     ] } : undefined);
   });
   const session = new PiSession(child as unknown as ChildProcessWithoutNullStreams, dir);
-  t.after(() => session.dispose());
+  t.onTestFinished(() => session.dispose());
   assert.deepEqual(await session.listModels(), [{ provider: "gateway", id: "anthropic/opus", name: "Opus" }]);
   await session.setModel("gateway", "anthropic/opus");
   assert.equal(commands.at(-1)?.["modelId"], "anthropic/opus");
@@ -158,7 +158,7 @@ test("PI commands preserve invocation names and precedence, exposing only presen
     respond(active, command, { commands: raw });
   });
   const session = new PiSession(child as unknown as ChildProcessWithoutNullStreams);
-  t.after(() => session.dispose());
+  t.onTestFinished(() => session.dispose());
   assert.deepEqual(await session.listCommands(), commands);
 });
 
@@ -181,7 +181,7 @@ test("PI clear opens a fresh native session and refreshes its identity and trans
     }
   });
   const session = new PiSession(child as unknown as ChildProcessWithoutNullStreams);
-  t.after(() => session.dispose());
+  t.onTestFinished(() => session.dispose());
 
   await session.clear();
 
@@ -200,7 +200,7 @@ test("disabled HUI skills are omitted from PI's live command catalog", async (t)
     { name: "review", source: "extension", description: "Extension command" },
   ] }));
   const session = new PiSession(child as unknown as ChildProcessWithoutNullStreams, undefined, ["review"]);
-  t.after(() => session.dispose());
+  t.onTestFinished(() => session.dispose());
   assert.deepEqual(await session.listCommands(), [
     { name: "skill:testing", source: "skill", description: "Test" },
     { name: "review", source: "extension", description: "Extension command" },
@@ -210,11 +210,11 @@ test("disabled HUI skills are omitted from PI's live command catalog", async (t)
 test("command discovery reports malformed and failed RPC replies instead of an empty success", async (t) => {
   const child = childWith((command, active) => respond(active, command, {}));
   const session = new PiSession(child as unknown as ChildProcessWithoutNullStreams);
-  t.after(() => session.dispose());
+  t.onTestFinished(() => session.dispose());
   await assert.rejects(() => session.listCommands(), /invalid command catalog/);
   const failed = childWith((command, active) => active.stdout.write(`${JSON.stringify({ type: "response", id: command["id"], success: false, error: "catalog failed" })}\n`));
   const failedSession = new PiSession(failed as unknown as ChildProcessWithoutNullStreams);
-  t.after(() => failedSession.dispose());
+  t.onTestFinished(() => failedSession.dispose());
   await assert.rejects(() => failedSession.listCommands(), /catalog failed/);
 });
 
@@ -225,7 +225,7 @@ test("an unexpected exit reports its exit code or signal", async (t) => {
   ] as const) {
     const child = childWith(() => {});
     const session = new PiSession(child as unknown as ChildProcessWithoutNullStreams);
-    t.after(() => session.dispose());
+    t.onTestFinished(() => session.dispose());
     const error = nextEvent(session, "error");
     child.stderr.end();
     child.emit("exit", code, signal);
@@ -236,7 +236,7 @@ test("an unexpected exit reports its exit code or signal", async (t) => {
 test("a crash keeps the informative end of stderr, even when it arrives after the exit", async (t) => {
   const child = childWith(() => {});
   const session = new PiSession(child as unknown as ChildProcessWithoutNullStreams);
-  t.after(() => session.dispose());
+  t.onTestFinished(() => session.dispose());
   const error = nextEvent(session, "error");
   // Node may report the exit before the last stderr chunk has been read.
   child.emit("exit", 1, null);
@@ -252,7 +252,7 @@ test("a crash keeps the informative end of stderr, even when it arrives after th
 test("an exit does not wait on a stderr pipe that a grandchild keeps open", async (t) => {
   const child = childWith(() => {});
   const session = new PiSession(child as unknown as ChildProcessWithoutNullStreams);
-  t.after(() => session.dispose());
+  t.onTestFinished(() => session.dispose());
   const error = nextEvent(session, "error");
   child.stderr.write("worker still logging\n");
   child.emit("exit", null, "SIGKILL");
@@ -262,7 +262,7 @@ test("an exit does not wait on a stderr pipe that a grandchild keeps open", asyn
 test("the stderr tail is bounded and skips a line repeating the reported message", async (t) => {
   const child = childWith(() => {});
   const session = new PiSession(child as unknown as ChildProcessWithoutNullStreams);
-  t.after(() => session.dispose());
+  t.onTestFinished(() => session.dispose());
   child.stderr.write(`first line\n${"x".repeat(9_000)}\n`);
   child.stderr.write("No API key found for hui-e2e\n");
   await new Promise((resolve) => setImmediate(resolve));
@@ -279,7 +279,7 @@ test("a command with no agent turn settles and unlocks the next prompt", async (
       : command["type"] === "get_entries" ? branch([]) : undefined);
   });
   const session = new PiSession(child as unknown as ChildProcessWithoutNullStreams);
-  t.after(() => session.dispose());
+  t.onTestFinished(() => session.dispose());
   const events: RuntimeEvent[] = [];
   session.subscribe((event) => events.push(event));
   await session.prompt("/review");
@@ -293,7 +293,7 @@ test("a skill or extension that starts an agent turn is not settled by its promp
   const child = childWith((command, active) => respond(active, command,
     command["type"] === "get_state" ? { isStreaming: true } : undefined));
   const session = new PiSession(child as unknown as ChildProcessWithoutNullStreams);
-  t.after(() => session.dispose());
+  t.onTestFinished(() => session.dispose());
   const events: RuntimeEvent[] = [];
   session.subscribe((event) => events.push(event));
   await session.prompt("/skill:testing");
@@ -794,7 +794,7 @@ test("dollar references reach PI's exact invocation and extension actions settle
       : command["type"] === "get_entries" ? branch([]) : undefined);
   });
   const session = new PiSession(child as unknown as ChildProcessWithoutNullStreams);
-  t.after(() => session.dispose());
+  t.onTestFinished(() => session.dispose());
   await session.prompt("$check-status argument");
   assert.equal(sent.find((command) => command["type"] === "prompt")?.["message"], "/check-status argument");
   assert.equal(session.isStreaming, false);
@@ -805,7 +805,7 @@ test("dollar references reach PI's exact invocation and extension actions settle
   assert.equal(sent.find((command) => command["type"] === "follow_up")?.["message"], "/skill:review later");
 });
 
-test("disabled skills cannot resolve dollar references", async (t) => {
+test("a disabled skill's dollar reference reaches PI as its /skill command, which the skill policy refuses", async (t) => {
   let message: unknown;
   const child = childWith((command, active) => {
     if (command["type"] === "prompt") message = command["message"];
@@ -813,9 +813,11 @@ test("disabled skills cannot resolve dollar references", async (t) => {
       ? { commands: [{ name: "skill:review", source: "skill" }] } : undefined);
   });
   const session = new PiSession(child as unknown as ChildProcessWithoutNullStreams, undefined, ["review"]);
-  t.after(() => session.dispose());
+  t.onTestFinished(() => session.dispose());
   await session.prompt("$review args");
-  assert.equal(message, "$review args");
+  assert.equal(message, "/skill:review args");
+  await session.prompt("$skill:review args");
+  assert.equal(message, "/skill:review args", "the qualified $skill:name form too");
 });
 
 

@@ -5,17 +5,35 @@
  * each cell by what needs the operator first. Options are browser reading
  * preferences, like the sidebar's.
  */
-import type { BacklogItem } from "../../shared/backlog.ts";
-import type { SessionPullRequest } from "../../shared/pull-requests.ts";
-import {
-  DEFAULT_SESSION_STAGE,
-  isSessionStage,
-  KANBAN_COLUMNS,
-  SESSION_STAGES,
-  type KanbanColumn,
-  type SessionStage,
-} from "../../shared/session-stages.ts";
-import { sessionGroupLabel, type SessionGroup, type SessionView } from "./sessions-store.ts";
+import type { BacklogItem } from "../api/schema/backlog.ts";
+import type { SessionPullRequest } from "../api/schema/github.ts";
+import type { SessionStage } from "../api/schema/sessions.ts";
+import type { SessionGroup, SessionView } from "../api/sessions.ts";
+import { sessionGroupLabel } from "./session/sessions.ts";
+
+/** Board columns, left to right. */
+export const KANBAN_COLUMNS = ["backlog", "investigation", "implementation", "testing", "done"] as const;
+export type KanbanColumn = (typeof KANBAN_COLUMNS)[number];
+/** Stages a session can be in: every column except Backlog. */
+export const SESSION_STAGES = ["investigation", "implementation", "testing", "done"] as const;
+/** Where a session without a stage (or a legacy `backlog` from older gateways) sits. */
+export const DEFAULT_SESSION_STAGE: SessionStage = "investigation";
+
+export const SESSION_STAGE_LABELS: Readonly<Record<KanbanColumn, string>> = {
+  backlog: "Backlog",
+  investigation: "Investigation",
+  implementation: "Implementation",
+  testing: "Testing",
+  done: "Done",
+};
+
+export function isSessionStage(value: unknown): value is SessionStage {
+  return typeof value === "string" && (SESSION_STAGES as readonly string[]).includes(value);
+}
+
+export function stageRank(stage: SessionStage): number {
+  return SESSION_STAGES.indexOf(stage);
+}
 
 /** Top to bottom inside a cell: what needs attention first. */
 export const KANBAN_STATUSES = ["error", "waiting", "done", "working", "idle"] as const;
@@ -110,7 +128,7 @@ export type KanbanLane = {
 
 /** A session's column. Sessions never sit in Backlog: no stage, or a legacy
  * `backlog` from an older gateway, means Investigation. */
-export function sessionStage(session: Pick<SessionView, "stage">): SessionStage {
+export function sessionStage(session: Partial<Pick<SessionView, "stage">>): SessionStage {
   return isSessionStage(session.stage) ? session.stage : DEFAULT_SESSION_STAGE;
 }
 

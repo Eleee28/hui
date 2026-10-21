@@ -8,7 +8,7 @@
 <p align="center">
   <a href="https://github.com/DaniFdz/hui/releases/latest"><img src="https://img.shields.io/github/v/release/DaniFdz/hui?style=flat-square&label=release" alt="Latest release"></a>
   <a href="https://github.com/DaniFdz/hui/actions/workflows/nix.yml"><img src="https://img.shields.io/github/actions/workflow/status/DaniFdz/hui/nix.yml?branch=main&style=flat-square&label=ci" alt="CI status"></a>
-  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%E2%89%A522.19-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js 22.19 or newer"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%E2%89%A524-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js 24 or newer"></a>
   <a href="https://pi.dev"><img src="https://img.shields.io/badge/runtime-PI-8b5cf6?style=flat-square" alt="Runtime: PI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License: MIT"></a>
 </p>
@@ -36,11 +36,55 @@ PI transcripts into its own storage.
 <tr><td><b>Safe updates</b></td><td>Transactional local updates with verification and rollback support.</td></tr>
 </table>
 
+## See it in action
+
+### Kanban
+
+Every session is a card in the stage its work is in, agents move their own cards, and a backlog item starts in its own worktree.
+
+https://github.com/user-attachments/assets/f8591a87-ea6a-4107-8bfc-f4f5e2bed13f
+
+### Rich results in the chat
+
+Interactive widgets, a browser the agent drives with a live preview, and GitHub, Slack and Datadog links that unfurl.
+
+https://github.com/user-attachments/assets/a4e1ddfb-b8b8-47b9-8312-ecc37fd5952c
+
+### Work pane
+
+A terminal you share with the agent, and the Diff, Files and VS Code views of what it changed, beside the chat.
+
+https://github.com/user-attachments/assets/804bb631-9b12-4a8a-bf9c-f6c8eec8747c
+
+### Subagents and watchers
+
+Parallel reviewers tracked on one card, and a watcher that waits for CI and merges.
+
+https://github.com/user-attachments/assets/f20a20f1-b34e-4654-8e97-6d757e0d4a94
+
+### Bots
+
+Long-lived agents with a face, one chat, a memory and routines they schedule themselves.
+
+https://github.com/user-attachments/assets/e7bb9bc2-a1f4-4c40-a57b-3c0c6a43d3ea
+
+### Bots working together
+
+Agents hand bots their pull requests and get questions back, triggers wake a bot when a page comes in, and bots tag each other.
+
+https://github.com/user-attachments/assets/fd8bdd23-7932-4b18-b92f-88067b177b6a
+
+### On your phone
+
+Open the gateway over Tailscale and check in on your agents, or the board, from anywhere.
+
+https://github.com/user-attachments/assets/105d3a04-aeca-449e-a575-cd95eb36bbce
+
 ## Install
 
 Requirements:
 
-- Node.js **22.19 or newer** and npm.
+- Node.js **24 or newer** and npm.
 - Git for source checkouts.
 - Optional: Google Chrome, Brave, Microsoft Edge or Chromium for the agent
   browser tool. HUI launches it with its own profile; nothing is downloaded.
@@ -136,15 +180,13 @@ hui schedule edit <schedule> [same flags as add] [--json]   # --bot/--session mo
 hui schedule pause|resume|run|remove <schedule> [--json]
 ```
 
-Bots are a **preview**, off until you turn them on in Settings → Labs → **Bots**,
-their one switch (the sidebar then gets its Agents | Bots switch). While they are
-off nothing of them shows or runs, `hui bot` prints the gateway's refusal, and
-nothing is deleted. They are named agents with one forever chat each, whose memory never needs
-clearing. A new bot starts by asking what you expect from it, then writes its
-persona (SOUL.md) itself; they can run routines, schedule their own (temporary
-ones end by themselves) and message one another. Everything the Bots tab
-does works from a terminal too, through the running gateway (`hui bots` is the
-same command). `<bot>` is an id, a handle or an exact name:
+Bots are named agents with one forever chat each, whose memory never needs
+clearing. The sidebar's Agents | Bots switch shows them. A new bot starts by
+asking what you expect from it, then writes its persona (SOUL.md) itself; they
+can run routines, schedule their own (temporary ones end by themselves) and
+message one another. Everything the Bots tab does works from a terminal too,
+through the running gateway (`hui bots` is the same command). `<bot>` is an id,
+a handle or an exact name:
 
 ```sh
 hui bot list [--archived] [--json]

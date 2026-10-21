@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { renderSnapshot, SnapshotRefs, SNAPSHOT_MAX_CHARS, clampSnapshotChars, type AxNode } from "./snapshot.ts";
 
 let nextId = 0;

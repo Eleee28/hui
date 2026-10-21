@@ -6,7 +6,7 @@ import { updateRelease } from "./update.ts";
 import { updateJobFile } from "./update-job.ts";
 import { updateDirectory, type Installation } from "./installation.ts";
 import { atomicJson, withLifecycleLock } from "./state.ts";
-import type { UpdateJob } from "../src/lib/update-types.ts";
+import type { UpdateJob } from "./releases.ts";
 
 const installation = JSON.parse(process.argv[2]!) as Installation;
 const job: UpdateJob = { id: process.argv[3]!, version: process.argv[4]!, pid: process.pid, status: "running", message: "Downloading and verifying the release…" };

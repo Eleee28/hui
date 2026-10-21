@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { bytes, capText, cutUtf8, flatten, localDateTime, localDay } from "./text.ts";
 
 test("cutUtf8 never splits a character at the byte limit", () => {

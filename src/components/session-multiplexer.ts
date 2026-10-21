@@ -7,11 +7,11 @@ import { html, nothing, render, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { HuiElement } from "../lit/hui-element.ts";
-import { SessionViewCache } from "../lib/session-view-cache.ts";
-import { HUI_PANE_DRAG_TYPE, HUI_SESSION_DRAG_TYPE, readSessionDragId } from "../lib/session-pane-layout.ts";
-import { SESSION_SPLIT_MEDIA, sessionDropRect, sessionDropZone, sessionPanes, sessionPaneMoveTarget, spotTabs, visibleSessionPanes, type DropZone, type PaneRect, type SessionLayout, type SessionPane, type SplitDirection } from "../lib/session-multiplexer.ts";
+import { SessionViewCache } from "../lib/session/view-cache.ts";
+import { HUI_PANE_DRAG_TYPE, HUI_SESSION_DRAG_TYPE, readSessionDragId } from "../lib/session/pane-layout.ts";
+import { SESSION_SPLIT_MEDIA, sessionDropRect, sessionDropZone, sessionPanes, sessionPaneMoveTarget, spotTabs, visibleSessionPanes, type DropZone, type PaneRect, type SessionLayout, type SessionPane, type SplitDirection } from "../lib/session/multiplexer.ts";
 import { icons } from "../lib/icons.ts";
-import { PANE_COLUMN_MIN_WIDTH, sessionPaneGeometry } from "../lib/session-pane-geometry.ts";
+import { PANE_COLUMN_MIN_WIDTH, sessionPaneGeometry } from "../lib/session/pane-geometry.ts";
 import "./resizable-divider.ts";
 
 export type PanePresentation = { active: boolean; visible: boolean; narrow: boolean; split: boolean };

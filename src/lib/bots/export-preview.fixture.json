@@ -1,0 +1,587 @@
+{
+  "changeGroups": [
+    {
+      "input": "profile",
+      "expected": [
+        "keep",
+        "remove"
+      ]
+    },
+    {
+      "input": "SOUL.md",
+      "expected": [
+        "keep",
+        "remove",
+        "ask",
+        "confirm"
+      ]
+    },
+    {
+      "input": "routines/0",
+      "expected": [
+        "keep",
+        "remove",
+        "ask",
+        "confirm"
+      ]
+    }
+  ],
+  "additions": [
+    {
+      "input": {
+        "quote": "abc",
+        "group": "remove"
+      },
+      "expected": "Copy a passage of four characters or more."
+    },
+    {
+      "input": {
+        "quote": "Monday",
+        "group": "confirm"
+      },
+      "expected": {
+        "id": "a9",
+        "part": "SOUL.md",
+        "quote": "Monday",
+        "group": "confirm",
+        "reason": "Added by you.",
+        "replacement": "",
+        "label": "your own value",
+        "question": ""
+      }
+    },
+    {
+      "input": {
+        "quote": "nowhere to be found",
+        "group": "ask"
+      },
+      "expected": "It isn't in the bot's text as the review read it: copy it from text no change touches."
+    },
+    {
+      "input": {
+        "quote": "Pat's helper",
+        "group": "ask"
+      },
+      "expected": "Only the bot's name or title holds it, and those can only be removed."
+    },
+    {
+      "input": {
+        "quote": "Pat Doe",
+        "group": "remove"
+      },
+      "expected": "It is a change already: pick its group above."
+    },
+    {
+      "input": {
+        "quote": "Use the  staging",
+        "group": "remove",
+        "becomes": "  Use   one  "
+      },
+      "expected": {
+        "id": "a9",
+        "part": "SOUL.md",
+        "quote": "Use the staging",
+        "group": "remove",
+        "reason": "Added by you.",
+        "replacement": "Use one",
+        "label": "Use one",
+        "question": ""
+      }
+    }
+  ],
+  "picksWithoutAddition": [
+    {
+      "input": {
+        "picks": {
+          "c1": "keep",
+          "a1": "remove",
+          "a2": "ask",
+          "a3": "confirm"
+        },
+        "index": 1
+      },
+      "expected": {
+        "c1": "keep",
+        "a1": "remove",
+        "a2": "confirm"
+      }
+    }
+  ],
+  "builds": [
+    {
+      "input": {
+        "picks": {},
+        "additions": []
+      },
+      "expected": {
+        "name": "Ada for",
+        "fileName": "ada-for.hui-bot.zip",
+        "files": [
+          {
+            "path": "bot.json",
+            "text": "{\n  \"format\": \"hui-bot\",\n  \"version\": 2,\n  \"bot\": {\n    \"name\": \"Ada for\",\n    \"title\": \"Pat's helper\",\n    \"description\": \"Helps at.\",\n    \"avatar\": {\n      \"emoji\": \"🤖\",\n      \"shape\": \"round\",\n      \"color\": \"#336699\"\n    },\n    \"model\": \"claude\",\n    \"thinking\": \"high\",\n    \"tagging\": \"mention\"\n  },\n  \"routines\": [\n    {\n      \"name\": \"Digest for \",\n      \"prompt\": \"Summarize [ask: your company] news.\",\n      \"schedule\": {\n        \"kind\": \"every\",\n        \"everyMs\": 3600000\n      }\n    }\n  ],\n  \"triggers\": [\n    {\n      \"name\": \"Reviews\",\n      \"filter\": {\n        \"prLinks\": true,\n        \"match\": {\n          \"field\": \"fields.channel\",\n          \"op\": \"equals\",\n          \"value\": \"C0ACME\"\n        }\n      },\n      \"prompt\": \"Review it for [ask: your company].\",\n      \"cooldownSeconds\": 300,\n      \"delivery\": \"steer\"\n    }\n  ],\n  \"disabledTools\": [\n    \"bash\"\n  ],\n  \"disabledSkills\": [],\n  \"skills\": [\n    \"review\"\n  ],\n  \"open\": [\n    {\n      \"kind\": \"ask\",\n      \"where\": \"SOUL.md\",\n      \"question\": \"Where do you work?\"\n    },\n    {\n      \"kind\": \"confirm\",\n      \"where\": \"SOUL.md\",\n      \"question\": \"Keep this as it is: “prod-eu-1”?\",\n      \"excerpt\": \"prod-eu-1\"\n    },\n    {\n      \"kind\": \"confirm\",\n      \"where\": \"Skill review: run.sh\",\n      \"question\": \"Run this script?\"\n    }\n  ],\n  \"needs\": [\n    \"A GitHub token for [ask: your company].\",\n    \"Slack access.\"\n  ]\n}\n"
+          },
+          {
+            "path": "SOUL.md",
+            "text": "# Ada\n\nYou help at [ask: your company].\n\n- Call every Monday.\n- Use the staging cluster (prod-eu-1).\nNever share secrets, and keep it short.\n"
+          },
+          {
+            "path": "skills/review/SKILL.md",
+            "text": "Review PRs for [ask: your company] in repo acme/web.\n"
+          },
+          {
+            "path": "skills/review/run.sh",
+            "text": "echo acme\n"
+          }
+        ],
+        "open": [
+          {
+            "kind": "ask",
+            "where": "SOUL.md",
+            "question": "Where do you work?"
+          },
+          {
+            "kind": "confirm",
+            "where": "SOUL.md",
+            "question": "Keep this as it is: “prod-eu-1”?",
+            "excerpt": "prod-eu-1"
+          },
+          {
+            "kind": "confirm",
+            "where": "Skill review: run.sh",
+            "question": "Run this script?"
+          }
+        ],
+        "outcomes": {
+          "c1": {
+            "replacement": ""
+          },
+          "c2": {
+            "replacement": "[ask: your company]",
+            "question": "Where do you work?"
+          },
+          "c3": {
+            "question": "Keep this as it is: “prod-eu-1”?"
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "picks": {
+          "c1": "keep",
+          "c2": "remove",
+          "c3": "remove",
+          "f1": "remove",
+          "n1": "remove"
+        },
+        "additions": []
+      },
+      "expected": {
+        "name": "Ada for Pat Doe",
+        "fileName": "ada-for-pat-doe.hui-bot.zip",
+        "files": [
+          {
+            "path": "bot.json",
+            "text": "{\n  \"format\": \"hui-bot\",\n  \"version\": 2,\n  \"bot\": {\n    \"name\": \"Ada for Pat Doe\",\n    \"title\": \"Pat's helper\",\n    \"description\": \"Helps Pat Doe at your company.\",\n    \"avatar\": {\n      \"emoji\": \"🤖\",\n      \"shape\": \"round\",\n      \"color\": \"#336699\"\n    },\n    \"model\": \"claude\",\n    \"thinking\": \"high\",\n    \"tagging\": \"mention\"\n  },\n  \"routines\": [\n    {\n      \"name\": \"Digest for Pat Doe\",\n      \"prompt\": \"Summarize your company news.\",\n      \"schedule\": {\n        \"kind\": \"every\",\n        \"everyMs\": 3600000\n      }\n    }\n  ],\n  \"triggers\": [\n    {\n      \"name\": \"Reviews\",\n      \"filter\": {\n        \"prLinks\": true,\n        \"match\": {\n          \"field\": \"fields.channel\",\n          \"op\": \"equals\",\n          \"value\": \"C0ACME\"\n        }\n      },\n      \"prompt\": \"Review it for your company.\",\n      \"cooldownSeconds\": 300,\n      \"delivery\": \"steer\"\n    }\n  ],\n  \"disabledTools\": [\n    \"bash\"\n  ],\n  \"disabledSkills\": [],\n  \"skills\": [\n    \"review\"\n  ],\n  \"open\": [],\n  \"needs\": [\n    \"Slack access.\"\n  ]\n}\n"
+          },
+          {
+            "path": "SOUL.md",
+            "text": "# Ada\n\nYou help Pat Doe at your company.\n\n- Call Pat Doe every Monday.\n- Use the staging cluster.\nNever share secrets, and keep it short.\n"
+          },
+          {
+            "path": "skills/review/SKILL.md",
+            "text": "Review PRs for your company in repo acme/web.\n"
+          }
+        ],
+        "open": [],
+        "outcomes": {
+          "c2": {
+            "replacement": "your company"
+          },
+          "c3": {
+            "replacement": ""
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "picks": {
+          "c2": "confirm",
+          "c4": "ask",
+          "f1": "keep",
+          "a1": "ask"
+        },
+        "additions": [
+          {
+            "quote": "Monday",
+            "group": "ask",
+            "becomes": "a weekday"
+          },
+          {
+            "quote": "keep it   short",
+            "group": "remove"
+          }
+        ]
+      },
+      "expected": {
+        "name": "Ada for",
+        "fileName": "ada-for.hui-bot.zip",
+        "files": [
+          {
+            "path": "bot.json",
+            "text": "{\n  \"format\": \"hui-bot\",\n  \"version\": 2,\n  \"bot\": {\n    \"name\": \"Ada for\",\n    \"title\": \"Pat's helper\",\n    \"description\": \"Helps at Acme.\",\n    \"avatar\": {\n      \"emoji\": \"🤖\",\n      \"shape\": \"round\",\n      \"color\": \"#336699\"\n    },\n    \"model\": \"claude\",\n    \"thinking\": \"high\",\n    \"tagging\": \"mention\"\n  },\n  \"routines\": [\n    {\n      \"name\": \"Digest for \",\n      \"prompt\": \"Summarize Acme news.\",\n      \"schedule\": {\n        \"kind\": \"every\",\n        \"everyMs\": 3600000\n      }\n    }\n  ],\n  \"triggers\": [\n    {\n      \"name\": \"Reviews\",\n      \"filter\": {\n        \"prLinks\": true,\n        \"match\": {\n          \"field\": \"fields.channel\",\n          \"op\": \"equals\",\n          \"value\": \"C0ACME\"\n        }\n      },\n      \"prompt\": \"Review it for Acme.\",\n      \"cooldownSeconds\": 300,\n      \"delivery\": \"steer\"\n    }\n  ],\n  \"disabledTools\": [\n    \"bash\"\n  ],\n  \"disabledSkills\": [],\n  \"skills\": [\n    \"review\"\n  ],\n  \"open\": [\n    {\n      \"kind\": \"confirm\",\n      \"where\": \"SOUL.md\",\n      \"question\": \"Keep this as it is: “Acme”?\",\n      \"excerpt\": \"Acme\"\n    },\n    {\n      \"kind\": \"confirm\",\n      \"where\": \"SOUL.md\",\n      \"question\": \"Keep this as it is: “prod-eu-1”?\",\n      \"excerpt\": \"prod-eu-1\"\n    },\n    {\n      \"kind\": \"ask\",\n      \"where\": \"SOUL.md\",\n      \"question\": \"What should stand for [ask: rule]?\"\n    },\n    {\n      \"kind\": \"ask\",\n      \"where\": \"SOUL.md\",\n      \"question\": \"What should stand for [ask: a weekday]?\"\n    }\n  ],\n  \"needs\": [\n    \"A GitHub token for Acme.\",\n    \"Slack access.\"\n  ]\n}\n"
+          },
+          {
+            "path": "SOUL.md",
+            "text": "# Ada\n\nYou help at Acme.\n\n- Call every [ask: a weekday].\n- Use the staging cluster (prod-eu-1).\n[ask: rule].\n"
+          },
+          {
+            "path": "skills/review/SKILL.md",
+            "text": "Review PRs for Acme in repo acme/web.\n"
+          },
+          {
+            "path": "skills/review/run.sh",
+            "text": "echo acme\n"
+          }
+        ],
+        "open": [
+          {
+            "kind": "confirm",
+            "where": "SOUL.md",
+            "question": "Keep this as it is: “Acme”?",
+            "excerpt": "Acme"
+          },
+          {
+            "kind": "confirm",
+            "where": "SOUL.md",
+            "question": "Keep this as it is: “prod-eu-1”?",
+            "excerpt": "prod-eu-1"
+          },
+          {
+            "kind": "ask",
+            "where": "SOUL.md",
+            "question": "What should stand for [ask: rule]?"
+          },
+          {
+            "kind": "ask",
+            "where": "SOUL.md",
+            "question": "What should stand for [ask: a weekday]?"
+          }
+        ],
+        "outcomes": {
+          "c1": {
+            "replacement": ""
+          },
+          "c2": {
+            "question": "Keep this as it is: “Acme”?"
+          },
+          "c3": {
+            "question": "Keep this as it is: “prod-eu-1”?"
+          },
+          "c4": {
+            "replacement": "[ask: rule]",
+            "question": "What should stand for [ask: rule]?"
+          },
+          "a1": {
+            "replacement": "[ask: a weekday]",
+            "question": "What should stand for [ask: a weekday]?"
+          },
+          "a2": {
+            "replacement": ""
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "picks": {
+          "c1": "ask",
+          "c3": "ask"
+        },
+        "additions": [
+          {
+            "quote": "keep it   short",
+            "group": "remove"
+          }
+        ]
+      },
+      "expected": {
+        "name": "Ada for",
+        "fileName": "ada-for.hui-bot.zip",
+        "files": [
+          {
+            "path": "bot.json",
+            "text": "{\n  \"format\": \"hui-bot\",\n  \"version\": 2,\n  \"bot\": {\n    \"name\": \"Ada for\",\n    \"title\": \"Pat's helper\",\n    \"description\": \"Helps at.\",\n    \"avatar\": {\n      \"emoji\": \"🤖\",\n      \"shape\": \"round\",\n      \"color\": \"#336699\"\n    },\n    \"model\": \"claude\",\n    \"thinking\": \"high\",\n    \"tagging\": \"mention\"\n  },\n  \"routines\": [\n    {\n      \"name\": \"Digest for [ask: your name]\",\n      \"prompt\": \"Summarize [ask: your company] news.\",\n      \"schedule\": {\n        \"kind\": \"every\",\n        \"everyMs\": 3600000\n      }\n    }\n  ],\n  \"triggers\": [\n    {\n      \"name\": \"Reviews\",\n      \"filter\": {\n        \"prLinks\": true,\n        \"match\": {\n          \"field\": \"fields.channel\",\n          \"op\": \"equals\",\n          \"value\": \"C0ACME\"\n        }\n      },\n      \"prompt\": \"Review it for [ask: your company].\",\n      \"cooldownSeconds\": 300,\n      \"delivery\": \"steer\"\n    }\n  ],\n  \"disabledTools\": [\n    \"bash\"\n  ],\n  \"disabledSkills\": [],\n  \"skills\": [\n    \"review\"\n  ],\n  \"open\": [\n    {\n      \"kind\": \"ask\",\n      \"where\": \"Profile\",\n      \"question\": \"What should stand for [ask: your name]?\"\n    },\n    {\n      \"kind\": \"ask\",\n      \"where\": \"SOUL.md\",\n      \"question\": \"Where do you work?\"\n    },\n    {\n      \"kind\": \"ask\",\n      \"where\": \"SOUL.md\",\n      \"question\": \"What should stand for [ask: cluster]?\"\n    },\n    {\n      \"kind\": \"confirm\",\n      \"where\": \"Skill review: run.sh\",\n      \"question\": \"Run this script?\"\n    }\n  ],\n  \"needs\": [\n    \"A GitHub token for [ask: your company].\",\n    \"Slack access.\"\n  ]\n}\n"
+          },
+          {
+            "path": "SOUL.md",
+            "text": "# Ada\n\nYou help [ask: your name] at [ask: your company].\n\n- Call [ask: your name] every Monday.\n- Use the staging cluster ([ask: cluster]).\nNever share secrets.\n"
+          },
+          {
+            "path": "skills/review/SKILL.md",
+            "text": "Review PRs for [ask: your company] in repo acme/web.\n"
+          },
+          {
+            "path": "skills/review/run.sh",
+            "text": "echo acme\n"
+          }
+        ],
+        "open": [
+          {
+            "kind": "ask",
+            "where": "Profile",
+            "question": "What should stand for [ask: your name]?"
+          },
+          {
+            "kind": "ask",
+            "where": "SOUL.md",
+            "question": "Where do you work?"
+          },
+          {
+            "kind": "ask",
+            "where": "SOUL.md",
+            "question": "What should stand for [ask: cluster]?"
+          },
+          {
+            "kind": "confirm",
+            "where": "Skill review: run.sh",
+            "question": "Run this script?"
+          }
+        ],
+        "outcomes": {
+          "c1": {
+            "replacement": "[ask: your name]",
+            "question": "What should stand for [ask: your name]?"
+          },
+          "c2": {
+            "replacement": "[ask: your company]",
+            "question": "Where do you work?"
+          },
+          "c3": {
+            "replacement": "[ask: cluster]",
+            "question": "What should stand for [ask: cluster]?"
+          },
+          "a1": {
+            "replacement": ""
+          }
+        }
+      }
+    }
+  ],
+  "review": {
+    "id": "r1",
+    "botId": "b1",
+    "name": "Ada for Pat Doe",
+    "parts": [
+      {
+        "id": "profile",
+        "label": "Profile",
+        "kind": "text",
+        "fields": [
+          {
+            "key": "name",
+            "text": "Ada for Pat Doe"
+          },
+          {
+            "key": "title",
+            "text": "Pat's helper"
+          },
+          {
+            "key": "description",
+            "text": "Helps Pat Doe at Acme."
+          }
+        ],
+        "read": true
+      },
+      {
+        "id": "SOUL.md",
+        "label": "SOUL.md",
+        "kind": "text",
+        "fields": [
+          {
+            "key": "text",
+            "text": "# Ada\n\nYou help Pat Doe at Acme.\n\n- Call Pat Doe every Monday.\n- Use the staging cluster (prod-eu-1).\nNever share secrets, and keep it short."
+          }
+        ],
+        "read": true
+      },
+      {
+        "id": "skills/review/SKILL.md",
+        "label": "Skill review: SKILL.md",
+        "kind": "text",
+        "fields": [
+          {
+            "key": "text",
+            "text": "Review PRs for Acme in repo acme/web."
+          }
+        ],
+        "read": true
+      },
+      {
+        "id": "skills/review/run.sh",
+        "label": "Skill review: run.sh",
+        "kind": "script",
+        "fields": [
+          {
+            "key": "text",
+            "text": "echo acme"
+          }
+        ],
+        "read": true
+      },
+      {
+        "id": "routines/0",
+        "label": "Routine 1",
+        "kind": "text",
+        "fields": [
+          {
+            "key": "name",
+            "text": "Digest for Pat Doe"
+          },
+          {
+            "key": "prompt",
+            "text": "Summarize Acme news."
+          }
+        ],
+        "read": true
+      },
+      {
+        "id": "triggers/0",
+        "label": "Trigger 1",
+        "kind": "text",
+        "fields": [
+          {
+            "key": "name",
+            "text": "Reviews"
+          },
+          {
+            "key": "prompt",
+            "text": "Review it for Acme."
+          },
+          {
+            "key": "match",
+            "text": "C0ACME"
+          }
+        ],
+        "read": false,
+        "unread": "too long"
+      }
+    ],
+    "cleanup": [
+      {
+        "part": "SOUL.md",
+        "field": "text",
+        "kind": "email",
+        "sample": "pat@acme.dev",
+        "count": 1
+      }
+    ],
+    "changes": [
+      {
+        "id": "c1",
+        "part": "profile",
+        "quote": "Pat Doe",
+        "group": "remove",
+        "reason": "A name.",
+        "replacement": "",
+        "label": "your name",
+        "question": ""
+      },
+      {
+        "id": "c2",
+        "part": "SOUL.md",
+        "quote": "Acme",
+        "group": "ask",
+        "reason": "A company.",
+        "replacement": "your company",
+        "label": "your company",
+        "question": "Where do you work?"
+      },
+      {
+        "id": "c3",
+        "part": "SOUL.md",
+        "quote": "prod-eu-1",
+        "group": "confirm",
+        "reason": "A cluster.",
+        "replacement": "",
+        "label": "cluster",
+        "question": ""
+      },
+      {
+        "id": "c4",
+        "part": "SOUL.md",
+        "quote": "Never share secrets",
+        "group": "keep",
+        "reason": "A rule.",
+        "replacement": "",
+        "label": "rule",
+        "question": ""
+      }
+    ],
+    "files": [
+      {
+        "id": "f1",
+        "part": "skills/review/run.sh",
+        "group": "confirm",
+        "reasons": [
+          "Names Acme."
+        ],
+        "question": "Run this script?"
+      }
+    ],
+    "needs": [
+      {
+        "id": "n1",
+        "text": "A GitHub token for Acme."
+      },
+      {
+        "id": "n2",
+        "text": "Slack access."
+      }
+    ],
+    "leftOut": [
+      "Memory."
+    ],
+    "meta": {
+      "avatar": {
+        "emoji": "🤖",
+        "shape": "round",
+        "color": "#336699"
+      },
+      "model": "claude",
+      "thinking": "high",
+      "tagging": "mention",
+      "routines": [
+        {
+          "schedule": {
+            "kind": "every",
+            "everyMs": 3600000
+          }
+        }
+      ],
+      "triggers": [
+        {
+          "filter": {
+            "match": {
+              "field": "fields.channel",
+              "op": "equals",
+              "value": "C0ACME"
+            },
+            "prLinks": true
+          },
+          "cooldownSeconds": 300,
+          "delivery": "steer"
+        }
+      ],
+      "disabledTools": [
+        "bash"
+      ],
+      "disabledSkills": [],
+      "skills": [
+        "review"
+      ]
+    }
+  }
+}

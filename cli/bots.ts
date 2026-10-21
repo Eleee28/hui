@@ -10,75 +10,11 @@ import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 import {
   BOT_FACE_EARS_LABELS, BOT_FACE_SHAPE_LABELS, botColorName, botFaceEars, botDisplayCwd, botFaceColor, botFaceShape, botKickoffName, botLook, NEW_BOT_NAME,
-  type BotCatalog, type BotCatalogTool, type BotMessageResult, type BotQuestion, type BotSkillSelector, type BotSoul, type BotsUpdate, type BotView,
-} from "../shared/bots.ts";
-import { voiceLanguage, voiceLanguageName } from "../shared/voice.ts";
-import { gptLiveVoiceLabel } from "../shared/calls.ts";
-import type { AutomationSchedule } from "../src/lib/automation-types.ts";
-
-export type BotFlags = {
-  archived?: boolean;
-  json?: boolean;
-  /** `delete` without asking. */
-  yes?: boolean;
-  name?: string;
-  title?: string;
-  "soul-file"?: string;
-  file?: string;
-  cwd?: string;
-  /** `add` only: a remote worker's name or id. */
-  worker?: string;
-  model?: string;
-  thinking?: string;
-  "memory-model"?: string;
-  "utility-model"?: string;
-  emoji?: string;
-  shape?: string;
-  ears?: string;
-  color?: string;
-  language?: string;
-  "call-voice"?: string;
-  wait?: boolean;
-  timeout?: string;
-  zoom?: string;
-  html?: string;
-  prompt?: string;
-  at?: string;
-  every?: string;
-  cron?: string;
-  timezone?: string;
-  /** `tools` and `skills`: comma-separated names to turn on or off. */
-  allow?: string;
-  deny?: string;
-  /** `add`: tools and skills off from its first turn. */
-  "deny-tools"?: string;
-  "deny-skills"?: string;
-  /** `import`: which agent of a file that holds several. */
-  agent?: string;
-  /** `export`: where to save the zip, and whether it carries the bot's memory. */
-  out?: string;
-  memory?: boolean;
-};
-
-/** The terminal, injectable so `chat` and `send` run against scripted input in tests. */
-export type BotIO = {
-  out(text: string): void;
-  err(text: string): void;
-  /** All of stdin, for `send -`, `--soul-file -` and `soul --file -`. */
-  readStdin(): Promise<string>;
-  /** Lines typed in `chat`; ends with stdin. */
-  lines(): AsyncIterable<string>;
-  /** Ctrl+C during `chat`; returns an unsubscribe. */
-  onInterrupt(listener: () => void): () => void;
-  /** A terminal on both ends, which can be asked to confirm. */
-  interactive: boolean;
-  /** One line typed in answer to `question`. */
-  ask(question: string): Promise<string>;
-  /** Where relative `--cwd`, `--soul-file`, `--file` and `--html` paths resolve. */
-  cwd: string;
-  /** `--cron` without `--timezone`. */
-  timezone: string;
-};
+  type BotCatalog, type BotCatalogTool, type BotMessageResult, type BotQuestion, type BotSkillSelector, type BotSoul, type BotsUpdate, type BotTagging, type BotView,
+} from "../server/bots-format.ts";
+import { voiceLanguage, voiceLanguageName } from "../server/bots/voice-languages.ts";
+import { gptLiveVoiceLabel } from "../server/calls-format.ts";
+import { bots, findBot, GatewayError, request, type BotFlags, type BotIO } from "./gateway-client.ts";
 
 /** The real terminal: stdout, stderr, stdin and SIGINT. */
 export function terminalBotIO(): BotIO {
@@ -106,81 +42,15 @@ export function terminalBotIO(): BotIO {
   };
 }
 
-/** A refused request, with the gateway's message. */
-export class GatewayError extends Error {
-  readonly status: number;
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "GatewayError";
-    this.status = status;
-  }
-}
-
 const SESSION_STATUSES_BUSY = new Set(["running", "waiting"]);
 /** `send --wait` without `--timeout`: the gateway's default. */
 const DEFAULT_WAIT_SECONDS = 300;
-
-/** One `/__hui/` request; a refusal throws its message (a few, such as a disallowed Host, are plain text). */
-export async function request<T>(base: string, path: string, options: { method?: string; body?: unknown; timeoutMs?: number; html?: boolean } = {}): Promise<T> {
-  const response = await fetch(new URL(path, base), {
-    method: options.method ?? "GET",
-    headers: { "x-hui": "1", ...(options.body === undefined ? {} : { "content-type": "application/json" }) },
-    ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
-    signal: AbortSignal.timeout(options.timeoutMs ?? 10_000),
-    redirect: "error",
-  });
-  const text = await response.text();
-  if (options.html && response.ok) return text as T;
-  let reply: T & { error?: string };
-  try {
-    reply = JSON.parse(text) as T & { error?: string };
-  } catch {
-    throw new GatewayError(text.trim() || `HUI returned HTTP ${response.status}.`, response.status);
-  }
-  if (!response.ok) throw new GatewayError(reply.error ?? `HUI returned HTTP ${response.status}.`, response.status);
-  return reply;
-}
-
-const bots = async (base: string, archived = false) =>
-  (await request<{ bots: BotView[] }>(base, `/__hui/bots${archived ? "?archived=1" : ""}`)).bots;
-
-/** The bot an id, handle (`@` optional) or exact name names, archived ones included; a shared name must be an id or handle. */
-export async function findBot(base: string, target: string): Promise<BotView> {
-  const all = [...await bots(base), ...await bots(base, true)];
-  const byId = all.find((bot) => bot.id === target);
-  if (byId) return byId;
-  const handle = target.replace(/^@/u, "").toLowerCase();
-  const byHandle = all.find((bot) => bot.handle === handle);
-  if (byHandle) return byHandle;
-  const named = all.filter((bot) => bot.name === target);
-  if (named.length === 1) return named[0]!;
-  throw new Error(named.length
-    ? `${named.length} bots are named ${target}. Use a handle or an id: hui bot list --json.`
-    : `No bot named ${target}. See hui bot list.`);
-}
-
-/** `30s`, `5m`, `2h` or `1d` in milliseconds. */
-export function parseDuration(value: string): number {
-  const match = /^(\d{1,9})(s|m|h|d)$/u.exec(value.trim());
-  if (!match) throw new Error("--every takes a duration such as 30s, 5m, 2h or 1d.");
-  return Number(match[1]) * { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000 }[match[2] as "s" | "m" | "h" | "d"];
-}
 
 /** `id+n`, a line of a bot's memory view. */
 export function parseZoom(value: string): { id: number; n: number } {
   const match = /^(\d{1,15})\+(\d{1,15})$/u.exec(value.trim());
   if (!match) throw new Error("--zoom takes a view line's id+n, such as 2184+8.");
   return { id: Number(match[1]), n: Number(match[2]) };
-}
-
-export function routineSchedule(flags: BotFlags, timezone: string): AutomationSchedule {
-  if (flags.at !== undefined) {
-    const at = Date.parse(flags.at);
-    if (!Number.isFinite(at)) throw new Error("--at takes an ISO date and time, such as 2026-10-06T09:00:00+02:00.");
-    return { kind: "at", at: new Date(at).toISOString() };
-  }
-  if (flags.every !== undefined) return { kind: "every", everyMs: parseDuration(flags.every) };
-  return { kind: "cron", expression: flags.cron ?? "", timezone: flags.timezone ?? timezone };
 }
 
 /** A file's text, or all of stdin for `-`. */
@@ -193,6 +63,8 @@ async function botBody(flags: BotFlags, io: BotIO): Promise<Record<string, unkno
   const body: Record<string, unknown> = {};
   if (flags.name !== undefined) body["name"] = flags.name;
   if (flags.title !== undefined) body["title"] = flags.title;
+  if (flags.description !== undefined) body["description"] = flags.description;
+  if (flags.tagging !== undefined) body["tagging"] = flags.tagging.trim().toLowerCase();
   if (flags["soul-file"] !== undefined) body["soul"] = await readText(flags["soul-file"], io);
   // `~` is the gateway user's home there; anything else is relative to where the command runs. On a worker, `~` is the
   // remote user's home, and the worker checks the folder.
@@ -564,7 +436,8 @@ export async function botChat(base: string, bot: BotView, io: BotIO): Promise<nu
   const announce = (transcript: readonly ChatEntry[]) => {
     const messages = transcript.slice(seen).filter(isUserMessage);
     for (const entry of messages.slice(users)) received(entry.text!);
-    users = Math.max(users, messages.length);
+    // A refused prompt is withdrawn by a later snapshot: count what is there now.
+    users = messages.length;
   };
   const adopt = (snapshot: ChatSnapshot) => {
     status = snapshot.status;
@@ -774,7 +647,7 @@ const TOOL_GROUPS: readonly [BotCatalogTool["group"], string][] = [["files", "Fi
 
 /** A pending access request, and where to answer it. */
 function formatRequest(bot: BotView, catalog: BotCatalog): string[] {
-  return catalog.request ? ["", `Waiting for you: ${catalog.request.title} Answer it in hui bot chat ${bot.handle} or the Tools tab.`] : [];
+  return catalog.request ? ["", `Waiting for you: ${catalog.request.title} Answer it in hui bot chat ${bot.handle} or on its Tools & skills page.`] : [];
 }
 
 /** The tools, grouped, each on or off; powerful ones marked. */
@@ -837,6 +710,13 @@ export function formatBots(list: readonly BotView[], archived = false): string {
   ].join("  ")).join("\n");
 }
 
+/** Who may tag a bot, as `hui bot show` says it. */
+const TAGGING_TEXT: Readonly<Record<BotTagging, string>> = {
+  anyone: "anyone, when a task fits its description",
+  mention: "only when your message tags it",
+  nobody: "nobody",
+};
+
 /** `es (Spanish)`; `auto` when the bot answers in the language it hears. */
 function formatLanguage(value: string | undefined): string {
   const code = voiceLanguage(value);
@@ -860,9 +740,7 @@ export function formatBot(bot: BotView): string {
     `id: ${bot.id}`,
     ...(bot.lastMessage ? [`last message (${bot.lastMessage.role}, ${bot.lastMessage.at}): ${bot.lastMessage.text}`] : []),
     ...(bot.description ? [`description: ${bot.description}`] : []),
+    `tagging: ${TAGGING_TEXT[bot.tagging ?? "anyone"]}`,
     `soul: ${bot.soul ? `SOUL.md (hui bot soul ${bot.handle})` : "none yet: it writes SOUL.md in its first conversation"}`,
   ].join("\n");
 }
-
-/** A schedule as `hui schedule` prints it (`schedules.ts`), for `hui bot import`'s preview of a template's routines. */
-export { scheduleText as formatSchedule } from "./schedules.ts";

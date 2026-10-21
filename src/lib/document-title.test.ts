@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { documentTitle } from "./document-title.ts";
 
 test("the document title names the selected session and HUI", () => {

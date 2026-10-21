@@ -6,7 +6,7 @@ import { html, nothing } from "lit";
 
 import type { PiResourceDocument } from "../lib/pi.ts";
 import { icons } from "../lib/icons.ts";
-import { renderMarkdown } from "../lib/markdown.ts";
+import { renderMarkdown } from "../lib/markdown/markdown.ts";
 
 export type PiResourceReaderState = {
   title: string;

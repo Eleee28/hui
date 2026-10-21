@@ -53,6 +53,6 @@ request is needed. Stop only the owned gateway/browser processes after capture.
   theme, SHA-256 `46c7e1855d75867affcc1dd45ed427952f6d469302815d7cdb247f47378df4be`.
 - The existing native-palette guard includes this hash; selector tests cover
   both variants and a user theme with the same id keeps its custom mapping.
-- `npm test -- src/lib/theme.test.ts src/lib/theme-store.test.ts src/lib/upstream-palette.test.ts src/lib/shadcn-theme.test.ts`: 29 passed.
+- `npm test -- src/lib/theme/theme.test.ts src/lib/theme/theme-store.test.ts src/lib/upstream-palette.test.ts src/lib/theme/shadcn-theme.test.ts`: 29 passed.
 - `npm test`: 369 passed.
 - `npm run typecheck`, `npm run build`, `git diff --check`: passed.

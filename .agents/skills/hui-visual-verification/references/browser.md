@@ -56,7 +56,7 @@ If another process owns the endpoint, do not kill it or hijack its tabs. If the
 Browser tool denies access by policy, report the blocker; do not bypass the guard
 with raw CDP. Browser unavailability is an explicit proof gap.
 
-For a broken screenshot wrapper only, `e2e/capture-rendered.mjs` is an existing
+For a broken screenshot wrapper only, `e2e/probes/capture-rendered.mjs` is an existing
 local fallback for an already-observed owned tab on CDP port 18800. It matches a
 URL prefix: use the full unique fixture URL and ensure it identifies exactly one
 owned tab before running it. State that capture used this fallback; it cannot

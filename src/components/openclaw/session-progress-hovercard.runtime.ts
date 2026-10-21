@@ -1,6 +1,6 @@
 // OpenClaw 2026.9.5 provider: interactions retained; Gateway stores replaced by HUI session rows.
 import { nothing, ReactiveElement, render } from "lit";
-import type { SessionView } from "../../lib/sessions-store.ts";
+import type { SessionView } from "../../api/sessions.ts";
 import { huiHovercardRow, t, type ProgressCard } from "./hui-hovercard-adapter.ts";
 import { createPortaledHovercard, PortaledHovercardController } from "./portaled-hovercard.ts";
 import { renderSessionHovercard } from "./session-hovercard.ts";

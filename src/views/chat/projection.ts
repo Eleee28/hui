@@ -1,23 +1,69 @@
 /**
- * Turns PI's transcript items into the rows the chat renders: message groups, folded activity, compactions, calls,
- * subagent events and bot kickoffs, plus the working labels and where the live browser preview goes. Presentation
- * only; PI's transcript keeps the order and the data.
+ * Turns PI's transcript items into the rows the chat renders: message groups (each user row by its sender: the operator,
+ * or the bot, session, routine or trigger HUI delivered it from), every assistant message on a row of its own with the
+ * activity between them folded, compactions, calls, subagent events and bot kickoffs, plus the working labels and where
+ * the live browser preview goes. Presentation only; PI's transcript keeps the order and the data.
  */
-import type { TranscriptItem } from "../../lib/sessions-store.ts";
+import type { TranscriptItem } from "../../api/sessions.ts";
 import { parseSubagentCompletionEvent, type SubagentCompletionItem } from "../../lib/subagent-completion.ts";
-import { botKickoffName } from "../../../shared/bots.ts";
+import { agentReplyTo, botKickoffName, botTurnOrigin } from "../../lib/bots/bots.ts";
 
 export type ChatMessage = Extract<TranscriptItem, { kind: "message" }>;
 export type ChatCompaction = Extract<TranscriptItem, { kind: "compaction" }>;
 export type ChatCall = Extract<TranscriptItem, { kind: "call" }>;
-export type ChatActivity = Exclude<TranscriptItem, { kind: "message" | "compaction" | "call" }> | ChatMessage;
+export type ChatActivity = Exclude<TranscriptItem, { kind: "message" | "compaction" | "call" }>;
 
-/** Tool calls that present something to the user get a row of their own, so
+/** Tool calls that present something to the user, or hand a message to another chat, get a row of their own, so
  * they stay visible after the turn's other activity folds into a disclosure. */
-const PRESENTATION_TOOLS = new Set(["present_media", "show_widget", "ask_user_question"]);
+const PRESENTATION_TOOLS = new Set(["present_media", "show_widget", "ask_user_question", "message_bot"]);
+
+/** Who HUI delivered a user-role message from when the operator didn't write it, by the header it starts with: a bot's
+ * tag, a session's tag or `sessions_send`, a subagent's task (from its parent), a bot's routine or trigger. */
+export type MessageSender =
+  | { kind: "bot"; handle: string }
+  | { kind: "session"; title: string; id?: string }
+  | { kind: "parent" }
+  | { kind: "routine"; name: string }
+  | { kind: "trigger"; name: string; summary: string };
+
+/** `sessions_send` (server/agent-tools/subagents.ts): the sender's title and id on the first line. */
+const INTER_SESSION = /^\[Inter-session message from (.*) \(([^()\s]+)\)\]\n/u;
+/** A subagent's first prompt, its task from the session that spawned it (server/agent-tools/subagents.ts). */
+const SUBAGENT_TASK = "[Subagent Task]\n";
+
+/**
+ * A message's sender and the text after its header; undefined for the operator's own words. Bots' and sessions' tags,
+ * routines and triggers are read by the gateway's own `botTurnOrigin`, so the chat attributes the headers its gated
+ * tools refuse to treat as the operator's.
+ */
+export function attributedMessage(text: string): { sender: MessageSender; body: string } | undefined {
+  if (text.startsWith(SUBAGENT_TASK)) return { sender: { kind: "parent" }, body: text.slice(SUBAGENT_TASK.length) };
+  const relayed = INTER_SESSION.exec(text);
+  if (relayed) return { sender: { kind: "session", title: relayed[1]!, id: relayed[2]! }, body: text.slice(relayed[0].length) };
+  const origin = botTurnOrigin(text);
+  if (origin.kind === "operator" || origin.kind === "kickoff" || origin.kind === "imported") return undefined;
+  // A header ends at its first `]` (handles, sanitized titles, trigger names and summaries hold none), a routine's after
+  // its name, which may hold one.
+  const end = text.indexOf("]", origin.kind === "routine" ? "[routine: ".length + origin.name.length : 0);
+  // HUI always closes its headers: an unclosed one is the operator's own text.
+  if (end < 0) return undefined;
+  const body = text.slice(end + 1).replace(/^ /u, "");
+  if (origin.kind === "agent") {
+    const id = agentReplyTo(text)?.slice("agent:".length);
+    return { sender: { kind: "session", title: origin.title, ...(id ? { id } : {}) }, body };
+  }
+  if (origin.kind === "trigger") {
+    const summary = text.slice(0, end).split(" · ").slice(1).join(" · ");
+    return { sender: { kind: "trigger", name: origin.name, summary }, body: body.replace(/^\n+/u, "") };
+  }
+  return { sender: origin, body };
+}
+
+const sameSender = (a: MessageSender | undefined, b: MessageSender | undefined) => JSON.stringify(a) === JSON.stringify(b);
 
 export type ChatProjectionRow =
-  | { kind: "messages"; id: string; role: ChatMessage["role"]; messages: readonly ChatMessage[] }
+  /** `sender`: who HUI delivered a user row from; absent for the operator's own messages and for the agent's replies. */
+  | { kind: "messages"; id: string; role: ChatMessage["role"]; messages: readonly ChatMessage[]; sender?: MessageSender }
   | { kind: "activity"; id: string; items: readonly ChatActivity[] }
   /** Where PI summarized the history above; it stays visible and rewindable. */
   | { kind: "compaction"; id: string; item: ChatCompaction }
@@ -30,19 +76,14 @@ export type ChatProjectionRow =
   | { kind: "botCreated"; id: string; name: string };
 
 /**
- * Presentation-only projection of PI's durable transcript. OpenClaw groups
- * adjacent user messages by author. While the newest turn is live, intermediate
- * assistant messages remain in place and consecutive activity is collapsed
- * between them. Once the turn settles, all intermediate context moves into one
- * disclosure and only the final assistant message remains visible. PI remains
- * the owner of event order and data.
+ * Presentation-only projection of PI's durable transcript. OpenClaw groups adjacent user messages by author. Every
+ * assistant message keeps a row of its own, live or settled, so what the agent wrote mid-turn (a first finding, links
+ * to check) stays in sight; only the activity between messages (thinking, tool calls, errors) folds into a disclosure.
+ * PI remains the owner of event order and data.
  */
-export function projectChatTranscript(
-  items: readonly TranscriptItem[],
-  liveLastTurn = false,
-): ChatProjectionRow[] {
+export function projectChatTranscript(items: readonly TranscriptItem[]): ChatProjectionRow[] {
   const rows: ChatProjectionRow[] = [];
-  let assistantTurn: ChatActivity[] = [];
+  let assistantTurn: (ChatActivity | ChatMessage)[] = [];
 
   const pushActivity = (items: readonly ChatActivity[]) => {
     let ordinary: ChatActivity[] = [];
@@ -60,7 +101,7 @@ export function projectChatTranscript(
     flushOrdinary();
   };
 
-  const flushLiveAssistantTurn = () => {
+  const flushAssistantTurn = () => {
     let activity: ChatActivity[] = [];
     const flushActivity = () => {
       if (activity.length === 0) return;
@@ -68,7 +109,7 @@ export function projectChatTranscript(
       activity = [];
     };
     for (const item of assistantTurn) {
-      if (item.kind === "message" && item.role === "assistant") {
+      if (item.kind === "message") {
         flushActivity();
         rows.push({ kind: "messages", id: item.id, role: "assistant", messages: [item] });
       } else {
@@ -79,26 +120,9 @@ export function projectChatTranscript(
     assistantTurn = [];
   };
 
-  const flushCompletedAssistantTurn = () => {
-    if (assistantTurn.length === 0) return;
-    const finalIndex = assistantTurn.findLastIndex((item) => item.kind === "message" && item.role === "assistant");
-    const finalIsLast = finalIndex === assistantTurn.length - 1;
-    const activity = finalIsLast ? assistantTurn.slice(0, finalIndex) : assistantTurn;
-    if (activity.length > 0) {
-      pushActivity(activity);
-    }
-    if (finalIsLast) {
-      const final = assistantTurn[finalIndex];
-      if (final?.kind === "message") {
-        rows.push({ kind: "messages", id: final.id, role: "assistant", messages: [final] });
-      }
-    }
-    assistantTurn = [];
-  };
-
   for (const item of items) {
     if (item.kind === "message" && item.role === "user") {
-      flushCompletedAssistantTurn();
+      flushAssistantTurn();
       const event = parseSubagentCompletionEvent(item.text);
       if (event) {
         rows.push({ kind: "subagentEvent", id: item.id, items: event });
@@ -109,28 +133,28 @@ export function projectChatTranscript(
         rows.push({ kind: "botCreated", id: item.id, name: created });
         continue;
       }
+      const sender = attributedMessage(item.text)?.sender;
       const previous = rows.at(-1);
-      if (previous?.kind === "messages" && previous.role === "user") {
+      if (previous?.kind === "messages" && previous.role === "user" && sameSender(previous.sender, sender)) {
         rows[rows.length - 1] = { ...previous, messages: [...previous.messages, item] };
       } else {
-        rows.push({ kind: "messages", id: item.id, role: "user", messages: [item] });
+        rows.push({ kind: "messages", id: item.id, role: "user", messages: [item], ...(sender ? { sender } : {}) });
       }
       continue;
     }
     if (item.kind === "compaction") {
-      flushCompletedAssistantTurn();
+      flushAssistantTurn();
       rows.push({ kind: "compaction", id: item.id, item });
       continue;
     }
     if (item.kind === "call") {
-      flushCompletedAssistantTurn();
+      flushAssistantTurn();
       rows.push({ kind: "call", id: item.id, item });
       continue;
     }
     assistantTurn.push(item);
   }
-  if (liveLastTurn) flushLiveAssistantTurn();
-  else flushCompletedAssistantTurn();
+  flushAssistantTurn();
   return rows;
 }
 

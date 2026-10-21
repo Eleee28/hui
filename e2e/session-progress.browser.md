@@ -4,7 +4,7 @@ Historical proof of the initial approximation. Its sidebar rendering and mobile
 progress button are superseded by the [original component port](session-hovercard.browser.md).
 
 Verified 2026-09-25 with the real PI RPC runtime and the repository's local
-`e2e/pi-provider-fixture.mjs`, without external API requests or credentials.
+`e2e/fixtures/pi-provider-fixture.mjs`, without external API requests or credentials.
 
 ## Setup
 

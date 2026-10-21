@@ -14,7 +14,7 @@ PI SDK calls `progress_card` with a completed step, an unfinished step and notes
 
 Start `reference-style-server.mjs` on port 43229 against the installed OpenClaw
 2026.9.5 distribution. With the session row focused, import
-`/e2e/original-hovercard-probe.js` in the running app and call
+`/e2e/probes/original-hovercard-probe.js` in the running app and call
 `compareOriginalHovercard(sessionId)`. Its optional second argument overrides
 the oracle origin. The server exposes an audited, checksum-pinned original
 renderer export; the probe renders that independently with original styles.
